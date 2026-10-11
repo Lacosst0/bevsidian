@@ -608,7 +608,7 @@ pub fn zoom_controls(_nav: Nav) -> impl Scene {
             })
             Children [
                 text
-                @{crate::ui::ui_font(18.0, FontWeight::MEDIUM)}
+                @{crate::ui::ui_font(if label.len() > 1 { 12.0 } else { 18.0 }, FontWeight::MEDIUM)}
                 TextColor(palette::TEXT)
                 Pickable::IGNORE
             ]
@@ -627,7 +627,7 @@ pub fn zoom_controls(_nav: Nav) -> impl Scene {
             --
             @{button("−", 1.25)}
             --
-            @{button("⟲", 0.0)}
+            @{button("Fit", 0.0)}
         ]
     }
 }
