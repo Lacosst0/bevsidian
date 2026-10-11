@@ -18,6 +18,7 @@ bevy = { workspace = true, features = [
     "bevy_picking",
     "ui_picking",
     "bevy_input_focus",
+    "bevy_ui_widgets",
     "bevy_log",
 ] }
 bevy_ui_textselect.workspace = true

@@ -451,7 +451,7 @@ fn to_world(
 fn pick(world: Vec2, nodes: &Query<(Entity, &Transform, &GraphNode)>) -> Option<Entity> {
     nodes
         .iter()
-        .filter(|(_, t, n)| t.translation.truncate().distance(world) <= n.radius + 4.0)
+        .filter(|(_, t, n)| t.translation.truncate().distance(world) <= n.radius + 12.0)
         .min_by(|a, b| {
             let da = a.1.translation.truncate().distance(world);
             let db = b.1.translation.truncate().distance(world);
@@ -566,5 +566,61 @@ fn on_scroll(event: On<PointerScroll>, mut camera: Query<&mut Projection, With<G
     if let Projection::Orthographic(o) = &mut *projection {
         let factor = (1.0 - event.y.signum() * 0.1).clamp(0.5, 1.5);
         o.scale = (o.scale * factor).clamp(0.25, 4.0);
+    }
+}
+
+/// Zoom buttons over the graph (the only way to zoom on touch screens).
+pub fn zoom_controls(_nav: Nav) -> impl Scene {
+    fn button(label: &'static str, factor: f32) -> impl Scene {
+        let text = Text::new(label);
+        bsn! {
+            Node {
+                width: Val::Px(40.0),
+                height: Val::Px(40.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::all(Val::Px(8.0)),
+                border: UiRect::all(Val::Px(1.0)),
+            }
+            BackgroundColor(palette::BG_SIDEBAR)
+            BorderColor::all(Color::srgb(0.25, 0.25, 0.27))
+            bevy::ui_widgets::Button
+            bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
+            on(move |_: On<bevy::ui_widgets::Activate>,
+                     mut camera: Query<(&mut Projection, &mut Transform), With<GraphCamera>>| {
+                if let Ok((mut projection, mut transform)) = camera.single_mut()
+                    && let Projection::Orthographic(o) = &mut *projection
+                {
+                    if factor == 0.0 {
+                        o.scale = 1.0;
+                        transform.translation = Vec3::ZERO;
+                    } else {
+                        o.scale = (o.scale * factor).clamp(0.25, 4.0);
+                    }
+                }
+            })
+            Children [
+                text
+                @{crate::ui::ui_font(18.0, FontWeight::MEDIUM)}
+                TextColor(palette::TEXT)
+                Pickable::IGNORE
+            ]
+        }
+    }
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            right: Val::Px(14.0),
+            bottom: Val::Px(14.0),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(8.0),
+        }
+        Children [
+            @{button("+", 0.8)}
+            --
+            @{button("−", 1.25)}
+            --
+            @{button("⟲", 0.0)}
+        ]
     }
 }

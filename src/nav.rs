@@ -11,7 +11,10 @@ use bevy_radioactive::coat::{Signal, signal};
 use bevy_ui_commonmark::{LinkTarget, MdFootnote, MdHeading, MdLinkActivated};
 use bevy_ui_textselect::{Modifiers, TextSelection};
 
-use crate::vault::{NoteId, Vault};
+use crate::{
+    layout::LayoutMode,
+    vault::{NoteId, Vault},
+};
 
 pub fn plugin(app: &mut App) {
     app.add_observer(on_link).add_systems(
@@ -50,7 +53,24 @@ pub struct Nav {
     pub switcher: Signal<bool>,
     pub switcher_query: Signal<String>,
     pub switcher_index: Signal<usize>,
+    /// Window width class.
+    pub mode: Signal<LayoutMode>,
+    /// Files drawer open (phones).
+    pub left_open: Signal<bool>,
+    /// Outline/backlinks drawer open (tablets and phones).
+    pub right_open: Signal<bool>,
+    /// The last input was a touch.
+    pub touch: Signal<bool>,
+    /// Some text is selected.
+    pub has_selection: Signal<bool>,
+    /// The on-screen keyboard is wanted.
+    pub keyboard: Signal<bool>,
+    /// Reading text size in logical px.
+    pub text_size: Signal<u32>,
 }
+
+/// Smallest and largest reading text size.
+pub const TEXT_SIZES: std::ops::RangeInclusive<u32> = 13..=24;
 
 /// A scroll target inside the current note.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -72,6 +92,13 @@ impl Nav {
             switcher: signal(|| false),
             switcher_query: signal(String::new),
             switcher_index: signal(|| 0),
+            mode: signal(LayoutMode::default),
+            left_open: signal(|| false),
+            right_open: signal(|| false),
+            touch: signal(|| false),
+            has_selection: signal(|| false),
+            keyboard: signal(|| false),
+            text_size: signal(|| 16),
         }
     }
 
@@ -104,6 +131,32 @@ impl Nav {
             self.current.set(next);
             self.view.set_if_neq(View::Note);
         }
+    }
+
+    pub fn close_drawers(&self) {
+        self.left_open.set_if_neq(false);
+        self.right_open.set_if_neq(false);
+    }
+
+    /// Opens one drawer, closing the other.
+    pub fn toggle_drawer(&self, left: bool) {
+        let (this, other) = if left {
+            (&self.left_open, &self.right_open)
+        } else {
+            (&self.right_open, &self.left_open)
+        };
+        other.set_if_neq(false);
+        this.set(!this.get_untracked());
+    }
+
+    /// Changes the reading text size by `delta` px.
+    pub fn change_text_size(&self, delta: i32) {
+        let next = self
+            .text_size
+            .get_untracked()
+            .saturating_add_signed(delta)
+            .clamp(*TEXT_SIZES.start(), *TEXT_SIZES.end());
+        self.text_size.set_if_neq(next);
     }
 
     pub fn show(&self, view: View) {
@@ -227,12 +280,16 @@ fn shortcuts(
         match input.key_code {
             KeyCode::KeyO if command => nav.open_switcher(),
             KeyCode::KeyG if command => nav.toggle_graph(),
+            KeyCode::Equal | KeyCode::NumpadAdd if command => nav.change_text_size(1),
+            KeyCode::Minus | KeyCode::NumpadSubtract if command => nav.change_text_size(-1),
             KeyCode::ArrowLeft if alt => nav.go_back(),
             KeyCode::ArrowRight if alt => nav.go_forward(),
             KeyCode::Escape => {
                 if nav.switcher.get_untracked() {
                     nav.switcher.set(false);
                     focus.clear();
+                } else if nav.left_open.get_untracked() || nav.right_open.get_untracked() {
+                    nav.close_drawers();
                 } else {
                     selection.clear();
                 }

@@ -56,8 +56,9 @@ pub use text::{block_text, slice_text};
 /// Common imports.
 pub mod prelude {
     pub use crate::{
-        ClickableSpan, CopyText, Modifiers, SelectableText, SelectionGroup, SelectionStyle,
-        TextPoint, TextSelectPlugin, TextSelection, TextSpanClick,
+        ClearSelection, ClickableSpan, CopySelection, CopyText, Modifiers, SelectAll,
+        SelectableText, SelectionGroup, SelectionStyle, TextPoint, TextSelectPlugin, TextSelection,
+        TextSpanClick,
     };
 }
 
@@ -76,11 +77,14 @@ impl Plugin for TextSelectPlugin {
             .add_observer(queue_drag)
             .add_observer(queue_release)
             .add_observer(queue_click)
+            .add_observer(on_copy)
+            .add_observer(on_select_all)
+            .add_observer(on_clear)
             .init_resource::<SelectionStyle>()
             .init_resource::<InputFocus>()
             .add_systems(
                 PreUpdate,
-                (pointer_selection, keyboard_selection)
+                (pointer_selection, long_press_selection, keyboard_selection)
                     .chain()
                     .in_set(TextSelectSystems::Input)
                     .after(bevy::picking::PickingSystems::Last),
@@ -172,12 +176,33 @@ pub struct TextSelection {
     /// Where the selection ends (moves while dragging).
     pub focus: Option<TextPoint>,
     dragging: Option<PointerId>,
+    long_press: Option<LongPress>,
 }
+
+/// A touch press that becomes a word selection if held still.
+#[derive(Clone, Copy, Debug)]
+struct LongPress {
+    pointer: PointerId,
+    block: Entity,
+    position: Vec2,
+    elapsed: f32,
+}
+
+/// How long a touch must be held still to select a word, in seconds.
+pub const LONG_PRESS_SECONDS: f32 = 0.45;
+/// How far a touch may move (logical px) before it counts as a scroll instead of a press.
+pub const TOUCH_SLOP: f32 = 10.0;
 
 impl TextSelection {
     /// Removes the selection.
     pub fn clear(&mut self) {
         *self = Self::default();
+    }
+
+    /// `true` while a touch that started a selection (by long-press) is still down; touch
+    /// scrolling should be suspended so the finger can extend the selection.
+    pub fn is_touch_selecting(&self) -> bool {
+        self.dragging.is_some_and(|p| p.is_touch())
     }
 
     /// `true` if nothing is selected.
@@ -550,6 +575,20 @@ fn pointer_selection(
         if press.button != PointerButton::Primary {
             continue;
         }
+        if press.pointer.id.is_touch() {
+            // Touch: a tap clears the selection and drags scroll; holding still selects.
+            selection.long_press = blocks.block_of(press.entity).map(|block| LongPress {
+                pointer: press.pointer.id,
+                block,
+                position: press.pointer.position,
+                elapsed: 0.0,
+            });
+            if !selection.is_collapsed() {
+                selection.clear();
+                selection.long_press = None;
+            }
+            continue;
+        }
         let Some(block) = blocks.block_of(press.entity) else {
             if selection.anchor.is_some() {
                 selection.clear();
@@ -589,6 +628,12 @@ fn pointer_selection(
     }
 
     for drag in &drags {
+        if selection
+            .long_press
+            .is_some_and(|lp| lp.pointer == drag.pointer.id && drag.distance.length() > TOUCH_SLOP)
+        {
+            selection.long_press = None;
+        }
         if drag.button != PointerButton::Primary || selection.dragging != Some(drag.pointer.id) {
             continue;
         }
@@ -606,6 +651,7 @@ fn pointer_selection(
     for release in &releases {
         if release.button == PointerButton::Primary {
             selection.dragging = None;
+            selection.long_press = None;
         }
     }
 
@@ -644,6 +690,83 @@ fn pointer_selection(
             span,
         });
     }
+}
+
+/// Turns a held, still touch into a word selection that the finger can then extend.
+fn long_press_selection(
+    time: Res<Time<Real>>,
+    mut selection: ResMut<TextSelection>,
+    blocks: Blocks,
+) {
+    let Some(mut lp) = selection.long_press else {
+        return;
+    };
+    lp.elapsed += time.delta_secs();
+    if lp.elapsed < LONG_PRESS_SECONDS {
+        selection.long_press = Some(lp);
+        return;
+    }
+    selection.long_press = None;
+    let Some(point) = blocks.layout_point(lp.block, lp.position, true) else {
+        return;
+    };
+    let Ok((computed, ..)) = blocks.texts.get(lp.block) else {
+        return;
+    };
+    let word = Selection::word_from_point(computed.buffer(), point.x, point.y).text_range();
+    let group = blocks.group_of(lp.block);
+    selection.select_block_range(group, lp.block, word.start, word.end);
+    selection.dragging = Some(lp.pointer);
+}
+
+/// Copies the current selection to the clipboard (e.g. from a "Copy" button).
+#[derive(Event, Clone, Copy, Debug, Default)]
+pub struct CopySelection;
+
+/// Selects every block of the current selection's group, or of `group` if given.
+#[derive(Event, Clone, Copy, Debug, Default)]
+pub struct SelectAll {
+    /// The [`SelectionGroup`] to select; defaults to the current selection's group.
+    pub group: Option<Entity>,
+}
+
+/// Clears the selection.
+#[derive(Event, Clone, Copy, Debug, Default)]
+pub struct ClearSelection;
+
+fn on_copy(
+    _: On<CopySelection>,
+    selection: Res<TextSelection>,
+    mut clipboard: ResMut<Clipboard>,
+    blocks: Blocks,
+) {
+    if !selection.is_collapsed()
+        && let Err(err) = clipboard.set_text(blocks.copy_text(&selection))
+    {
+        warn!("could not copy selection: {err:?}");
+    }
+}
+
+fn on_select_all(event: On<SelectAll>, mut selection: ResMut<TextSelection>, blocks: Blocks) {
+    let Some(group) = event.group.or(selection.group) else {
+        return;
+    };
+    let all = blocks.blocks_of(group);
+    if let (Some(first), Some(last)) = (all.first(), all.last()) {
+        selection.group = Some(group);
+        selection.anchor = Some(TextPoint {
+            block: *first,
+            index: 0,
+        });
+        selection.focus = Some(TextPoint {
+            block: *last,
+            index: blocks.text_of(*last).len(),
+        });
+    }
+}
+
+fn on_clear(_: On<ClearSelection>, mut selection: ResMut<TextSelection>) {
+    selection.clear();
 }
 
 fn keyboard_selection(
@@ -978,6 +1101,7 @@ mod tests {
                 index: 7,
             }),
             dragging: None,
+            long_press: None,
         };
         // Backwards selections are normalised.
         assert_eq!(

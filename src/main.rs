@@ -5,6 +5,7 @@
 //! `[[wikilinks]]`, `#tags`, backlinks and a graph view.
 
 mod graph;
+mod layout;
 mod nav;
 mod ui;
 mod vault;
@@ -43,7 +44,7 @@ fn main() {
         .insert_resource(vault)
         .insert_resource(nav)
         .add_systems(PreStartup, load_fonts)
-        .add_plugins((nav::plugin, ui::plugin, graph::plugin))
+        .add_plugins((nav::plugin, ui::plugin, graph::plugin, layout::plugin))
         .run();
 }
 

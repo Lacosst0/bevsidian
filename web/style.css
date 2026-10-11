@@ -9,18 +9,31 @@
 html, body {
   margin: 0;
   height: 100%;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   overflow: hidden;
 }
-#app { position: fixed; inset: 0; }
+/* Keep the canvas inside the safe area (notches, home indicator). */
+#app {
+  position: fixed;
+  inset: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--bg);
+}
 #bevy {
   display: block;
   width: 100%;
   height: 100%;
   outline: none;
+  /* Bevy handles every gesture: no browser panning, zooming, callouts or tap flashes. */
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 #loading {
   position: absolute;

@@ -20,6 +20,8 @@ pub struct MdTheme {
     pub line_height: f32,
     /// Vertical gap between blocks, in logical px.
     pub block_gap: f32,
+    /// Multiplier for heading sizes relative to the default scale (smaller on phones).
+    pub heading_scale: f32,
     /// Body text.
     pub text: Color,
     /// Secondary text (list markers, captions).
@@ -71,6 +73,7 @@ impl MdTheme {
             base_size: 16.0,
             line_height: 1.6,
             block_gap: 14.0,
+            heading_scale: 1.0,
             text: Color::srgb_u8(0xda, 0xda, 0xda),
             muted: Color::srgb_u8(0x99, 0x99, 0x99),
             heading: Color::srgb_u8(0xf2, 0xf2, 0xf2),
@@ -117,15 +120,24 @@ impl MdTheme {
 
     /// Font size of a heading level.
     pub fn heading_size(&self, level: u8) -> f32 {
-        self.base_size
-            * match level {
-                1 => 2.0,
-                2 => 1.6,
-                3 => 1.35,
-                4 => 1.15,
-                5 => 1.0,
-                _ => 0.9,
-            }
+        let scale = match level {
+            1 => 2.0,
+            2 => 1.6,
+            3 => 1.35,
+            4 => 1.15,
+            5 => 1.0,
+            _ => 0.9,
+        };
+        // Only the part above body size is scaled, so small headings stay readable.
+        self.base_size * (1.0 + (scale - 1.0) * self.heading_scale).max(0.9)
+    }
+
+    /// A copy tuned for narrow (phone) screens: smaller headings and tighter spacing.
+    #[must_use]
+    pub fn compact(mut self) -> Self {
+        self.heading_scale = 0.75;
+        self.block_gap = 12.0;
+        self
     }
 
     /// Accent colour of a callout.

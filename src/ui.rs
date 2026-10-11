@@ -17,6 +17,7 @@ use bevy_ui_textselect::{ClickableSpan, SelectableText};
 
 use crate::{
     graph::GraphViewport,
+    layout::LayoutMode,
     nav::{Nav, NotePane, SearchInput, View},
     vault::{NoteId, Vault},
 };
@@ -44,7 +45,7 @@ pub mod palette {
 
 use palette::{ACCENT, BG, BG_ACTIVE, BG_HOVER, BG_SIDEBAR, BORDER, FAINT, MUTED, TAG_BG, TEXT};
 
-fn ui_font(size: f32, weight: FontWeight) -> impl Scene {
+pub(crate) fn ui_font(size: f32, weight: FontWeight) -> impl Scene {
     insert(TextFont {
         font: bevy::text::FontSource::families("Inter, sans-serif"),
         font_size: size.into(),
@@ -88,6 +89,9 @@ fn shell(nav: Nav, vault: Vault) -> impl Scene {
     let left = left_sidebar(nav.clone(), vault.clone());
     let main = main_area(nav.clone(), vault.clone());
     let right = right_sidebar(nav.clone());
+    let backdrop = drawer_backdrop(nav.clone());
+    let selection = crate::layout::selection_bar(nav.clone());
+    let keyboard = crate::layout::keyboard_panel(nav.clone());
     let switcher = quick_switcher(nav, vault);
     bsn! {
         Node {
@@ -102,7 +106,39 @@ fn shell(nav: Nav, vault: Vault) -> impl Scene {
             --
             @{right}
             --
+            @{backdrop}
+            --
             @{switcher}
+            --
+            @{selection}
+            --
+            @{keyboard}
+        ]
+    }
+}
+
+/// Dims the page behind an open drawer; tapping it closes the drawer.
+fn drawer_backdrop(nav: Nav) -> impl Scene {
+    let (mode, left_open, right_open) = (
+        nav.mode.clone(),
+        nav.left_open.clone(),
+        nav.right_open.clone(),
+    );
+    coat! {
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+        }
+        GlobalZIndex(40)
+        Pickable::IGNORE
+        Children [
+            if ($left_open && $mode.left_drawer()) || ($right_open && $mode.right_drawer()) {
+                let nav = nav.clone();
+                Node { width: Val::Percent(100.0), height: Val::Percent(100.0) }
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5))
+                on(move |_: On<PointerClick>| nav.close_drawers())
+            }
         ]
     }
 }
@@ -132,15 +168,22 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
     let nav_files = nav.clone();
     let nav_tags = nav.clone();
     let nav_clear = nav.clone();
+    let (mode, open, touch) = (nav.mode.clone(), nav.left_open.clone(), nav.touch.clone());
     coat! {
         Node {
-            width: Val::Px(260.0),
+            display: $(if !$mode.left_drawer() || $open { Display::Flex } else { Display::None }),
+            position_type: $(if $mode.left_drawer() { PositionType::Absolute } else { PositionType::Relative }),
+            width: $(if $mode.left_drawer() { Val::Percent(86.0) } else { Val::Px(260.0) }),
+            max_width: Val::Px(340.0),
+            height: Val::Percent(100.0),
             flex_shrink: 0.0,
             flex_direction: FlexDirection::Column,
             border: UiRect::right(Val::Px(1.0)),
         }
+        GlobalZIndex($(if $mode.left_drawer() { 50 } else { 0 }))
         BackgroundColor(BG_SIDEBAR)
         BorderColor::all(BORDER)
+        BoxShadow::new(Color::srgba(0.0, 0.0, 0.0, $(if $mode.left_drawer() { 0.5 } else { 0.0 })), Val::Px(0.0), Val::Px(0.0), Val::Px(0.0), Val::Px(24.0))
         Children [
             Node {
                 padding: UiRect::new(Val::Px(14.0), Val::Px(14.0), Val::Px(14.0), Val::Px(8.0)),
@@ -220,8 +263,11 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
                 }
             ]
             --
-            Text("Ctrl+O switch  ·  Ctrl+G graph") @{ui_font(12.0, FontWeight::NORMAL)} TextColor(FAINT)
-            Node { margin: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(0.0), Val::Px(12.0)) }
+            Text("Ctrl+O switch  ·  Ctrl+G graph  ·  Ctrl+± text") @{ui_font(12.0, FontWeight::NORMAL)} TextColor(FAINT)
+            Node {
+                display: $(if $touch { Display::None } else { Display::Flex }),
+                margin: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(0.0), Val::Px(12.0)),
+            }
         ]
     }
 }
@@ -247,7 +293,7 @@ fn file_row(
     coat! {
         Node {
             flex_direction: FlexDirection::Column,
-            padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
+            padding: UiRect::axes(Val::Px(10.0), Val::Px(8.0)),
             border_radius: BorderRadius::all(Val::Px(4.0)),
             row_gap: Val::Px(2.0),
         }
@@ -262,7 +308,7 @@ fn file_row(
         Children [
             @{folder}
             --
-            name @{ui_font(13.5, FontWeight::NORMAL)} TextColor($(if $current == id { TEXT } else { MUTED }))
+            name @{ui_font(14.5, FontWeight::NORMAL)} TextColor($(if $current == id { TEXT } else { MUTED }))
             Pickable::IGNORE
             --
             @{excerpt}
@@ -278,8 +324,8 @@ fn tag_chip(tag: String, count: usize, nav: Nav) -> impl Scene {
     let chip_tag = tag.clone();
     coat! {
         Node {
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(3.0)),
-            border_radius: BorderRadius::all(Val::Px(10.0)),
+            padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
+            border_radius: BorderRadius::all(Val::Px(12.0)),
             column_gap: Val::Px(5.0),
             align_items: AlignItems::Center,
         }
@@ -297,13 +343,16 @@ fn tag_chip(tag: String, count: usize, nav: Nav) -> impl Scene {
 }
 
 fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
-    let (back, forward, view, current) = (
+    let (back, forward, view, current, mode) = (
         nav.back.clone(),
         nav.forward.clone(),
         nav.view.clone(),
         nav.current.clone(),
+        nav.mode.clone(),
     );
-    let (nav_back, nav_fwd, nav_note, nav_graph, nav_switch) = (
+    let (nav_back, nav_fwd, nav_note, nav_graph, nav_switch, nav_left, nav_right) = (
+        nav.clone(),
+        nav.clone(),
         nav.clone(),
         nav.clone(),
         nav.clone(),
@@ -312,19 +361,24 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
     );
     coat! {
         Node {
-            height: Val::Px(42.0),
+            height: $(if $mode == LayoutMode::Compact { Val::Px(50.0) } else { Val::Px(42.0) }),
             flex_shrink: 0.0,
             align_items: AlignItems::Center,
-            padding: UiRect::horizontal(Val::Px(10.0)),
-            column_gap: Val::Px(4.0),
+            padding: UiRect::horizontal(Val::Px(6.0)),
+            column_gap: Val::Px(2.0),
             border: UiRect::bottom(Val::Px(1.0)),
         }
         BorderColor::all(BORDER)
         Children [
             @{icon_button()}
+            Node { display: $(if $mode.left_drawer() { Display::Flex } else { Display::None }) }
+            on(move |_: On<Activate>| nav_left.toggle_drawer(true))
+            Children [ @{bars_icon(false)} ]
+            --
+            @{icon_button()}
             on(move |_: On<Activate>| nav_back.go_back())
             Children [
-                Text("‹") @{ui_font(20.0, FontWeight::NORMAL)}
+                Text("‹") @{ui_font(22.0, FontWeight::NORMAL)}
                 TextColor($(if $back.is_empty() { FAINT } else { TEXT }))
                 Pickable::IGNORE
             ]
@@ -332,18 +386,29 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
             @{icon_button()}
             on(move |_: On<Activate>| nav_fwd.go_forward())
             Children [
-                Text("›") @{ui_font(20.0, FontWeight::NORMAL)}
+                Text("›") @{ui_font(22.0, FontWeight::NORMAL)}
                 TextColor($(if $forward.is_empty() { FAINT } else { TEXT }))
                 Pickable::IGNORE
             ]
             --
-            Text($(match $view {
-                View::Note => vault.notes[$current].path.trim_end_matches(".md").replace('/', " / "),
-                View::Graph => "Graph view".to_owned(),
-            }))
-            @{ui_font(13.0, FontWeight::MEDIUM)}
-            TextColor(MUTED)
-            Node { flex_grow: 1.0, justify_content: JustifyContent::Center, margin: UiRect::horizontal(Val::Px(8.0)) }
+            Node {
+                flex_grow: 1.0,
+                flex_shrink: 1.0,
+                min_width: Val::Px(0.0),
+                overflow: Overflow::clip(),
+                justify_content: JustifyContent::Center,
+                margin: UiRect::horizontal(Val::Px(6.0)),
+            }
+            Children [
+                Text($(match $view {
+                    View::Note if $mode == LayoutMode::Compact => vault.notes[$current].name.clone(),
+                    View::Note => vault.notes[$current].path.trim_end_matches(".md").replace('/', " / "),
+                    View::Graph => "Graph view".to_owned(),
+                }))
+                @{ui_font(13.5, FontWeight::MEDIUM)}
+                TextColor(MUTED)
+                TextLayout { linebreak: LineBreak::NoWrap }
+            ]
             --
             @{segment("Note")}
             BackgroundColor($(if $view == View::Note { BG_ACTIVE } else { Color::NONE }))
@@ -354,16 +419,50 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
             on(move |_: On<Activate>| nav_graph.show(View::Graph))
             --
             @{segment("Search")}
+            Node { display: $(if $mode == LayoutMode::Compact { Display::None } else { Display::Flex }) }
             on(move |_: On<Activate>| nav_switch.open_switcher())
+            --
+            @{icon_button()}
+            Node { display: $(if $mode.right_drawer() { Display::Flex } else { Display::None }) }
+            on(move |_: On<Activate>| nav_right.toggle_drawer(false))
+            Children [ @{bars_icon(true)} ]
         ]
+    }
+}
+
+/// A small "≡" drawn with nodes (fonts rarely have a good one). `ragged` draws an outline icon.
+fn bars_icon(ragged: bool) -> impl Scene {
+    let widths: [f32; 3] = if ragged {
+        [16.0, 11.0, 14.0]
+    } else {
+        [16.0; 3]
+    };
+    let bars: Vec<Box<dyn Scene>> = widths
+        .into_iter()
+        .map(|w| {
+            Box::new(bsn! {
+                Node { width: Val::Px(w), height: Val::Px(2.0), border_radius: BorderRadius::all(Val::Px(1.0)) }
+                BackgroundColor(TEXT)
+            }) as Box<dyn Scene>
+        })
+        .collect();
+    bsn! {
+        Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(4.0),
+            align_items: AlignItems::Start,
+        }
+        Pickable::IGNORE
+        Children [ {bars} ]
     }
 }
 
 fn icon_button() -> impl Scene {
     bsn! {
         Node {
-            width: Val::Px(28.0),
-            height: Val::Px(28.0),
+            width: Val::Px(36.0),
+            height: Val::Px(36.0),
+            flex_shrink: 0.0,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             border_radius: BorderRadius::all(Val::Px(4.0)),
@@ -381,9 +480,10 @@ fn segment(label: &str) -> impl Scene + use<> {
     let text = Text::new(label);
     bsn! {
         Node {
-            padding: UiRect::axes(Val::Px(12.0), Val::Px(5.0)),
-            border_radius: BorderRadius::all(Val::Px(5.0)),
-            margin: UiRect::left(Val::Px(4.0)),
+            padding: UiRect::axes(Val::Px(11.0), Val::Px(7.0)),
+            border_radius: BorderRadius::all(Val::Px(6.0)),
+            margin: UiRect::left(Val::Px(2.0)),
+            flex_shrink: 0.0,
         }
         bevy::ui_widgets::Button
         TabIndex(0)
@@ -396,9 +496,11 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
     let top = top_bar(nav.clone(), vault);
     let view = nav.view.clone();
     let note_key = {
-        let current = nav.current.clone();
-        move || current.get()
+        let (current, size, mode) = (nav.current.clone(), nav.text_size.clone(), nav.mode.clone());
+        move || (current.get(), size.get(), mode.get())
     };
+    let mode = nav.mode.clone();
+    let graph_nav = nav.clone();
     coat! {
         Node {
             flex_grow: 1.0,
@@ -423,25 +525,36 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
                         Node {
                             width: Val::Percent(100.0),
                             max_width: Val::Px(780.0),
-                            padding: UiRect::new(Val::Px(40.0), Val::Px(40.0), Val::Px(28.0), Val::Px(120.0)),
+                            padding: $(if $mode == LayoutMode::Compact {
+                                UiRect::new(Val::Px(18.0), Val::Px(18.0), Val::Px(18.0), Val::Px(140.0))
+                            } else {
+                                UiRect::new(Val::Px(40.0), Val::Px(40.0), Val::Px(28.0), Val::Px(120.0))
+                            }),
                             flex_direction: FlexDirection::Column,
                             align_self: AlignSelf::Start,
                         }
-                        shard(note_key, |id: &NoteId, world: &World| note_scene(*id, world))
+                        shard(note_key, |args: &(NoteId, u32, LayoutMode), world: &World| note_scene(*args, world))
                     ]
                 },
                 View::Graph => {
+                    let graph_nav = graph_nav.clone();
                     Node { flex_grow: 1.0, flex_basis: Val::Px(0.0), overflow: Overflow::clip() }
                     GraphViewport
+                    Children [ @{crate::graph::zoom_controls(graph_nav)} ]
                 },
             }
         ]
     }
 }
 
-fn note_scene(id: NoteId, world: &World) -> Box<dyn Scene> {
+fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -> Box<dyn Scene> {
     let vault = world.resource::<Vault>().clone();
-    let theme = world.resource::<MdTheme>().clone();
+    let nav = world.resource::<Nav>().clone();
+    let mut theme = world.resource::<MdTheme>().clone();
+    theme.base_size = text_size as f32;
+    if mode == LayoutMode::Compact {
+        theme = theme.compact();
+    }
     let note = &vault.notes[id];
     let resolve = |link: &bevy_ui_commonmark::WikiLink| vault.resolve(link).is_some();
     let options = RenderOptions {
@@ -455,12 +568,44 @@ fn note_scene(id: NoteId, world: &World) -> Box<dyn Scene> {
         let size = theme.heading_size(1);
         bsn! { text @{ui_font(size, FontWeight::BOLD)} TextColor(TEXT) SelectableText Node { margin: UiRect::bottom(Val::Px(16.0)) } }
     });
+    // Without an inline sidebar, show backlinks at the end of the note like Obsidian mobile.
+    let footer: Vec<Box<dyn Scene>> = (mode.right_drawer() && !note.backlinks.is_empty())
+        .then(|| {
+            let rows: Vec<Box<dyn Scene>> = note
+                .backlinks
+                .iter()
+                .map(|&source| {
+                    let text = Text::new(vault.notes[source].name.clone());
+                    let nav = nav.clone();
+                    Box::new(bsn! {
+                        @{side_row(Val::Px(10.0))}
+                        on(move |_: On<Activate>| nav.open(source, None))
+                        Children [ text @{ui_font(15.0, FontWeight::NORMAL)} TextColor(ACCENT) Pickable::IGNORE ]
+                    }) as Box<dyn Scene>
+                })
+                .collect();
+            let heading = section_title(&format!("Linked mentions ({})", note.backlinks.len()));
+            Box::new(bsn! {
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    margin: UiRect::top(Val::Px(36.0)),
+                    padding: UiRect::top(Val::Px(8.0)),
+                    border: UiRect::top(Val::Px(1.0)),
+                }
+                BorderColor::all(BORDER)
+                Children [ @{heading} -- {rows} ]
+            }) as Box<dyn Scene>
+        })
+        .into_iter()
+        .collect();
     Box::new(bsn! {
         Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
         Children [
             {title}
             --
             @{body}
+            --
+            {footer}
         ]
     })
 }
@@ -470,18 +615,50 @@ fn right_sidebar(nav: Nav) -> impl Scene {
         let current = nav.current.clone();
         move || current.get()
     };
+    let (mode, open, size) = (
+        nav.mode.clone(),
+        nav.right_open.clone(),
+        nav.text_size.clone(),
+    );
+    let (smaller, larger) = (nav.clone(), nav.clone());
     coat! {
         Node {
-            width: Val::Px(250.0),
+            display: $(if !$mode.right_drawer() || $open { Display::Flex } else { Display::None }),
+            position_type: $(if $mode.right_drawer() { PositionType::Absolute } else { PositionType::Relative }),
+            right: Val::Px(0.0),
+            width: $(if $mode == LayoutMode::Compact { Val::Percent(86.0) } else { Val::Px(260.0) }),
+            max_width: Val::Px(320.0),
+            height: Val::Percent(100.0),
             flex_shrink: 0.0,
             flex_direction: FlexDirection::Column,
             border: UiRect::left(Val::Px(1.0)),
             overflow: Overflow::scroll_y(),
         }
+        GlobalZIndex($(if $mode.right_drawer() { 50 } else { 0 }))
         ScrollArea
         BackgroundColor(BG_SIDEBAR)
         BorderColor::all(BORDER)
         Children [
+            @{section_title("Reading")}
+            --
+            Node {
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(8.0),
+                padding: UiRect::horizontal(Val::Px(12.0)),
+            }
+            Children [
+                @{segment("A−")}
+                BackgroundColor(BG_HOVER)
+                on(move |_: On<Activate>| smaller.change_text_size(-1))
+                --
+                Text($(format!("{} px", $size))) @{ui_font(13.0, FontWeight::NORMAL)} TextColor(MUTED)
+                Node { min_width: Val::Px(44.0), justify_content: JustifyContent::Center }
+                --
+                @{segment("A+")}
+                BackgroundColor(BG_HOVER)
+                on(move |_: On<Activate>| larger.change_text_size(1))
+            ]
+            --
             Node { flex_direction: FlexDirection::Column, padding: UiRect::bottom(Val::Px(16.0)) }
             shard(side_key.clone(), move |id: &NoteId, world: &World| side_panel(*id, world, nav.clone()))
         ]
@@ -609,7 +786,7 @@ fn side_panel(id: NoteId, world: &World, nav: Nav) -> Box<dyn Scene> {
 fn side_row(indent: Val) -> impl Scene {
     bsn! {
         Node {
-            padding: UiRect::new(indent, Val::Px(10.0), Val::Px(4.0), Val::Px(4.0)),
+            padding: UiRect::new(indent, Val::Px(10.0), Val::Px(7.0), Val::Px(7.0)),
             margin: UiRect::horizontal(Val::Px(6.0)),
             border_radius: BorderRadius::all(Val::Px(4.0)),
         }
@@ -651,7 +828,7 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
                     height: Val::Percent(100.0),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Start,
-                    padding: UiRect::top(Val::Percent(12.0)),
+                    padding: UiRect::top(Val::Percent(8.0)),
                 }
                 BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55))
                 on(move |click: On<PointerClick>| {
@@ -662,7 +839,7 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
                 Children [
                     Node {
                         width: Val::Px(560.0),
-                        max_width: Val::Percent(92.0),
+                        max_width: Val::Percent(94.0),
                         flex_direction: FlexDirection::Column,
                         padding: UiRect::all(Val::Px(10.0)),
                         row_gap: Val::Px(6.0),

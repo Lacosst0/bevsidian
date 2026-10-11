@@ -398,10 +398,23 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
         .collect();
     let style_scene = style.scene();
     let root = Text::default();
+    // Code keeps its line breaks and scrolls sideways instead of wrapping.
+    let no_wrap = TextLayout {
+        linebreak: LineBreak::NoWrap,
+        ..default()
+    };
     let code_text: Box<dyn Scene> = Box::new(bsn! {
-        root @{style_scene} SelectableText
-        Node { flex_grow: 1.0, min_width: Val::Px(0.0) }
-        Children [ {spans} ]
+        Node {
+            overflow: Overflow::scroll_x(),
+            width: Val::Percent(100.0),
+            padding: UiRect::bottom(Val::Px(4.0)),
+        }
+        bevy::ui_widgets::ScrollArea
+        Children [
+            root @{style_scene} no_wrap SelectableText
+            Node { flex_shrink: 0.0 }
+            Children [ {spans} ]
+        ]
     });
 
     let copy_source = code.to_owned();
