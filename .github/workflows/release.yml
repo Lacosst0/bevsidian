@@ -1,0 +1,49 @@
+name: Release
+
+# Builds the web version as ONE self-contained index.html (CSS, JS and gzip+base64 WASM
+# inlined), zips it and attaches it to a GitHub release. Push a `v*` tag to publish, or run
+# it manually to get the zip as a workflow artifact.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm-release
+      - name: Install wasm-bindgen-cli (version from Cargo.lock)
+        run: |
+          version=$(awk '/^name = "wasm-bindgen"$/ { getline; gsub(/"/, "", $3); print $3 }' Cargo.lock)
+          echo "wasm-bindgen $version"
+          curl -sSL "https://github.com/rustwasm/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin "wasm-bindgen-${version}-x86_64-unknown-linux-musl/wasm-bindgen" \
+            || cargo install wasm-bindgen-cli --version "$version" --locked
+      - name: Install binaryen (wasm-opt)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends binaryen zip
+      - name: Build single-file web bundle
+        run: tools/build-web.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bevsidian-web
+          path: dist/bevsidian-web.zip
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/bevsidian-web.zip
+          generate_release_notes: true

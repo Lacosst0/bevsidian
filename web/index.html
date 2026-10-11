@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bevsidian: Bevy documentation as a linked vault, built with Bevy.">
+  <title>Bevsidian</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app">
+    <canvas id="bevy" tabindex="0" aria-label="Bevsidian documentation vault"></canvas>
+    <div id="loading" role="status">
+      <div class="logo" aria-hidden="true"></div>
+      <p class="title">Bevsidian</p>
+      <p id="status">Loading…</p>
+      <div class="bar"><div id="progress"></div></div>
+    </div>
+  </main>
+  <!-- BEVSIDIAN_SCRIPT -->
+  <script type="module" src="loader.js"></script>
+</body>
+</html>

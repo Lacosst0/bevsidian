@@ -1,0 +1,30 @@
+[package]
+name = "bevy_ui_commonmark"
+description = "CommonMark (with Obsidian wikilinks and tags) rendered as Bevy UI scenes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["bevy", "ui", "markdown", "commonmark", "obsidian"]
+categories = ["game-development", "gui", "text-processing"]
+
+[dependencies]
+bevy = { workspace = true, features = [
+    "std",
+    "bevy_ui",
+    "bevy_text",
+    "bevy_scene",
+    "bevy_picking",
+    "ui_picking",
+    "bevy_input_focus",
+    "bevy_log",
+] }
+bevy_ui_textselect.workspace = true
+pulldown-cmark.workspace = true
+
+[dev-dependencies]
+bevy = { workspace = true, features = ["default", "system_clipboard"] }
+
+[lints]
+workspace = true
