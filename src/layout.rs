@@ -37,7 +37,39 @@ pub fn plugin(app: &mut App) {
                 sync_selection_bar,
                 track_keyboard_target,
             ),
-        );
+        )
+        .add_systems(Last, keep_awake);
+}
+
+/// The app runs in reactive mode (it only renders when something happens) to save battery and
+/// keep phones cool. This requests extra frames while anything is animating or settling.
+#[allow(clippy::too_many_arguments)]
+fn keep_awake(
+    scroll: Res<TouchScroll>,
+    selection: Res<TextSelection>,
+    graph: Res<crate::graph::GraphState>,
+    nav: Res<Nav>,
+    focus: Res<InputFocus>,
+    editable: Query<(), With<EditableText>>,
+    layout_changed: Query<(), Or<(Changed<ComputedNode>, Changed<ScrollPosition>, Added<Node>)>>,
+    mut settle: Local<u8>,
+    mut redraw: MessageWriter<bevy::window::RequestRedraw>,
+) {
+    let busy = scroll.pending.is_some()
+        || scroll.active.is_some()
+        || scroll.coasting.is_some()
+        || selection.is_busy()
+        || (nav.view.get_untracked() == crate::nav::View::Graph && graph.animating())
+        || nav.anchor.with_untracked(Option::is_some)
+        || focus.get().is_some_and(|e| editable.contains(e));
+    if busy || !layout_changed.is_empty() {
+        // A few more frames let layout, text and reactive regions settle after a change.
+        *settle = 3;
+    }
+    if *settle > 0 {
+        *settle -= 1;
+        redraw.write(bevy::window::RequestRedraw);
+    }
 }
 
 /// Width class of the window.

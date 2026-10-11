@@ -81,7 +81,8 @@ fn hover_rows(
 struct ActiveRow;
 
 fn spawn_shell(mut commands: Commands, nav: Res<Nav>, vault: Res<Vault>) {
-    commands.spawn((Camera2d, IsDefaultUiCamera));
+    // No MSAA: UI is anti-aliased per glyph/shape, and 4x MSAA at phone resolutions is costly.
+    commands.spawn((Camera2d, IsDefaultUiCamera, Msaa::Off));
     commands.spawn_scene(shell(nav.clone(), vault.clone()));
 }
 

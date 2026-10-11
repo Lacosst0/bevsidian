@@ -10,12 +10,13 @@ mod nav;
 mod ui;
 mod vault;
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use bevy::{
     feathers::{FeathersPlugins, dark_theme::create_dark_theme, theme::UiTheme},
     prelude::*,
     text::Font,
+    winit::{UpdateMode, WinitSettings},
 };
 use bevy_radioactive::RadioactivePlugin;
 use bevy_ui_commonmark::CommonMarkPlugin;
@@ -40,6 +41,11 @@ fn main() {
         }))
         .add_plugins((FeathersPlugins, RadioactivePlugin, CommonMarkPlugin))
         .insert_resource(ClearColor(ui::palette::BG))
+        // Render on input and while something animates (see `layout::keep_awake`).
+        .insert_resource(WinitSettings {
+            focused_mode: UpdateMode::reactive(Duration::from_secs(1)),
+            unfocused_mode: UpdateMode::reactive_low_power(Duration::from_secs(5)),
+        })
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(vault)
         .insert_resource(nav)

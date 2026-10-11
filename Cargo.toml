@@ -41,7 +41,9 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-bevy = { workspace = true, features = ["default", "system_clipboard", "bevy_feathers"] }
+# 2D + UI only: the 3D, audio and glTF stacks are not needed and cost frame time and
+# download size on phones.
+bevy = { workspace = true, features = ["2d", "ui", "system_clipboard", "bevy_feathers"] }
 bevy_radioactive.workspace = true
 bevy_ui_textselect.workspace = true
 bevy_ui_commonmark.workspace = true
@@ -59,10 +61,10 @@ opt-level = 3
 codegen-units = 1
 lto = "thin"
 
-# Size-optimized profile used for the web build.
+# Profile used for the web build: optimized for speed (phones are CPU-bound).
 [profile.wasm-release]
 inherits = "release"
-opt-level = "z"
+opt-level = 3
 lto = "fat"
 strip = "debuginfo"
 panic = "abort"

@@ -74,7 +74,7 @@ struct GraphNode {
 struct GraphLabel;
 
 #[derive(Resource, Default)]
-struct GraphState {
+pub(crate) struct GraphState {
     image: Handle<Image>,
     edges: Vec<(Entity, Entity, bool)>,
     hovered: Option<Entity>,
@@ -91,6 +91,13 @@ struct GraphMaterials {
     current: Handle<ColorMaterial>,
     hovered: Handle<ColorMaterial>,
     dim: Handle<ColorMaterial>,
+}
+
+impl GraphState {
+    /// Whether the simulation or a drag still needs frames.
+    pub(crate) fn animating(&self) -> bool {
+        self.alpha >= 0.002 || self.dragging.is_some()
+    }
 }
 
 fn setup(

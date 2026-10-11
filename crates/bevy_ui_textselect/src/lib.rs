@@ -205,6 +205,12 @@ impl TextSelection {
         self.dragging.is_some_and(|p| p.is_touch())
     }
 
+    /// `true` while a pointer is dragging a selection or a long-press is pending
+    /// (callers running a reactive/low-power update loop should keep rendering).
+    pub fn is_busy(&self) -> bool {
+        self.dragging.is_some() || self.long_press.is_some()
+    }
+
     /// `true` if nothing is selected.
     pub fn is_collapsed(&self) -> bool {
         self.anchor == self.focus
@@ -346,11 +352,13 @@ impl Blocks<'_, '_> {
         out
     }
 
-    fn text_of(&self, block: Entity) -> String {
-        self.texts
-            .get(block)
-            .map(|(computed, ..)| block_text(computed, &self.text, &self.spans))
-            .unwrap_or_default()
+    /// Length in bytes of a block's text, without allocating it.
+    fn len_of(&self, block: Entity) -> usize {
+        self.texts.get(block).map_or(0, |(computed, ..)| {
+            text::sections(computed, &self.text, &self.spans)
+                .map(|(_, range, _)| range.len())
+                .sum()
+        })
     }
 
     /// Pointer position (window logical px) → point in the block's layout space (physical px).
@@ -428,7 +436,7 @@ impl Blocks<'_, '_> {
             return String::new();
         };
         let blocks = self.blocks_of(group);
-        let ranges = selection.ranges(&blocks, |b| self.text_of(b).len());
+        let ranges = selection.ranges(&blocks, |b| self.len_of(b));
         let mut out = String::new();
         for (i, (block, start, end)) in ranges.iter().enumerate() {
             if i > 0 {
@@ -621,7 +629,7 @@ fn pointer_selection(
                 selection.select_block_range(group, block, word.start, word.end);
             }
             _ => {
-                let len = blocks.text_of(block).len();
+                let len = blocks.len_of(block);
                 selection.select_block_range(group, block, 0, len);
             }
         }
@@ -761,7 +769,7 @@ fn on_select_all(event: On<SelectAll>, mut selection: ResMut<TextSelection>, blo
         });
         selection.focus = Some(TextPoint {
             block: *last,
-            index: blocks.text_of(*last).len(),
+            index: blocks.len_of(*last),
         });
     }
 }
@@ -816,7 +824,7 @@ fn keyboard_selection(
                     });
                     selection.focus = Some(TextPoint {
                         block: *last,
-                        index: blocks.text_of(*last).len(),
+                        index: blocks.len_of(*last),
                     });
                 }
             }
@@ -844,7 +852,7 @@ fn extend_with_key(key: &Key, word: bool, selection: &mut TextSelection, blocks:
         return;
     };
     let layout = computed.buffer();
-    let len = blocks.text_of(focus.block).len();
+    let len = blocks.len_of(focus.block);
     let current = Selection::from_byte_index(layout, focus.index, Affinity::Downstream);
     let moved = match key {
         Key::ArrowLeft if word => current.previous_visual_word(layout, true),
@@ -867,7 +875,7 @@ fn extend_with_key(key: &Key, word: bool, selection: &mut TextSelection, blocks:
             let prev = all[p - 1];
             selection.focus = Some(TextPoint {
                 block: prev,
-                index: blocks.text_of(prev).len(),
+                index: blocks.len_of(prev),
             });
         }
         (Some(p), Key::ArrowRight | Key::ArrowDown) if at_end && p + 1 < all.len() => {
@@ -957,7 +965,7 @@ fn draw_highlights(
         && let Some(group_inverse) = group_transform.try_inverse()
     {
         let all = blocks.blocks_of(group);
-        let ranges = selection.ranges(&all, |b| blocks.text_of(b).len());
+        let ranges = selection.ranges(&all, |b| blocks.len_of(b));
         let origin = group_node.padding_box().min;
         let inv = group_node.inverse_scale_factor;
         for (block, start, end) in ranges {

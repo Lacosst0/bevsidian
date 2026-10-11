@@ -14,7 +14,7 @@ mkdir -p target/web-pkg dist
 wasm-bindgen --target web --no-typescript --out-dir target/web-pkg --out-name bevsidian "$WASM"
 
 if command -v wasm-opt >/dev/null; then
-  wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
+  wasm-opt -O3 --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
     --enable-mutable-globals --enable-reference-types --enable-multivalue \
     -o target/web-pkg/bevsidian_bg.wasm target/web-pkg/bevsidian_bg.wasm
 else
