@@ -34,7 +34,12 @@ jobs:
             | tar xz --strip-components=1 -C /usr/local/bin "wasm-bindgen-${version}-x86_64-unknown-linux-musl/wasm-bindgen" \
             || cargo install wasm-bindgen-cli --version "$version" --locked
       - name: Install binaryen (wasm-opt)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends binaryen zip
+        # Distro binaryen is too old for wasm-bindgen's externref tables; use a release build.
+        run: |
+          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN}/binaryen-version_${BINARYEN}-x86_64-linux.tar.gz" | tar xz
+          echo "$PWD/binaryen-version_${BINARYEN}/bin" >> "$GITHUB_PATH"
+        env:
+          BINARYEN: "125"
       - name: Build single-file web bundle
         run: tools/build-web.sh
       - uses: actions/upload-artifact@v4

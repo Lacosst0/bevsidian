@@ -15,7 +15,7 @@ wasm-bindgen --target web --no-typescript --out-dir target/web-pkg --out-name be
 
 if command -v wasm-opt >/dev/null; then
   wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
-    --enable-mutable-globals --enable-reference-types \
+    --enable-mutable-globals --enable-reference-types --enable-multivalue \
     -o target/web-pkg/bevsidian_bg.wasm target/web-pkg/bevsidian_bg.wasm
 else
   echo "wasm-opt not found; skipping size optimisation"

@@ -109,8 +109,9 @@ fn setup(
     let image = Image::new_target_texture(
         512,
         512,
-        TextureFormat::Rgba8Unorm,
-        Some(TextureFormat::Rgba8UnormSrgb),
+        // A plain sRGB format: WebGL2 does not support separate view formats.
+        TextureFormat::Rgba8UnormSrgb,
+        None,
     );
     state.image = images.add(image);
 
