@@ -185,7 +185,9 @@ struct LongPress {
     pointer: PointerId,
     block: Entity,
     position: Vec2,
-    elapsed: f32,
+    /// `Time<Real>` elapsed seconds when the finger went down. (Not an accumulated delta:
+    /// apps in reactive mode can have very long frames after being idle.)
+    started: f64,
 }
 
 /// How long a touch must be held still to select a word, in seconds.
@@ -567,6 +569,7 @@ fn queue_click(event: On<PointerClick>, mut queue: ResMut<PointerQueue>) {
 }
 
 fn pointer_selection(
+    time: Res<Time<Real>>,
     mut queue: ResMut<PointerQueue>,
     mut selection: ResMut<TextSelection>,
     keys: Res<ButtonInput<KeyCode>>,
@@ -589,7 +592,7 @@ fn pointer_selection(
                 pointer: press.pointer.id,
                 block,
                 position: press.pointer.position,
-                elapsed: 0.0,
+                started: time.elapsed_secs_f64(),
             });
             // Tapping text clears a selection; tapping elsewhere (e.g. a "Copy" button) keeps it.
             if selection.long_press.is_some() && !selection.is_collapsed() {
@@ -707,12 +710,10 @@ fn long_press_selection(
     mut selection: ResMut<TextSelection>,
     blocks: Blocks,
 ) {
-    let Some(mut lp) = selection.long_press else {
+    let Some(lp) = selection.long_press else {
         return;
     };
-    lp.elapsed += time.delta_secs();
-    if lp.elapsed < LONG_PRESS_SECONDS {
-        selection.long_press = Some(lp);
+    if time.elapsed_secs_f64() - lp.started < f64::from(LONG_PRESS_SECONDS) {
         return;
     }
     selection.long_press = None;

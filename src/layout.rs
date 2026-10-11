@@ -206,7 +206,7 @@ fn touch_drag(
         return;
     }
     if apply_scroll(target, -drag.delta, &mut areas) {
-        let dt = time.delta_secs().max(1.0 / 240.0);
+        let dt = time.delta_secs().clamp(1.0 / 240.0, 1.0 / 20.0);
         let instant = -drag.delta / dt;
         scroll.velocity = scroll.velocity.lerp(instant, 0.4);
     }
@@ -255,7 +255,8 @@ fn touch_momentum(
     let Some(target) = scroll.coasting else {
         return;
     };
-    let dt = time.delta_secs();
+    // Clamp: in reactive mode the first frame after idling can be long.
+    let dt = time.delta_secs().min(1.0 / 30.0);
     let velocity = scroll.velocity;
     let moved = apply_scroll(target, velocity * dt, &mut areas);
     scroll.velocity *= (-4.0 * dt).exp();
