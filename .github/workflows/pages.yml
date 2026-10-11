@@ -1,0 +1,69 @@
+name: Pages
+
+# Publishes the single-file web build to GitHub Pages on every push to `main`.
+#
+# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# For access-controlled ("private") Pages, the repository must belong to an organization on
+# GitHub Enterprise Cloud; then choose "Private" under Settings → Pages → Visibility.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm-release
+      - name: Install wasm-bindgen-cli (version from Cargo.lock)
+        run: |
+          version=$(awk '/^name = "wasm-bindgen"$/ { getline; gsub(/"/, "", $3); print $3 }' Cargo.lock)
+          curl -sSL "https://github.com/rustwasm/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-x86_64-unknown-linux-musl.tar.gz" \
+            | tar xz --strip-components=1 -C /usr/local/bin "wasm-bindgen-${version}-x86_64-unknown-linux-musl/wasm-bindgen" \
+            || cargo install wasm-bindgen-cli --version "$version" --locked
+      - name: Install binaryen (wasm-opt)
+        run: |
+          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN}/binaryen-version_${BINARYEN}-x86_64-linux.tar.gz" | tar xz
+          echo "$PWD/binaryen-version_${BINARYEN}/bin" >> "$GITHUB_PATH"
+        env:
+          BINARYEN: "125"
+      - name: Build single-file web bundle
+        run: tools/build-web.sh
+      - name: Prepare site
+        run: |
+          mkdir -p site
+          cp dist/index.html site/index.html
+          touch site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

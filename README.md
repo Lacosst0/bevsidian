@@ -41,6 +41,10 @@ On Linux, native builds need `libasound2-dev libudev-dev libwayland-dev libxkbco
 
 [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the single-file web bundle and attaches `bevsidian-web.zip` to a GitHub release whenever a `v*` tag is pushed. It can also be run manually, in which case the zip is uploaded as a workflow artifact.
 
+## Hosting on GitHub Pages
+
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys `dist/index.html` to GitHub Pages on every push to `main`. To enable it, open **Settings → Pages** and set **Source** to **GitHub Actions**. For access-controlled ("private") Pages, the repository must belong to an organization on GitHub Enterprise Cloud; then set **Visibility** to **Private** on the same page.
+
 ## Fonts
 
 Inter and JetBrains Mono are bundled under the SIL Open Font License (see `assets/fonts/`).
