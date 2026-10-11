@@ -583,7 +583,8 @@ fn pointer_selection(
                 position: press.pointer.position,
                 elapsed: 0.0,
             });
-            if !selection.is_collapsed() {
+            // Tapping text clears a selection; tapping elsewhere (e.g. a "Copy" button) keeps it.
+            if selection.long_press.is_some() && !selection.is_collapsed() {
                 selection.clear();
                 selection.long_press = None;
             }

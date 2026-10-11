@@ -323,7 +323,7 @@ fn track_keyboard_target(
 const ROWS: [&[&str]; 4] = [
     &["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
     &["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-    &["z", "x", "c", "v", "b", "n", "m", "⌫"],
+    &["z", "x", "c", "v", "b", "n", "m", "←"],
     &["space", "Done"],
 ];
 
@@ -344,7 +344,7 @@ fn on_virtual_key(
             nav.keyboard.set(false);
             return;
         }
-        "⌫" => {
+        "←" => {
             if let Ok(mut field) = fields.get_mut(entity) {
                 field.queue_edit(TextEdit::Backspace);
             }

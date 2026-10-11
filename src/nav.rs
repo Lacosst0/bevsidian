@@ -111,6 +111,7 @@ impl Nav {
             self.current.set(id);
         }
         self.view.set_if_neq(View::Note);
+        self.close_drawers();
         self.anchor
             .set(heading.map(|h| Anchor::Heading(bevy_ui_commonmark::slugify(&h))));
     }
@@ -121,6 +122,7 @@ impl Nav {
             self.forward.update(|f| f.push(current));
             self.current.set(prev);
             self.view.set_if_neq(View::Note);
+            self.close_drawers();
         }
     }
 
@@ -130,6 +132,7 @@ impl Nav {
             self.back.update(|b| b.push(current));
             self.current.set(next);
             self.view.set_if_neq(View::Note);
+            self.close_drawers();
         }
     }
 
@@ -182,7 +185,13 @@ impl Nav {
         } else {
             Some(tag.to_owned())
         };
+        let filtering = next.is_some();
         self.tag.set(next);
+        // On phones the file list lives in a drawer: show the filtered list.
+        if filtering && self.mode.get_untracked().left_drawer() {
+            self.right_open.set_if_neq(false);
+            self.left_open.set_if_neq(true);
+        }
     }
 
     pub fn open_switcher(&self) {
