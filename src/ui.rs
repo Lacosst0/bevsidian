@@ -42,7 +42,7 @@ pub mod palette {
     pub const TAG_BG: Color = Color::srgba(0.545, 0.424, 0.937, 0.18);
 }
 
-use palette::*;
+use palette::{ACCENT, BG, BG_ACTIVE, BG_HOVER, BG_SIDEBAR, BORDER, FAINT, MUTED, TAG_BG, TEXT};
 
 fn ui_font(size: f32, weight: FontWeight) -> impl Scene {
     insert(TextFont {
@@ -175,7 +175,7 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
                 BackgroundColor(TAG_BG)
                 bevy::ui_widgets::Button
                 ClickableSpan
-                on(move |_: On<PointerClick>| nav_clear.tag.set(None))
+                on(move |_: On<PointerClick>| nav_clear.clear_tag())
                 Children [
                     Text($(format!("#{}", $tag.clone().unwrap_or_default()))) @{ui_font(12.0, FontWeight::MEDIUM)} TextColor(ACCENT)
                     --
@@ -346,11 +346,11 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
             --
             @{segment("Note")}
             BackgroundColor($(if $view == View::Note { BG_ACTIVE } else { Color::NONE }))
-            on(move |_: On<Activate>| nav_note.view.set(View::Note))
+            on(move |_: On<Activate>| nav_note.show(View::Note))
             --
             @{segment("Graph")}
             BackgroundColor($(if $view == View::Graph { BG_ACTIVE } else { Color::NONE }))
-            on(move |_: On<Activate>| nav_graph.view.set(View::Graph))
+            on(move |_: On<Activate>| nav_graph.show(View::Graph))
             --
             @{segment("Search")}
             on(move |_: On<Activate>| nav_switch.open_switcher())
@@ -498,7 +498,7 @@ fn side_panel(id: NoteId, world: &World, nav: Nav) -> Box<dyn Scene> {
         .filter(|h| h.level > 1 || note.doc.headings.iter().filter(|h| h.level == 1).count() > 1)
         .map(|heading| {
             let text = Text::new(heading.text.clone());
-            
+
             let indent = Val::Px(12.0 + 12.0 * f32::from(heading.level.saturating_sub(2)));
             let slug = heading.text.clone();
             let nav = nav.clone();
@@ -514,7 +514,7 @@ fn side_panel(id: NoteId, world: &World, nav: Nav) -> Box<dyn Scene> {
         ids.iter()
             .map(|&target| {
                 let text = Text::new(vault.notes[target].name.clone());
-                
+
                 let nav = nav.clone();
                 Box::new(bsn! {
                     @{side_row(Val::Px(12.0))}
@@ -622,7 +622,7 @@ fn side_row(indent: Val) -> impl Scene {
 }
 
 fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
-    let (open, query, index) = (
+    let (is_open, query, index) = (
         nav.switcher.clone(),
         nav.switcher_query.clone(),
         nav.switcher_index.clone(),
@@ -640,7 +640,7 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
         GlobalZIndex(100)
         Pickable::IGNORE
         Children [
-            if $open {
+            if $is_open {
                 let close = close.clone();
                 let nav_rows = nav_rows.clone();
                 let names = names.clone();

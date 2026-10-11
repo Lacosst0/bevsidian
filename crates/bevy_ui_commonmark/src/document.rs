@@ -1,6 +1,6 @@
 //! Engine-independent markdown document model and parser.
 //!
-//! [`MdDocument::parse`] turns CommonMark (plus GFM tables, task lists, strikethrough,
+//! [`MdDocument::parse`] turns `CommonMark` (plus GFM tables, task lists, strikethrough,
 //! footnotes, callouts and Obsidian `[[wikilinks]]` / `#tags`) into a small tree of
 //! [`Block`]s and styled [`Inline`] runs that the scene builder renders.
 

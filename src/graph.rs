@@ -13,7 +13,7 @@ use bevy::{
     },
     prelude::*,
     render::render_resource::{Extent3d, TextureFormat},
-    text::{FontWeight, TextBounds},
+    text::FontWeight,
     ui::UiGlobalTransform,
 };
 
@@ -146,12 +146,12 @@ fn setup(
     // Notes on a circle, tags on an inner circle; the simulation untangles them.
     let note_count = vault.notes.len();
     let mut note_entities = Vec::with_capacity(note_count);
-    let mut spawn_node = |commands: &mut Commands,
-                          kind: NodeKind,
-                          label: String,
-                          pos: Vec2,
-                          radius: f32,
-                          material: Handle<ColorMaterial>| {
+    let spawn_node = |commands: &mut Commands,
+                      kind: NodeKind,
+                      label: String,
+                      pos: Vec2,
+                      radius: f32,
+                      material: Handle<ColorMaterial>| {
         commands
             .spawn((
                 GraphNode {
@@ -171,7 +171,6 @@ fn setup(
                 Text2d::new(label),
                 font.clone(),
                 TextColor(palette::MUTED),
-                TextBounds::new_horizontal(160.0),
                 // Counter the parent's radius scale so labels keep their size.
                 Transform::from_xyz(0.0, -1.0 - 14.0 / radius, 0.0)
                     .with_scale(Vec3::splat(1.0 / radius)),
@@ -261,8 +260,10 @@ fn resize_target(
     let Some(image) = images.get(&state.image) else {
         return;
     };
-    if image.size() != size {
-        if let Some(mut image) = images.get_mut(&state.image) {
+    if image.size() != size
+        && let Some(mut image) = images.get_mut(&state.image)
+    {
+        {
             image.resize(Extent3d {
                 width: size.x,
                 height: size.y,
@@ -294,7 +295,7 @@ fn simulate(
         for j in (i + 1)..positions.len() {
             let delta = positions[i].1 - positions[j].1;
             let dist2 = delta.length_squared().max(25.0);
-            let f = delta.normalize_or(Vec2::X) * (9000.0 / dist2);
+            let f = delta.normalize_or(Vec2::X) * (40000.0 / dist2);
             forces[i] += f;
             forces[j] -= f;
         }
@@ -314,7 +315,7 @@ fn simulate(
     for (i, (entity, mut node, mut transform)) in nodes.iter_mut().enumerate() {
         debug_assert_eq!(positions[i].0, entity);
         // Gravity towards the centre keeps islands on screen.
-        let force = forces[i] - positions[i].1 * 0.4;
+        let force = forces[i] - positions[i].1 * 0.08;
         if node.pinned || state.dragging == Some(entity) {
             node.velocity = Vec2::ZERO;
             continue;

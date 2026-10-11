@@ -107,7 +107,8 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
                 level: *level,
                 slug: slug.clone(),
             };
-            let margin = Node {
+            let node = Node {
+                flex_direction: FlexDirection::Column,
                 margin: UiRect::top(Val::Px(if *level <= 2 { 12.0 } else { 6.0 })),
                 ..default()
             };
@@ -123,8 +124,7 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
                 bsn! { line bg }
             });
             Box::new(bsn! {
-                Node { flex_direction: FlexDirection::Column }
-                margin
+                node
                 Children [
                     @{text} heading
                     --
@@ -224,26 +224,25 @@ fn list(
         .iter()
         .enumerate()
         .map(|(i, item)| {
-            let marker: Box<dyn Scene> = match item.task {
-                Some(checked) => checkbox(checked, theme),
-                None => {
-                    let label = match start {
-                        Some(n) => format!("{}.", n + i as u64),
-                        None => ["•", "◦", "▪"][depth % 3].to_owned(),
-                    };
-                    let style = SpanStyle {
-                        color: theme.muted,
-                        ..SpanStyle::body(theme)
-                    };
-                    let style = style.scene();
-                    let text = Text::new(label);
-                    let node = Node {
-                        min_width: Val::Px(if start.is_some() { 22.0 } else { 14.0 }),
-                        justify_content: JustifyContent::End,
-                        ..default()
-                    };
-                    Box::new(bsn! { text @{style} node })
-                }
+            let marker: Box<dyn Scene> = if let Some(checked) = item.task {
+                checkbox(checked, theme)
+            } else {
+                let label = match start {
+                    Some(n) => format!("{}.", n + i as u64),
+                    None => ["•", "◦", "▪"][depth % 3].to_owned(),
+                };
+                let style = SpanStyle {
+                    color: theme.muted,
+                    ..SpanStyle::body(theme)
+                };
+                let style = style.scene();
+                let text = Text::new(label);
+                let node = Node {
+                    min_width: Val::Px(if start.is_some() { 22.0 } else { 14.0 }),
+                    justify_content: JustifyContent::End,
+                    ..default()
+                };
+                Box::new(bsn! { text @{style} node })
             };
             let content = render_blocks(&item.blocks, options, depth + 1);
             let content_node = Node {
@@ -517,8 +516,8 @@ fn span_scene(text: String, style: &SpanStyle, link: Option<MdLink>) -> Box<dyn 
         let c = TextBackgroundColor(c);
         bsn! { c }
     });
-    let strike = style.strike.then(|| bsn! { Strikethrough });
-    let underline = style.underline.then(|| bsn! { Underline });
+    let strike = style.strike.then_some(bsn! { Strikethrough });
+    let underline = style.underline.then_some(bsn! { Underline });
     let link = link.map(|link| bsn! { link ClickableSpan });
     Box::new(bsn! {
         span @{style_scene}

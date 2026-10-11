@@ -31,13 +31,6 @@ pub struct Note {
     pub unresolved: Vec<String>,
 }
 
-impl Note {
-    /// Title shown in the UI: the first `# heading`, or the file name.
-    pub fn title(&self) -> &str {
-        self.doc.title.as_deref().unwrap_or(&self.name)
-    }
-}
-
 /// All notes, shared cheaply between systems and UI closures.
 #[derive(Resource, Clone, Debug, Deref)]
 pub struct Vault(pub Arc<VaultData>);
@@ -234,7 +227,7 @@ mod tests {
         assert_eq!(v.tags["beginner"].len(), 2);
         assert_eq!(v.search("", Some("ecs")), vec![v.find("ECS").unwrap()]);
         assert_eq!(v.search("rendering", None)[0], v.find("Rendering").unwrap());
-        assert!(v.search("nothing-matches", None).is_empty());
+        assert_eq!(v.search("nothing-matches", None), Vec::<NoteId>::new());
         assert!(
             v.excerpt(v.find("ECS").unwrap(), "back")
                 .unwrap()

@@ -106,6 +106,14 @@ impl Nav {
         }
     }
 
+    pub fn show(&self, view: View) {
+        self.view.set_if_neq(view);
+    }
+
+    pub fn clear_tag(&self) {
+        self.tag.set(None);
+    }
+
     pub fn toggle_graph(&self) {
         let next = match self.view.get_untracked() {
             View::Note => View::Graph,

@@ -1,6 +1,6 @@
-//! CommonMark rendered as Bevy UI.
+//! `CommonMark` rendered as Bevy UI.
 //!
-//! - [`MdDocument::parse`] parses CommonMark with GFM tables, task lists, strikethrough,
+//! - [`MdDocument::parse`] parses `CommonMark` with GFM tables, task lists, strikethrough,
 //!   footnotes and callouts, plus Obsidian `[[wikilinks]]` and `#tags`.
 //! - [`markdown_scene`] turns a document into a BSN [`Scene`] of rich `Text`/`TextSpan`
 //!   blocks that are selectable and copyable through [`bevy_ui_textselect`].

@@ -40,7 +40,7 @@ use bevy::{
         cursor::EntityCursor,
         events::{PointerClick, PointerDrag, PointerPress, PointerRelease},
         hover::HoverMap,
-        pointer::{PointerButton, PointerId, PointerLocation},
+        pointer::{PointerButton, PointerId},
     },
     prelude::*,
     text::{ComputedTextBlock, EditableText},
@@ -71,6 +71,11 @@ impl Plugin for TextSelectPlugin {
             app.init_resource::<Clipboard>();
         }
         app.init_resource::<TextSelection>()
+            .init_resource::<PointerQueue>()
+            .add_observer(queue_press)
+            .add_observer(queue_drag)
+            .add_observer(queue_release)
+            .add_observer(queue_click)
             .init_resource::<SelectionStyle>()
             .init_resource::<InputFocus>()
             .add_systems(
@@ -271,6 +276,20 @@ struct Blocks<'w, 's> {
 use bevy::ecs::system::SystemParam;
 
 impl Blocks<'_, '_> {
+    /// The selectable block of a picked entity: the block itself, or the `Text` root of a
+    /// picked [`TextSpan`] (Bevy picks individual spans).
+    fn block_of(&self, entity: Entity) -> Option<Entity> {
+        if self.selectable.contains(entity) {
+            return Some(entity);
+        }
+        if !self.spans.contains(entity) {
+            return None;
+        }
+        self.parents
+            .iter_ancestors(entity)
+            .find(|e| self.selectable.contains(*e))
+    }
+
     /// The group a block belongs to (the block itself if it has no group ancestor).
     fn group_of(&self, block: Entity) -> Entity {
         let mut current = block;
@@ -409,27 +428,63 @@ fn shift_pressed(keys: &ButtonInput<KeyCode>) -> bool {
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Pointer events captured by observers (once, at their original target), processed in order
+/// by [`pointer_selection`].
+#[derive(Resource, Default)]
+struct PointerQueue {
+    presses: Vec<PointerPress>,
+    drags: Vec<PointerDrag>,
+    releases: Vec<PointerRelease>,
+    clicks: Vec<PointerClick>,
+}
+
+fn queue_press(event: On<PointerPress>, mut queue: ResMut<PointerQueue>) {
+    if event.entity == event.original_event_target() {
+        queue.presses.push(event.event().clone());
+    }
+}
+
+fn queue_drag(event: On<PointerDrag>, mut queue: ResMut<PointerQueue>) {
+    if event.entity == event.original_event_target() {
+        queue.drags.push(event.event().clone());
+    }
+}
+
+fn queue_release(event: On<PointerRelease>, mut queue: ResMut<PointerQueue>) {
+    if event.entity == event.original_event_target() {
+        queue.releases.push(event.event().clone());
+    }
+}
+
+fn queue_click(event: On<PointerClick>, mut queue: ResMut<PointerQueue>) {
+    if event.entity == event.original_event_target() {
+        queue.clicks.push(event.event().clone());
+    }
+}
+
 fn pointer_selection(
-    mut presses: MessageReader<PointerPress>,
-    mut drags: MessageReader<PointerDrag>,
-    mut releases: MessageReader<PointerRelease>,
-    mut clicks: MessageReader<PointerClick>,
+    mut queue: ResMut<PointerQueue>,
     mut selection: ResMut<TextSelection>,
     keys: Res<ButtonInput<KeyCode>>,
     blocks: Blocks,
     mut commands: Commands,
 ) {
-    for press in presses.read() {
+    let PointerQueue {
+        presses,
+        drags,
+        releases,
+        clicks,
+    } = std::mem::take(&mut *queue);
+    for press in &presses {
         if press.button != PointerButton::Primary {
             continue;
         }
-        let block = press.entity;
-        if !blocks.selectable.contains(block) {
-            if !selection.is_collapsed() || selection.anchor.is_some() {
+        let Some(block) = blocks.block_of(press.entity) else {
+            if selection.anchor.is_some() {
                 selection.clear();
             }
             continue;
-        }
+        };
         let group = blocks.group_of(block);
         let Some(index) = blocks.index_at(block, press.pointer.position) else {
             continue;
@@ -462,7 +517,7 @@ fn pointer_selection(
         selection.dragging = Some(press.pointer.id);
     }
 
-    for drag in drags.read() {
+    for drag in &drags {
         if drag.button != PointerButton::Primary || selection.dragging != Some(drag.pointer.id) {
             continue;
         }
@@ -477,36 +532,40 @@ fn pointer_selection(
         }
     }
 
-    for release in releases.read() {
+    for release in &releases {
         if release.button == PointerButton::Primary {
             selection.dragging = None;
         }
     }
 
-    for click in clicks.read() {
-        if click.button != PointerButton::Primary || !blocks.selectable.contains(click.entity) {
+    for click in &clicks {
+        if click.button != PointerButton::Primary {
             continue;
         }
+        let Some(block) = blocks.block_of(click.entity) else {
+            continue;
+        };
         // A drag that selected something is not a click.
         if !selection.is_collapsed() {
             continue;
         }
-        let block = click.entity;
         let Some(index) = blocks.index_at(block, click.pointer.position) else {
             continue;
         };
-        // Clicking past the end of a line should not activate the last span.
-        let inside = blocks
-            .layout_point(block, click.pointer.position, false)
-            .and_then(|p| {
-                let (computed, ..) = blocks.texts.get(block).ok()?;
-                Some(text::point_inside_text(computed.buffer(), p))
-            })
-            .unwrap_or(false);
-        if !inside {
-            continue;
-        }
-        let span = blocks.span_at(block, index).unwrap_or(block);
+        // Bevy picks individual spans; a click on the root text (e.g. past the end of a
+        // line) only counts when it lands on a glyph line.
+        let span = if blocks.spans.contains(click.entity) {
+            click.entity
+        } else {
+            let inside = blocks
+                .layout_point(block, click.pointer.position, false)
+                .zip(blocks.texts.get(block).ok())
+                .is_some_and(|(p, (c, ..))| text::point_inside_text(c.buffer(), p));
+            if !inside {
+                continue;
+            }
+            blocks.span_at(block, index).unwrap_or(block)
+        };
         commands.trigger(TextSpanClick {
             entity: span,
             block,
@@ -667,17 +726,14 @@ fn update_accessibility(
 ) {
     for (entity, computed, node) in changed {
         let label = block_text(computed, &text, &spans);
-        match node {
-            Some(mut node) => {
-                if node.label().is_none_or(|l| *l != *label) {
-                    node.set_label(label);
-                }
-            }
-            None => {
-                let mut node = accesskit::Node::new(accesskit::Role::Paragraph);
+        if let Some(mut node) = node {
+            if node.label().is_none_or(|l| *l != *label) {
                 node.set_label(label);
-                commands.entity(entity).insert(AccessibilityNode(node));
             }
+        } else {
+            let mut node = accesskit::Node::new(accesskit::Role::Paragraph);
+            node.set_label(label);
+            commands.entity(entity).insert(AccessibilityNode(node));
         }
     }
 }
@@ -762,25 +818,27 @@ fn draw_highlights(
     let layer = layers
         .iter()
         .find(|(_, parent, _)| parent.parent() == group)
-        .map(|(e, ..)| e)
-        .unwrap_or_else(|| {
-            commands
-                .spawn((
-                    HighlightLayer,
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(0.0),
-                        top: Val::Px(0.0),
-                        width: Val::Percent(100.0),
-                        height: Val::Percent(100.0),
-                        ..default()
-                    },
-                    ZIndex(1000),
-                    Pickable::IGNORE,
-                    ChildOf(group),
-                ))
-                .id()
-        });
+        .map_or_else(
+            || {
+                commands
+                    .spawn((
+                        HighlightLayer,
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(0.0),
+                            top: Val::Px(0.0),
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            ..default()
+                        },
+                        ZIndex(1000),
+                        Pickable::IGNORE,
+                        ChildOf(group),
+                    ))
+                    .id()
+            },
+            |(e, ..)| e,
+        );
     for rect in rects {
         commands.spawn((
             HighlightRect,
@@ -805,32 +863,22 @@ fn hover_cursor(
     hover: Res<HoverMap>,
     blocks: Blocks,
     clickable: Query<(), With<ClickableSpan>>,
-    pointer: Query<&PointerLocation>,
     mut cursors: Query<&mut EntityCursor, With<SelectableText>>,
     selection: Res<TextSelection>,
 ) {
     let Some(hits) = hover.get(&PointerId::Mouse) else {
         return;
     };
-    let position = pointer
-        .iter()
-        .find_map(|p| p.location.as_ref().map(|l| l.position));
+
     for entity in hits.keys() {
-        let Ok(mut cursor) = cursors.get_mut(*entity) else {
+        let Some(block) = blocks.block_of(*entity) else {
             continue;
         };
-        let over_link = selection.dragging.is_none()
-            && position.is_some_and(|pos| {
-                blocks.index_at(*entity, pos).is_some_and(|index| {
-                    blocks
-                        .span_at(*entity, index)
-                        .is_some_and(|span| clickable.contains(span))
-                        && blocks
-                            .layout_point(*entity, pos, false)
-                            .zip(blocks.texts.get(*entity).ok())
-                            .is_some_and(|(p, (c, ..))| text::point_inside_text(c.buffer(), p))
-                })
-            });
+        let Ok(mut cursor) = cursors.get_mut(block) else {
+            continue;
+        };
+        // Bevy picks individual spans, so the hit itself tells us whether it is a link.
+        let over_link = selection.dragging.is_none() && clickable.contains(*entity);
         let icon = if over_link {
             SystemCursorIcon::Pointer
         } else {
@@ -840,5 +888,38 @@ fn hover_cursor(
         if *cursor != desired {
             *cursor = desired;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ranges_span_blocks_in_order() {
+        let blocks: Vec<Entity> = (1..=3).map(|i| Entity::from_raw_u32(i).unwrap()).collect();
+        let len = |_: Entity| 10;
+        let mut selection = TextSelection {
+            group: Some(blocks[0]),
+            anchor: Some(TextPoint {
+                block: blocks[2],
+                index: 4,
+            }),
+            focus: Some(TextPoint {
+                block: blocks[0],
+                index: 7,
+            }),
+            dragging: None,
+        };
+        // Backwards selections are normalised.
+        assert_eq!(
+            selection.ranges(&blocks, len),
+            vec![(blocks[0], 7, 10), (blocks[1], 0, 10), (blocks[2], 0, 4)]
+        );
+        selection.focus = selection.anchor;
+        assert!(selection.is_collapsed());
+        assert_eq!(selection.ranges(&blocks, len), Vec::new());
+        selection.select_block_range(blocks[0], blocks[1], 2, 5);
+        assert_eq!(selection.ranges(&blocks, len), vec![(blocks[1], 2, 5)]);
     }
 }
