@@ -2,7 +2,7 @@
 //!
 //! - [`LayoutMode`] follows the window width: sidebars are inline on wide screens and become
 //!   slide-over drawers on tablets and phones.
-//! - Touch drags scroll the nearest [`ScrollArea`] with momentum (mouse drags select text).
+//! - Touch drags scroll the nearest `ScrollArea` with momentum (mouse drags select text).
 //! - On touch devices, a selection action bar offers Copy / Select all, and focusing a text
 //!   field shows an in-app keyboard (a Feathers [`VirtualKeyboard`]), since a WebGL canvas
 //!   cannot summon the phone's keyboard.
@@ -14,7 +14,7 @@ use bevy::{
     picking::events::{PointerDrag, PointerDragEnd, PointerDragStart},
     prelude::*,
     text::{EditableText, FontWeight, TextEdit},
-    ui_widgets::{Activate, ScrollArea},
+    ui_widgets::Activate,
     window::PrimaryWindow,
 };
 use bevy_radioactive::coat::coat;
@@ -104,6 +104,8 @@ fn detect_touch(
 
 #[derive(Resource, Default)]
 struct TouchScroll {
+    /// Touch drag that has not picked a scroll area yet (decided by its first movement).
+    pending: Option<(Entity, bevy::picking::pointer::PointerId)>,
     /// Scroll area being dragged, and the pointer dragging it.
     active: Option<(Entity, bevy::picking::pointer::PointerId)>,
     /// Scroll area coasting after release.
@@ -112,33 +114,35 @@ struct TouchScroll {
     velocity: Vec2,
 }
 
-/// The nearest scrollable ancestor (or self) of `entity`.
+/// The nearest ancestor (or self) of `entity` that can scroll along the drag's main axis,
+/// so a vertical swipe over a sideways-scrolling code block still scrolls the page.
 fn scroll_target(
     entity: Entity,
+    delta: Vec2,
     parents: &Query<&ChildOf>,
-    areas: &Query<(&Node, &ComputedNode), With<ScrollArea>>,
+    areas: &Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
 ) -> Option<Entity> {
+    let vertical = delta.y.abs() >= delta.x.abs();
     std::iter::once(entity)
         .chain(parents.iter_ancestors(entity))
         .find(|e| {
-            areas.get(*e).is_ok_and(|(node, computed)| {
+            areas.get(*e).is_ok_and(|(node, computed, _)| {
                 let overflow = computed.content_size() - computed.size();
-                (node.overflow.y == OverflowAxis::Scroll && overflow.y > 1.0)
-                    || (node.overflow.x == OverflowAxis::Scroll && overflow.x > 1.0)
+                if vertical {
+                    node.overflow.y == OverflowAxis::Scroll && overflow.y > 1.0
+                } else {
+                    node.overflow.x == OverflowAxis::Scroll && overflow.x > 1.0
+                }
             })
         })
 }
 
-fn touch_drag_start(
-    drag: On<PointerDragStart>,
-    parents: Query<&ChildOf>,
-    areas: Query<(&Node, &ComputedNode), With<ScrollArea>>,
-    mut scroll: ResMut<TouchScroll>,
-) {
+fn touch_drag_start(drag: On<PointerDragStart>, mut scroll: ResMut<TouchScroll>) {
     if !drag.pointer.id.is_touch() || drag.entity != drag.original_event_target() {
         return;
     }
-    scroll.active = scroll_target(drag.entity, &parents, &areas).map(|e| (e, drag.pointer.id));
+    scroll.pending = Some((drag.entity, drag.pointer.id));
+    scroll.active = None;
     scroll.coasting = None;
     scroll.velocity = Vec2::ZERO;
 }
@@ -147,9 +151,17 @@ fn touch_drag(
     drag: On<PointerDrag>,
     time: Res<Time<Real>>,
     selection: Res<TextSelection>,
+    parents: Query<&ChildOf>,
     mut scroll: ResMut<TouchScroll>,
     mut areas: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
 ) {
+    if let Some((entity, pointer)) = scroll.pending
+        && pointer == drag.pointer.id
+    {
+        scroll.pending = None;
+        scroll.active =
+            scroll_target(entity, drag.distance, &parents, &areas).map(|e| (e, pointer));
+    }
     let Some((target, pointer)) = scroll.active else {
         return;
     };
@@ -169,6 +181,7 @@ fn touch_drag(
 }
 
 fn touch_drag_end(drag: On<PointerDragEnd>, mut scroll: ResMut<TouchScroll>) {
+    scroll.pending = None;
     if let Some((target, pointer)) = scroll.active
         && pointer == drag.pointer.id
     {
@@ -323,7 +336,7 @@ fn track_keyboard_target(
 const ROWS: [&[&str]; 4] = [
     &["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
     &["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-    &["z", "x", "c", "v", "b", "n", "m", "←"],
+    &["z", "x", "c", "v", "b", "n", "m", "del"],
     &["space", "Done"],
 ];
 
@@ -344,7 +357,7 @@ fn on_virtual_key(
             nav.keyboard.set(false);
             return;
         }
-        "←" => {
+        "del" => {
             if let Ok(mut field) = fields.get_mut(entity) {
                 field.queue_edit(TextEdit::Backspace);
             }

@@ -97,6 +97,11 @@ fn shell(nav: Nav, vault: Vault) -> impl Scene {
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
+            // UI roots are flex items of the camera viewport: without this the root grows to
+            // the min-content width of wide content (e.g. long code lines) on narrow screens.
+            min_width: Val::Px(0.0),
+            min_height: Val::Px(0.0),
+            overflow: Overflow::clip(),
         }
         BackgroundColor(BG)
         Children [
@@ -505,8 +510,10 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
         Node {
             flex_grow: 1.0,
             flex_shrink: 1.0,
+            flex_basis: Val::Px(0.0),
             min_width: Val::Px(0.0),
             flex_direction: FlexDirection::Column,
+            overflow: Overflow::clip_x(),
         }
         Children [
             @{top}
@@ -517,14 +524,16 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
                     Node {
                         flex_grow: 1.0,
                         flex_basis: Val::Px(0.0),
-                        overflow: Overflow::scroll_y(),
+                        overflow: Overflow { x: OverflowAxis::Clip, y: OverflowAxis::Scroll },
                         justify_content: JustifyContent::Center,
+                        min_width: Val::Px(0.0),
                     }
                     NotePane
                     Children [
                         Node {
                             width: Val::Percent(100.0),
                             max_width: Val::Px(780.0),
+                            min_width: Val::Px(0.0),
                             padding: $(if $mode == LayoutMode::Compact {
                                 UiRect::new(Val::Px(18.0), Val::Px(18.0), Val::Px(18.0), Val::Px(140.0))
                             } else {
@@ -599,7 +608,7 @@ fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -
         .into_iter()
         .collect();
     Box::new(bsn! {
-        Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
+        Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0), min_width: Val::Px(0.0) }
         Children [
             {title}
             --

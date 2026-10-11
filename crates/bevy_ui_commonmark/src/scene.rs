@@ -65,6 +65,7 @@ pub fn markdown_scene(doc: &MdDocument, options: &RenderOptions) -> impl Scene +
         flex_direction: FlexDirection::Column,
         row_gap: Val::Px(theme.block_gap),
         width: Val::Percent(100.0),
+        min_width: Val::Px(0.0),
         ..default()
     };
     bsn! {
@@ -149,6 +150,7 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
                 row_gap: Val::Px(theme.block_gap * 0.6),
                 padding: UiRect::new(Val::Px(16.0), Val::Px(12.0), Val::Px(10.0), Val::Px(10.0)),
                 border: UiRect::left(Val::Px(3.0)),
+                min_width: Val::Px(0.0),
                 border_radius: BorderRadius::all(Val::Px(4.0)),
                 ..default()
             };
@@ -407,6 +409,7 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
         Node {
             overflow: Overflow::scroll_x(),
             width: Val::Percent(100.0),
+            min_width: Val::Px(0.0),
             padding: UiRect::bottom(Val::Px(4.0)),
         }
         bevy::ui_widgets::ScrollArea
@@ -429,6 +432,8 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
     let copy_label = Text::new("Copy");
     let node = Node {
         flex_direction: FlexDirection::Column,
+        min_width: Val::Px(0.0),
+        overflow: Overflow::clip_x(),
         padding: UiRect::new(Val::Px(14.0), Val::Px(14.0), Val::Px(8.0), Val::Px(12.0)),
         border_radius: BorderRadius::all(Val::Px(6.0)),
         row_gap: Val::Px(4.0),
