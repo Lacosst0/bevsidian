@@ -181,7 +181,10 @@ impl VaultData {
             .char_indices()
             .nth(term.chars().count() + 50)
             .map_or(text.len(), |(i, _)| at + i);
-        let snippet = text[start..end].replace('\n', " ");
+        let snippet = text[start..end]
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
         Some(format!(
             "{}{snippet}{}",
             if start > 0 { "…" } else { "" },

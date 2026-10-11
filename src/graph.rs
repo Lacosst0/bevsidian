@@ -296,7 +296,7 @@ fn simulate(
         for j in (i + 1)..positions.len() {
             let delta = positions[i].1 - positions[j].1;
             let dist2 = delta.length_squared().max(25.0);
-            let f = delta.normalize_or(Vec2::X) * (40000.0 / dist2);
+            let f = delta.normalize_or(Vec2::X) * (90000.0 / dist2);
             forces[i] += f;
             forces[j] -= f;
         }
@@ -307,7 +307,7 @@ fn simulate(
             continue;
         };
         let delta = positions[j].1 - positions[i].1;
-        let rest = if tag { 70.0 } else { 120.0 };
+        let rest = if tag { 90.0 } else { 160.0 };
         let f = delta.normalize_or_zero() * (delta.length() - rest) * 0.6;
         forces[i] += f;
         forces[j] -= f;

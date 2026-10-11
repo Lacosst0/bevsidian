@@ -56,8 +56,8 @@ pub use text::{block_text, slice_text};
 /// Common imports.
 pub mod prelude {
     pub use crate::{
-        ClickableSpan, CopyText, SelectableText, SelectionGroup, SelectionStyle, TextPoint,
-        TextSelectPlugin, TextSelection, TextSpanClick,
+        ClickableSpan, CopyText, Modifiers, SelectableText, SelectionGroup, SelectionStyle,
+        TextPoint, TextSelectPlugin, TextSelection, TextSpanClick,
     };
 }
 
@@ -423,6 +423,77 @@ impl Blocks<'_, '_> {
     }
 }
 
+/// Modifier keys, replayed in event order.
+///
+/// `ButtonInput` only reflects the state at the end of the frame, so a fast `Ctrl+C` whose
+/// press and release land in the same frame would be missed. This starts from the state
+/// before the frame's events and is updated by each [`KeyboardInput`] in order.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct Modifiers {
+    /// Either Control key.
+    pub ctrl: bool,
+    /// Either Shift key.
+    pub shift: bool,
+    /// Either Alt/Option key.
+    pub alt: bool,
+    /// Either Super/Cmd key.
+    pub super_key: bool,
+}
+
+const MODIFIER_KEYS: [KeyCode; 8] = [
+    KeyCode::ControlLeft,
+    KeyCode::ControlRight,
+    KeyCode::ShiftLeft,
+    KeyCode::ShiftRight,
+    KeyCode::AltLeft,
+    KeyCode::AltRight,
+    KeyCode::SuperLeft,
+    KeyCode::SuperRight,
+];
+
+impl Modifiers {
+    /// Modifier state before this frame's keyboard events.
+    pub fn before_frame(keys: &ButtonInput<KeyCode>) -> Self {
+        let mut m = Self::default();
+        for key in MODIFIER_KEYS {
+            let held = (keys.pressed(key) && !keys.just_pressed(key))
+                || (keys.just_released(key) && !keys.just_pressed(key));
+            if held {
+                m.set(key, true);
+            }
+        }
+        m
+    }
+
+    /// Applies one keyboard event.
+    pub fn update(&mut self, input: &KeyboardInput) {
+        if MODIFIER_KEYS.contains(&input.key_code) {
+            self.set(input.key_code, input.state == ButtonState::Pressed);
+        }
+    }
+
+    fn set(&mut self, key: KeyCode, held: bool) {
+        let flag = match key {
+            KeyCode::ControlLeft | KeyCode::ControlRight => &mut self.ctrl,
+            KeyCode::ShiftLeft | KeyCode::ShiftRight => &mut self.shift,
+            KeyCode::AltLeft | KeyCode::AltRight => &mut self.alt,
+            KeyCode::SuperLeft | KeyCode::SuperRight => &mut self.super_key,
+            _ => return,
+        };
+        *flag = held;
+    }
+
+    /// The platform's command modifier: Cmd on macOS hosts, Ctrl elsewhere.
+    pub fn command(&self) -> bool {
+        if cfg!(target_os = "macos") || mac_host() {
+            self.super_key
+        } else {
+            self.ctrl
+        }
+    }
+}
+
 fn shift_pressed(keys: &ButtonInput<KeyCode>) -> bool {
     keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight])
 }
@@ -589,16 +660,13 @@ fn keyboard_selection(
         keys_in.clear();
         return;
     }
-    let command = if cfg!(target_os = "macos") || mac_host() {
-        keys.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
-    } else {
-        keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
-    };
-    let shift = shift_pressed(&keys);
+    let mut modifiers = Modifiers::before_frame(&keys);
     for input in keys_in.read() {
+        modifiers.update(input);
         if input.state != ButtonState::Pressed {
             continue;
         }
+        let (command, shift) = (modifiers.command(), modifiers.shift);
         match &input.logical_key {
             Key::Character(c) if command && c.eq_ignore_ascii_case("c") => {
                 if !selection.is_collapsed() {

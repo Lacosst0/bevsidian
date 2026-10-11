@@ -9,7 +9,7 @@ use bevy::{
 };
 use bevy_radioactive::coat::{Signal, signal};
 use bevy_ui_commonmark::{LinkTarget, MdFootnote, MdHeading, MdLinkActivated};
-use bevy_ui_textselect::TextSelection;
+use bevy_ui_textselect::{Modifiers, TextSelection};
 
 use crate::vault::{NoteId, Vault};
 
@@ -210,13 +210,7 @@ fn shortcuts(
     mut focus: ResMut<InputFocus>,
     mut selection: ResMut<TextSelection>,
 ) {
-    let command = keys.any_pressed([
-        KeyCode::ControlLeft,
-        KeyCode::ControlRight,
-        KeyCode::SuperLeft,
-        KeyCode::SuperRight,
-    ]);
-    let alt = keys.any_pressed([KeyCode::AltLeft, KeyCode::AltRight]);
+    let mut modifiers = Modifiers::before_frame(&keys);
     if mouse.just_pressed(MouseButton::Back) {
         nav.go_back();
     }
@@ -224,9 +218,12 @@ fn shortcuts(
         nav.go_forward();
     }
     for input in keys_in.read() {
+        modifiers.update(input);
         if input.state != ButtonState::Pressed {
             continue;
         }
+        let command = modifiers.ctrl || modifiers.super_key;
+        let alt = modifiers.alt;
         match input.key_code {
             KeyCode::KeyO if command => nav.open_switcher(),
             KeyCode::KeyG if command => nav.toggle_graph(),

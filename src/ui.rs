@@ -194,9 +194,10 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
             }
             ScrollArea
             Children [
-                #[key(*id)]
-                for id in $(files_vault.search(&$query, $tag.as_deref())) {
-                    @{file_row(id, nav_files.clone(), &excerpt_vault, &query.get_untracked(), current.clone())}
+                #[key(entry.clone())]
+                for entry in $(files_vault.search(&$query, $tag.as_deref()).into_iter().map(|id| (id, $query.clone())).collect::<Vec<_>>()) {
+                    let (id, search) = entry;
+                    @{file_row(id, nav_files.clone(), &excerpt_vault, &search, current.clone())}
                 }
                 --
                 if $(empty_vault.search(&$query, $tag.as_deref()).is_empty()) {
