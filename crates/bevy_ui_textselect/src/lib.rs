@@ -34,6 +34,7 @@ use bevy::{
     input::{
         ButtonState,
         keyboard::{Key, KeyboardInput},
+        touch::{TouchInput, TouchPhase},
     },
     input_focus::InputFocus,
     picking::{
@@ -707,9 +708,24 @@ fn pointer_selection(
 /// Turns a held, still touch into a word selection that the finger can then extend.
 fn long_press_selection(
     time: Res<Time<Real>>,
+    mut touches: MessageReader<TouchInput>,
     mut selection: ResMut<TextSelection>,
     blocks: Blocks,
 ) {
+    // A lifted finger cancels the long-press even if no pointer release reached us.
+    for touch in touches.read() {
+        if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Canceled) {
+            if selection
+                .long_press
+                .is_some_and(|lp| lp.pointer == PointerId::Touch(touch.id))
+            {
+                selection.long_press = None;
+            }
+            if selection.dragging == Some(PointerId::Touch(touch.id)) {
+                selection.dragging = None;
+            }
+        }
+    }
     let Some(lp) = selection.long_press else {
         return;
     };
