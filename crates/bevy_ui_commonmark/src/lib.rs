@@ -76,7 +76,7 @@ impl Plugin for CommonMarkPlugin {
     }
 }
 
-/// Hides top-level blocks that are scrolled more than half a screen out of view.
+/// Hides top-level blocks that are scrolled more than a quarter screen out of view.
 ///
 /// Scrolling moves every node of a document, so without this each frame re-extracts and
 /// re-clips every glyph of the whole note. Hidden blocks keep their layout and text, so
@@ -98,9 +98,11 @@ fn cull_offscreen_blocks(
         }) else {
             continue;
         };
-        // Visible band, extended by half a viewport height on each side so blocks are already
-        // shown when a fast fling reaches them.
-        let (top, bottom) = (transform.y - viewport.y, transform.y + viewport.y);
+        // Visible band, extended by a quarter viewport on each side: visibility applies a
+        // frame late, and even a fast fling moves far less than that per frame. Every glyph
+        // in the band is rebuilt each frame, so the band stays small.
+        let reach = viewport.y * 0.75;
+        let (top, bottom) = (transform.y - reach, transform.y + reach);
         for child in children {
             let Ok((computed, transform, mut visibility)) = blocks.get_mut(*child) else {
                 continue;
