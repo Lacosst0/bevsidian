@@ -34,7 +34,7 @@ use bevy::{
     input::{
         ButtonState,
         keyboard::{Key, KeyboardInput},
-        touch::{TouchInput, TouchPhase},
+        touch::Touches,
     },
     input_focus::InputFocus,
     picking::{
@@ -189,6 +189,10 @@ struct LongPress {
     /// `Time<Real>` elapsed seconds when the finger went down. (Not an accumulated delta:
     /// apps in reactive mode can have very long frames after being idle.)
     started: f64,
+    /// The span that was pressed (Bevy picks spans), for taps that never produce a click.
+    hit: Entity,
+    /// A click was already delivered for this press.
+    clicked: bool,
 }
 
 /// How long a touch must be held still to select a word, in seconds.
@@ -594,6 +598,8 @@ fn pointer_selection(
                 block,
                 position: press.pointer.position,
                 started: time.elapsed_secs_f64(),
+                hit: press.entity,
+                clicked: false,
             });
             // Tapping text clears a selection; tapping elsewhere (e.g. a "Copy" button) keeps it.
             if selection.long_press.is_some() && !selection.is_collapsed() {
@@ -672,6 +678,11 @@ fn pointer_selection(
         if click.button != PointerButton::Primary {
             continue;
         }
+        if let Some(lp) = selection.long_press.as_mut()
+            && lp.pointer == click.pointer.id
+        {
+            lp.clicked = true;
+        }
         let Some(block) = blocks.block_of(click.entity) else {
             continue;
         };
@@ -708,27 +719,44 @@ fn pointer_selection(
 /// Turns a held, still touch into a word selection that the finger can then extend.
 fn long_press_selection(
     time: Res<Time<Real>>,
-    mut touches: MessageReader<TouchInput>,
+    touches: Res<Touches>,
     mut selection: ResMut<TextSelection>,
     blocks: Blocks,
+    mut commands: Commands,
 ) {
-    // A lifted finger cancels the long-press even if no pointer release reached us.
-    for touch in touches.read() {
-        if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Canceled) {
-            if selection
-                .long_press
-                .is_some_and(|lp| lp.pointer == PointerId::Touch(touch.id))
-            {
-                selection.long_press = None;
-            }
-            if selection.dragging == Some(PointerId::Touch(touch.id)) {
-                selection.dragging = None;
-            }
-        }
+    if let Some(PointerId::Touch(id)) = selection.dragging
+        && touches.get_pressed(id).is_none()
+    {
+        selection.dragging = None;
     }
     let Some(lp) = selection.long_press else {
         return;
     };
+    let PointerId::Touch(id) = lp.pointer else {
+        selection.long_press = None;
+        return;
+    };
+    if touches.get_pressed(id).is_none() {
+        // The finger lifted. A very quick tap can start and end within one frame, in which
+        // case picking reports the press but no click: deliver the tap ourselves.
+        selection.long_press = None;
+        if !lp.clicked
+            && let Some(index) = blocks.index_at(lp.block, lp.position)
+        {
+            let span = if blocks.spans.contains(lp.hit) {
+                lp.hit
+            } else {
+                blocks.span_at(lp.block, index).unwrap_or(lp.block)
+            };
+            commands.trigger(TextSpanClick {
+                entity: span,
+                block: lp.block,
+                index,
+                span,
+            });
+        }
+        return;
+    }
     if time.elapsed_secs_f64() - lp.started < f64::from(LONG_PRESS_SECONDS) {
         return;
     }
