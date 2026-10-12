@@ -277,18 +277,22 @@ impl VelocityTracker {
         }
     }
 
-    fn velocity(&self, now: f64) -> Vec2 {
+    /// Velocity at `now`. Samples are stamped with frame times, so pauses shorter than two
+    /// frames (`frame` s each) are not taken as the finger resting.
+    fn velocity(&self, now: f64, frame: f64) -> Vec2 {
         let Some(&(newest, _)) = self.samples.back() else {
             return Vec2::ZERO;
         };
-        if now - newest > Self::STOPPED {
+        let stopped = Self::STOPPED.max(2.0 * frame);
+        if now - newest > stopped {
             return Vec2::ZERO;
         }
         // Samples within the horizon, without a pause between them.
+        let horizon = Self::HORIZON.max(3.0 * frame);
         let mut used: Vec<(f64, Vec2)> = Vec::new();
         let mut previous = newest;
         for &(time, travel) in self.samples.iter().rev() {
-            if newest - time > Self::HORIZON || previous - time > Self::STOPPED {
+            if newest - time > horizon || previous - time > stopped {
                 break;
             }
             used.push((time - newest, travel));
@@ -442,7 +446,8 @@ fn touch_drag_end(
         scroll.active = None;
         let now = time.elapsed_secs_f64();
         // The finger moves the page 1:1; the scroll speed setting scales the fling.
-        let velocity = (scroll.tracker.velocity(now) * nav.scroll_factor())
+        let frame = f64::from(time.delta_secs()).min(0.1);
+        let velocity = (scroll.tracker.velocity(now, frame) * nav.scroll_factor())
             .clamp_length_max(MAX_FLING_VELOCITY);
         let start = areas.get(target).map_or(Vec2::ZERO, |(_, _, p)| p.0);
         scroll.fling = Fling::new(now, start, velocity);
@@ -786,11 +791,18 @@ mod tests {
         for i in 0..12 {
             tracker.add(f64::from(i) / 120.0, Vec2::new(0.0, 10.0));
         }
-        let v = tracker.velocity(11.0 / 120.0);
+        let v = tracker.velocity(11.0 / 120.0, 1.0 / 120.0);
         assert!((v.y - 1200.0).abs() < 1.0, "{v}");
         assert!(v.x.abs() < 1e-3);
         // A finger that rested for more than 40 ms before lifting does not fling.
-        assert_eq!(tracker.velocity(11.0 / 120.0 + 0.05), Vec2::ZERO);
+        assert_eq!(tracker.velocity(11.0 / 120.0 + 0.05, 1.0 / 120.0), Vec2::ZERO);
+        // At 10 fps (slow frames), a release one frame after the last move still flings.
+        let mut slow = VelocityTracker::default();
+        for i in 0..4 {
+            slow.add(f64::from(i) / 10.0, Vec2::new(0.0, 120.0));
+        }
+        let v = slow.velocity(0.4, 0.1);
+        assert!((v.y - 1200.0).abs() < 1.0, "{v}");
     }
 
     #[test]
