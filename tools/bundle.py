@@ -39,9 +39,12 @@ def main() -> None:
     loader = f"""
 const WASM_GZIP_BASE64 = "{packed}";
 
+// Decoded in place (no fetch), so it also works where data: URLs cannot be fetched.
 async function wasmBytes() {{
-  const response = await fetch("data:application/gzip;base64," + WASM_GZIP_BASE64);
-  const stream = response.body.pipeThrough(new DecompressionStream("gzip"));
+  const text = atob(WASM_GZIP_BASE64);
+  const bytes = new Uint8Array(text.length);
+  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
   return new Response(stream).arrayBuffer();
 }}
 
