@@ -203,7 +203,9 @@ fn update_readout(
 }
 
 /// Starts or stops a tiny `requestAnimationFrame` loop that measures how often the browser
-/// offers frames to the page. It only runs while the readout or Settings is open.
+/// offers frames to the page. It only runs while the readout or Settings is open. With the
+/// worker frame clock, the worker reports its own rate instead (`web/frameclock.js`); the loop
+/// then only keeps that clock running.
 fn display_probe(on: bool) {
     #[cfg(target_arch = "wasm32")]
     {
@@ -212,7 +214,9 @@ fn display_probe(on: bool) {
              let last = 0, n = 0, acc = 0; \
              const tick = (t) => { if (!window.__bvsProbe) return; \
                if (last) { acc += t - last; n++; \
-                 if (acc >= 500) { window.__bvsHz = 1000 * n / acc; n = 0; acc = 0; } } \
+                 if (acc >= 500) { \
+                   if (window.__bvsClock !== 'worker') window.__bvsHz = 1000 * n / acc; \
+                   n = 0; acc = 0; } } \
                last = t; requestAnimationFrame(tick); }; \
              requestAnimationFrame(tick); })()"
         } else {

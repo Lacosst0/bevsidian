@@ -795,7 +795,10 @@ mod tests {
         assert!((v.y - 1200.0).abs() < 1.0, "{v}");
         assert!(v.x.abs() < 1e-3);
         // A finger that rested for more than 40 ms before lifting does not fling.
-        assert_eq!(tracker.velocity(11.0 / 120.0 + 0.05, 1.0 / 120.0), Vec2::ZERO);
+        assert_eq!(
+            tracker.velocity(11.0 / 120.0 + 0.05, 1.0 / 120.0),
+            Vec2::ZERO
+        );
         // At 10 fps (slow frames), a release one frame after the last move still flings.
         let mut slow = VelocityTracker::default();
         for i in 0..4 {

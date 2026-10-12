@@ -37,6 +37,9 @@
   // stops a few refreshes after going idle.
   const workerSource = `
     let view = null, ctx = null, running = false, wanted = false, idle = 0, shown = 0;
+    // The worker clock's own rate (refreshes per second while running): the ceiling for
+    // this page, whatever the app manages.
+    let since = 0, ticks = 0;
     const queue = [];
     onmessage = (event) => {
       const m = event.data;
@@ -46,9 +49,16 @@
         while (queue.length > 2) queue.shift().close();
       }
       if (m.want) wanted = true;
-      if (!running) { running = true; idle = 0; requestAnimationFrame(tick); }
+      if (!running) { running = true; idle = 0; since = 0; requestAnimationFrame(tick); }
     };
-    function tick() {
+    function tick(time) {
+      if (!since) since = time;
+      ticks++;
+      if (time - since >= 500) {
+        postMessage({ hz: (ticks * 1000) / (time - since) });
+        since = time;
+        ticks = 0;
+      }
       const frame = queue.shift();
       if (frame && ctx) {
         if (view.width !== frame.width) view.width = frame.width;
@@ -103,6 +113,11 @@
   };
   const cancel = (id) => callbacks.delete(id);
   worker.onmessage = (event) => {
+    if (event.data.hz) {
+      // Shown as "display … Hz" in the FPS readout.
+      window.__bvsHz = event.data.hz;
+      return;
+    }
     stats.shown = event.data.shown;
     stats.ticks++;
     requested = false;
