@@ -48,14 +48,14 @@ cargo install wasm-bindgen-cli --version <version in Cargo.lock>
 tools/build-web.sh          # writes dist/index.html and dist/bevsidian-web.zip
 ```
 
-For a faster edit-compile loop:
+For quick test builds of the web version (seconds after the first build; no LTO or wasm-opt,
+so it is bigger and a little slower):
 
 ```sh
-cargo run --features dev                # links Bevy dynamically: rebuilds only relink this app
-PROFILE=wasm-dev tools/build-web.sh     # quick web build: no LTO, no wasm-opt (bigger, a bit slower)
+PROFILE=wasm-dev tools/build-web.sh
 ```
 
-On Linux, native builds need `libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev`.
+On Linux, native builds need `libwayland-dev libxkbcommon-dev`.
 
 ## Releases
 

@@ -16,7 +16,8 @@ wasm-bindgen --target web --no-typescript --out-dir target/web-pkg --out-name be
 if [ "$PROFILE" != wasm-release ]; then
   echo "skipping wasm-opt for the $PROFILE profile"
 elif command -v wasm-opt >/dev/null; then
-  wasm-opt -O3 --enable-simd --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
+  # -O2 runs as fast as -O3 in the browser and takes about half the time; -O1 is ~30% slower.
+  wasm-opt -O2 --enable-simd --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
     --enable-mutable-globals --enable-reference-types --enable-multivalue \
     -o target/web-pkg/bevsidian_bg.wasm target/web-pkg/bevsidian_bg.wasm
 else
