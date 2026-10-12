@@ -67,10 +67,23 @@ pub struct Nav {
     pub keyboard: Signal<bool>,
     /// Reading text size in logical px.
     pub text_size: Signal<u32>,
+    /// Settings panel open.
+    pub settings: Signal<bool>,
+    /// Scroll speed in percent of the default.
+    pub scroll_speed: Signal<u32>,
+    /// Show the frame-rate readout.
+    pub show_fps: Signal<bool>,
 }
 
 /// Smallest and largest reading text size.
 pub const TEXT_SIZES: std::ops::RangeInclusive<u32> = 13..=24;
+
+/// Slowest and fastest scroll speed (percent), and the step between them.
+pub const SCROLL_SPEEDS: std::ops::RangeInclusive<u32> = 50..=300;
+pub const SCROLL_SPEED_STEP: i32 = 25;
+
+/// Wheel and fling distance at 100 % scroll speed, relative to the platform default.
+pub const BASE_SCROLL_FACTOR: f32 = 1.15;
 
 /// A scroll target inside the current note.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -99,6 +112,9 @@ impl Nav {
             has_selection: signal(|| false),
             keyboard: signal(|| false),
             text_size: signal(|| 16),
+            settings: signal(|| false),
+            scroll_speed: signal(|| 100),
+            show_fps: signal(|| false),
         }
     }
 
@@ -160,6 +176,21 @@ impl Nav {
             .saturating_add_signed(delta)
             .clamp(*TEXT_SIZES.start(), *TEXT_SIZES.end());
         self.text_size.set_if_neq(next);
+    }
+
+    /// Changes the scroll speed by `steps` steps.
+    pub fn change_scroll_speed(&self, steps: i32) {
+        let next = self
+            .scroll_speed
+            .get_untracked()
+            .saturating_add_signed(steps * SCROLL_SPEED_STEP)
+            .clamp(*SCROLL_SPEEDS.start(), *SCROLL_SPEEDS.end());
+        self.scroll_speed.set_if_neq(next);
+    }
+
+    /// Multiplier for wheel deltas and touch flings.
+    pub fn scroll_factor(&self) -> f32 {
+        BASE_SCROLL_FACTOR * self.scroll_speed.get_untracked() as f32 / 100.0
     }
 
     pub fn show(&self, view: View) {
@@ -289,6 +320,7 @@ fn shortcuts(
         match input.key_code {
             KeyCode::KeyO if command => nav.open_switcher(),
             KeyCode::KeyG if command => nav.toggle_graph(),
+            KeyCode::Comma if command => nav.settings.set(!nav.settings.get_untracked()),
             KeyCode::Equal | KeyCode::NumpadAdd if command => nav.change_text_size(1),
             KeyCode::Minus | KeyCode::NumpadSubtract if command => nav.change_text_size(-1),
             KeyCode::ArrowLeft if alt => nav.go_back(),
@@ -297,6 +329,8 @@ fn shortcuts(
                 if nav.switcher.get_untracked() {
                     nav.switcher.set(false);
                     focus.clear();
+                } else if nav.settings.get_untracked() {
+                    nav.settings.set(false);
                 } else if nav.left_open.get_untracked() || nav.right_open.get_untracked() {
                     nav.close_drawers();
                 } else {

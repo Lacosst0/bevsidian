@@ -29,6 +29,7 @@ pub fn plugin(app: &mut App) {
         .add_observer(touch_drag)
         .add_observer(touch_drag_end)
         .add_observer(add_smooth_scroll)
+        .add_observer(boost_wheel)
         .add_systems(
             PostUpdate,
             smooth_scroll.before(bevy::ui::UiSystems::Layout),
@@ -219,13 +220,15 @@ fn touch_drag(
     }
 }
 
-fn touch_drag_end(drag: On<PointerDragEnd>, mut scroll: ResMut<TouchScroll>) {
+fn touch_drag_end(drag: On<PointerDragEnd>, nav: Res<Nav>, mut scroll: ResMut<TouchScroll>) {
     scroll.pending = None;
     if let Some((target, pointer)) = scroll.active
         && pointer == drag.pointer.id
     {
         scroll.active = None;
         scroll.coasting = Some(target);
+        // The finger moves the page 1:1; the scroll speed setting scales the fling.
+        scroll.velocity *= nav.scroll_factor();
     }
 }
 
@@ -285,6 +288,8 @@ pub struct SmoothScroll {
     shown: Vec2,
     /// Position being eased towards.
     target: Vec2,
+    /// Extra wheel distance from the scroll speed setting, added on the next frame.
+    boost: Vec2,
 }
 
 impl SmoothScroll {
@@ -308,17 +313,45 @@ fn add_smooth_scroll(
     commands.entity(add.entity).insert(SmoothScroll {
         shown: position,
         target: position,
+        boost: Vec2::ZERO,
     });
+}
+
+/// The wheel scrolls `ScrollArea`s by the platform's distance; this adds the difference to
+/// the scroll speed setting (applied in [`smooth_scroll`]).
+fn boost_wheel(
+    scroll: On<bevy::picking::events::PointerScroll>,
+    nav: Res<Nav>,
+    pixels_per_line: Res<bevy::input::mouse::MouseScrollPixelsPerLine>,
+    mut areas: Query<(&Node, &mut SmoothScroll), With<bevy::ui_widgets::ScrollArea>>,
+) {
+    let Ok((node, mut smooth)) = areas.get_mut(scroll.entity) else {
+        return;
+    };
+    let delta = scroll.to_pixels(&pixels_per_line);
+    let mut extra = -Vec2::new(delta.x, delta.y) * (nav.scroll_factor() - 1.0);
+    if node.overflow.x != OverflowAxis::Scroll {
+        extra.x = 0.0;
+    }
+    if node.overflow.y != OverflowAxis::Scroll {
+        extra.y = 0.0;
+    }
+    smooth.boost += extra;
 }
 
 fn smooth_scroll(
     time: Res<Time<Real>>,
     touch: Res<TouchScroll>,
-    mut areas: Query<(Entity, &mut ScrollPosition, &mut SmoothScroll)>,
+    mut areas: Query<(
+        Entity,
+        &ComputedNode,
+        &mut ScrollPosition,
+        &mut SmoothScroll,
+    )>,
 ) {
     // Frame-rate independent exponential easing (~90% of the way in 0.12 s).
     let t = 1.0 - (-19.0 * time.delta_secs().min(0.1)).exp();
-    for (entity, mut position, mut smooth) in &mut areas {
+    for (entity, computed, mut position, mut smooth) in &mut areas {
         let touching =
             touch.active.is_some_and(|(e, _)| e == entity) || touch.coasting == Some(entity);
         if position.0 != smooth.shown {
@@ -328,6 +361,12 @@ fn smooth_scroll(
                 continue;
             }
             smooth.target = position.0;
+        }
+        if smooth.boost != Vec2::ZERO {
+            let max = ((computed.content_size() - computed.size()) * computed.inverse_scale_factor)
+                .max(Vec2::ZERO);
+            smooth.target = (smooth.target + smooth.boost).clamp(Vec2::ZERO, max);
+            smooth.boost = Vec2::ZERO;
         }
         if !smooth.animating() {
             if smooth.shown != smooth.target {
@@ -378,6 +417,7 @@ pub fn selection_bar(nav: Nav) -> impl Scene {
         }
         GlobalZIndex(90)
         Pickable::IGNORE
+        bevy_ui_textselect::PreserveSelection
         Children [
             if $has_selection && $touch {
                 Node {

@@ -56,7 +56,7 @@ pub(crate) fn ui_font(size: f32, weight: FontWeight) -> impl Scene {
 
 /// A list row that highlights on hover.
 #[derive(Component, Clone, Copy, Debug, Default)]
-struct HoverRow;
+pub(crate) struct HoverRow;
 
 fn hover_rows(
     mut rows: Query<
@@ -93,6 +93,7 @@ fn shell(nav: Nav, vault: Vault) -> impl Scene {
     let backdrop = drawer_backdrop(nav.clone());
     let selection = crate::layout::selection_bar(nav.clone());
     let keyboard = crate::layout::keyboard_panel(nav.clone());
+    let settings = crate::settings::settings_panel(nav.clone());
     let switcher = quick_switcher(nav, vault);
     bsn! {
         Node {
@@ -115,6 +116,8 @@ fn shell(nav: Nav, vault: Vault) -> impl Scene {
             @{backdrop}
             --
             @{switcher}
+            --
+            @{settings}
             --
             @{selection}
             --
@@ -356,6 +359,7 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
         nav.current.clone(),
         nav.mode.clone(),
     );
+    let nav_settings = nav.clone();
     let (nav_back, nav_fwd, nav_note, nav_graph, nav_switch, nav_left, nav_right) = (
         nav.clone(),
         nav.clone(),
@@ -429,6 +433,10 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
             on(move |_: On<Activate>| nav_switch.open_switcher())
             --
             @{icon_button()}
+            on(move |_: On<Activate>| nav_settings.settings.set(!nav_settings.settings.get_untracked()))
+            Children [ @{crate::settings::sliders_icon()} ]
+            --
+            @{icon_button()}
             Node { display: $(if $mode.right_drawer() { Display::Flex } else { Display::None }) }
             on(move |_: On<Activate>| nav_right.toggle_drawer(false))
             Children [ @{bars_icon(true)} ]
@@ -463,7 +471,7 @@ fn bars_icon(ragged: bool) -> impl Scene {
     }
 }
 
-fn icon_button() -> impl Scene {
+pub(crate) fn icon_button() -> impl Scene {
     bsn! {
         Node {
             width: Val::Px(36.0),
@@ -482,7 +490,7 @@ fn icon_button() -> impl Scene {
     }
 }
 
-fn segment(label: &str) -> impl Scene + use<> {
+pub(crate) fn segment(label: &str) -> impl Scene + use<> {
     let text = Text::new(label);
     bsn! {
         Node {
@@ -625,12 +633,7 @@ fn right_sidebar(nav: Nav) -> impl Scene {
         let current = nav.current.clone();
         move || current.get()
     };
-    let (mode, open, size) = (
-        nav.mode.clone(),
-        nav.right_open.clone(),
-        nav.text_size.clone(),
-    );
-    let (smaller, larger) = (nav.clone(), nav.clone());
+    let (mode, open) = (nav.mode.clone(), nav.right_open.clone());
     coat! {
         Node {
             display: $(if !$mode.right_drawer() || $open { Display::Flex } else { Display::None }),
@@ -649,26 +652,6 @@ fn right_sidebar(nav: Nav) -> impl Scene {
         BackgroundColor(BG_SIDEBAR)
         BorderColor::all(BORDER)
         Children [
-            @{section_title("Reading")}
-            --
-            Node {
-                align_items: AlignItems::Center,
-                column_gap: Val::Px(8.0),
-                padding: UiRect::horizontal(Val::Px(12.0)),
-            }
-            Children [
-                @{segment("A−")}
-                BackgroundColor(BG_HOVER)
-                on(move |_: On<Activate>| smaller.change_text_size(-1))
-                --
-                Text($(format!("{} px", $size))) @{ui_font(13.0, FontWeight::NORMAL)} TextColor(MUTED)
-                Node { min_width: Val::Px(44.0), justify_content: JustifyContent::Center }
-                --
-                @{segment("A+")}
-                BackgroundColor(BG_HOVER)
-                on(move |_: On<Activate>| larger.change_text_size(1))
-            ]
-            --
             Node { flex_direction: FlexDirection::Column, padding: UiRect::bottom(Val::Px(16.0)) }
             shard(side_key.clone(), move |id: &NoteId, world: &World| side_panel(*id, world, nav.clone()))
         ]

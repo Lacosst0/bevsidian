@@ -32,7 +32,8 @@ pub mod theme;
 
 pub use document::*;
 pub use scene::{
-    MdBlock, MdCopyButton, MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions, markdown_scene,
+    CopiedBubble, MdBlock, MdCopyButton, MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions,
+    markdown_scene,
 };
 pub use theme::MdTheme;
 
@@ -70,7 +71,8 @@ impl Plugin for CommonMarkPlugin {
                 // Visibility propagates before UI layout, so changes show a frame later; the
                 // margin in `cull_offscreen_blocks` covers that.
                 cull_offscreen_blocks.after(bevy::ui::UiSystems::Layout),
-            );
+            )
+            .add_systems(Update, scene::expire_copied_bubbles);
     }
 }
 

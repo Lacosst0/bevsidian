@@ -6,8 +6,10 @@
 
 mod graph;
 mod layout;
+mod menu;
 mod nav;
 mod perf;
+mod settings;
 mod ui;
 mod vault;
 
@@ -61,7 +63,9 @@ fn main() {
             ui::plugin,
             graph::plugin,
             layout::plugin,
+            menu::plugin,
             perf::plugin,
+            settings::plugin,
         ))
         .run();
 }

@@ -57,9 +57,9 @@ pub use text::{block_text, slice_text};
 /// Common imports.
 pub mod prelude {
     pub use crate::{
-        ClearSelection, ClickableSpan, CopySelection, CopyText, Modifiers, SelectAll,
-        SelectableText, SelectionGroup, SelectionStyle, TextPoint, TextSelectPlugin, TextSelection,
-        TextSpanClick,
+        ClearSelection, ClickableSpan, CopySelection, CopyText, Modifiers, PreserveSelection,
+        SelectAll, SelectableText, SelectionGroup, SelectionStyle, TextPoint, TextSelectPlugin,
+        TextSelection, TextSpanClick,
     };
 }
 
@@ -139,6 +139,12 @@ pub struct SelectionGroup;
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct CopyText(pub String);
+
+/// Pressing this entity or its descendants keeps the current selection (e.g. a context
+/// menu or toolbar whose buttons act on the selection). Other presses outside text clear it.
+#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct PreserveSelection;
 
 /// Marks a span (or block) as clickable: shows a pointer cursor while hovered.
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
@@ -581,6 +587,7 @@ fn pointer_selection(
     mut selection: ResMut<TextSelection>,
     keys: Res<ButtonInput<KeyCode>>,
     blocks: Blocks,
+    preserving: Query<(), With<PreserveSelection>>,
     mut commands: Commands,
 ) {
     let PointerQueue {
@@ -611,7 +618,11 @@ fn pointer_selection(
             continue;
         }
         let Some(block) = blocks.block_of(press.entity) else {
-            if selection.anchor.is_some() {
+            // Pressing outside text clears the selection, except in UI that acts on it.
+            let preserve = std::iter::once(press.entity)
+                .chain(blocks.parents.iter_ancestors(press.entity))
+                .any(|e| preserving.contains(e));
+            if selection.anchor.is_some() && !preserve {
                 selection.clear();
             }
             continue;

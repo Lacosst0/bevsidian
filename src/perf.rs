@@ -1,25 +1,23 @@
 //! Optional frame-rate readout for checking performance on real devices.
 //!
-//! Open the web build with `#fps` at the end of the URL (or run natively with
-//! `BEVSIDIAN_FPS=1`) to show frames per second, the frame interval and the time spent in
-//! the app's own schedules. Idle gaps (the app only renders when something happens) are left
-//! out of the averages.
+//! Turned on in Settings ("Show FPS"), by opening the web build with `#fps` at the end of
+//! the URL, or natively with `BEVSIDIAN_FPS=1`. Shows frames per second, the frame interval
+//! and the time spent in the app's own schedules. Idle gaps (the app only renders when
+//! something happens) are left out of the averages.
 
 use bevy::{platform::time::Instant, prelude::*, text::FontWeight};
 
-use crate::ui::palette;
+use crate::{nav::Nav, ui::palette};
 
 pub fn plugin(app: &mut App) {
-    if !enabled() {
-        return;
-    }
     app.init_resource::<FrameStats>()
         .add_systems(Startup, spawn_readout)
         .add_systems(First, begin_frame)
         .add_systems(Last, (end_frame, update_readout).chain());
 }
 
-fn enabled() -> bool {
+/// Whether the readout was asked for in the URL (`#fps`) or environment.
+pub fn requested() -> bool {
     #[cfg(target_arch = "wasm32")]
     {
         web_sys::window()
@@ -61,13 +59,19 @@ impl Default for FrameStats {
     }
 }
 
-/// Root of the readout.
+/// The readout's text.
 #[derive(Component, Clone, Copy, Debug, Default)]
 struct FpsText;
 
+/// Root of the readout.
+#[derive(Component, Clone, Copy, Debug, Default)]
+struct FpsReadout;
+
 fn spawn_readout(mut commands: Commands) {
     commands.spawn((
+        FpsReadout,
         Node {
+            display: Display::None,
             position_type: PositionType::Absolute,
             // Bottom left: the graph's zoom buttons sit bottom right.
             left: Val::Px(8.0),
@@ -117,8 +121,18 @@ fn end_frame(mut stats: ResMut<FrameStats>) {
     stats.work = stats.work * 0.9 + work * 0.1;
 }
 
-fn update_readout(mut stats: ResMut<FrameStats>, mut text: Single<&mut Text, With<FpsText>>) {
-    if stats.last_refresh.elapsed().as_secs_f32() < 0.5 || stats.interval == 0.0 {
+fn update_readout(
+    nav: Res<Nav>,
+    mut stats: ResMut<FrameStats>,
+    mut root: Single<&mut Node, With<FpsReadout>>,
+    mut text: Single<&mut Text, With<FpsText>>,
+) {
+    let shown = nav.show_fps.get_untracked();
+    let display = if shown { Display::Flex } else { Display::None };
+    if root.display != display {
+        root.display = display;
+    }
+    if !shown || stats.last_refresh.elapsed().as_secs_f32() < 0.5 || stats.interval == 0.0 {
         return;
     }
     stats.last_refresh = Instant::now();

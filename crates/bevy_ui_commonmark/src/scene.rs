@@ -2,7 +2,8 @@
 
 use bevy::{
     clipboard::Clipboard,
-    picking::events::PointerClick,
+    input::mouse::MouseScrollPixelsPerLine,
+    picking::events::{PointerClick, PointerScroll},
     prelude::*,
     text::{FontSource, FontStyle, FontWeight, LineHeight},
 };
@@ -420,7 +421,9 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
             min_width: Val::Px(0.0),
             padding: UiRect::bottom(Val::Px(4.0)),
         }
-        bevy::ui_widgets::ScrollArea
+        // Not a `ScrollArea`: that would swallow vertical wheel scrolling over the block.
+        ScrollPosition
+        on(scroll_code_sideways)
         Children [
             root @{style_scene} no_wrap SelectableText
             Node { flex_shrink: 0.0 }
@@ -435,9 +438,7 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
         ..SpanStyle::body(theme)
     };
     let label_scene = label_style.scene();
-    let copy_scene = label_style.scene();
     let lang_label = Text::new(lang.unwrap_or("").to_owned());
-    let copy_label = Text::new("Copy");
     let node = Node {
         flex_direction: FlexDirection::Column,
         min_width: Val::Px(0.0),
@@ -448,28 +449,73 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
         ..default()
     };
     let bg = BackgroundColor(theme.code_bg);
-    let hover_bg = theme.border;
+    let icon = copy_icon(theme);
+    let bubble_bg = theme.border;
+    let bubble_text = theme.text;
+    let bubble_font = label_style.font.clone();
     Box::new(bsn! {
         node bg SelectionGroup
         Children [
-            Node { justify_content: JustifyContent::SpaceBetween }
+            Node {
+                justify_content: JustifyContent::SpaceBetween,
+                align_items: AlignItems::Center,
+            }
             Children [
                 lang_label @{label_scene}
                 --
                 MdCopyButton
                 Node {
-                    padding: UiRect::axes(Val::Px(8.0), Val::Px(2.0)),
-                    border_radius: BorderRadius::all(Val::Px(4.0))
+                    width: Val::Px(28.0),
+                    height: Val::Px(28.0),
+                    margin: UiRect::new(Val::Px(0.0), Val::Px(-6.0), Val::Px(-4.0), Val::Px(-4.0)),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
                 }
-                BackgroundColor(hover_bg)
-                ClickableSpan
                 bevy::ui_widgets::Button
-                on(move |_: On<PointerClick>, mut clipboard: ResMut<Clipboard>| {
+                bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
+                on(move |click: On<PointerClick>,
+                         mut clipboard: ResMut<Clipboard>,
+                         time: Res<Time<Real>>,
+                         bubbles: Query<(Entity, &ChildOf), With<CopiedBubble>>,
+                         mut commands: Commands| {
                     if let Err(err) = clipboard.set_text(copy_source.clone()) {
                         warn!("copy failed: {err:?}");
+                        return;
                     }
+                    let until = time.elapsed_secs_f64() + COPIED_SECONDS;
+                    // Restart an already visible bubble instead of stacking another.
+                    for (bubble, parent) in &bubbles {
+                        if parent.parent() == click.entity {
+                            commands.entity(bubble).insert(CopiedBubble { until });
+                            return;
+                        }
+                    }
+                    commands.spawn((
+                        CopiedBubble { until },
+                        Node {
+                            position_type: PositionType::Absolute,
+                            right: Val::Px(32.0),
+                            padding: UiRect::axes(Val::Px(8.0), Val::Px(3.0)),
+                            border_radius: BorderRadius::all(Val::Px(4.0)),
+                            ..default()
+                        },
+                        BackgroundColor(bubble_bg),
+                        Pickable::IGNORE,
+                        ChildOf(click.entity),
+                        children![(
+                            Text::new("Copied!"),
+                            TextFont {
+                                font: bubble_font.clone(),
+                                font_size: 12.0.into(),
+                                ..default()
+                            },
+                            TextColor(bubble_text),
+                            TextLayout::no_wrap(),
+                            Pickable::IGNORE,
+                        )],
+                    ));
                 })
-                Children [ copy_label @{copy_scene} Pickable::IGNORE ]
+                Children [ @{icon} ]
             ]
             --
             @{code_text}
@@ -477,7 +523,89 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
     })
 }
 
-/// The "Copy" button of a code block.
+/// How long the "Copied!" bubble stays.
+const COPIED_SECONDS: f64 = 1.2;
+
+/// The "Copied!" bubble next to a code block's copy button; removed at `until`
+/// (seconds of real time).
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct CopiedBubble {
+    /// When to remove it.
+    pub until: f64,
+}
+
+/// Removes expired "Copied!" bubbles, keeping frames coming while one is shown.
+pub(crate) fn expire_copied_bubbles(
+    time: Res<Time<Real>>,
+    bubbles: Query<(Entity, &CopiedBubble)>,
+    mut commands: Commands,
+    mut redraw: MessageWriter<bevy::window::RequestRedraw>,
+) {
+    for (entity, bubble) in &bubbles {
+        if time.elapsed_secs_f64() >= bubble.until {
+            commands.entity(entity).despawn();
+        } else {
+            redraw.write(bevy::window::RequestRedraw);
+        }
+    }
+}
+
+/// Two overlapping outlined sheets: the usual "copy" symbol, drawn with UI nodes.
+fn copy_icon(theme: &MdTheme) -> impl Scene + use<> {
+    let color = BorderColor::all(theme.muted);
+    let front_bg = BackgroundColor(theme.code_bg);
+    let sheet = |left: f32, top: f32| Node {
+        position_type: PositionType::Absolute,
+        left: Val::Px(left),
+        top: Val::Px(top),
+        width: Val::Px(10.0),
+        height: Val::Px(12.0),
+        border: UiRect::all(Val::Px(1.5)),
+        border_radius: BorderRadius::all(Val::Px(2.5)),
+        ..default()
+    };
+    let (back, front) = (sheet(0.0, 0.0), sheet(4.0, 4.0));
+    bsn! {
+        Node { width: Val::Px(14.0), height: Val::Px(16.0) }
+        Pickable::IGNORE
+        Children [
+            back color Pickable::IGNORE
+            --
+            front color front_bg Pickable::IGNORE
+        ]
+    }
+}
+
+/// Wheel scrolling over a code block: sideways deltas (or Shift + wheel) scroll the code;
+/// vertical ones bubble up and scroll the page.
+fn scroll_code_sideways(
+    mut scroll: On<PointerScroll>,
+    keys: Res<ButtonInput<KeyCode>>,
+    pixels_per_line: Res<MouseScrollPixelsPerLine>,
+    mut areas: Query<(&ComputedNode, &mut ScrollPosition)>,
+) {
+    let delta = scroll.to_pixels(&pixels_per_line);
+    let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
+    let sideways = if shift && delta.x == 0.0 {
+        delta.y
+    } else if delta.x.abs() > delta.y.abs() {
+        delta.x
+    } else {
+        return;
+    };
+    let Ok((computed, mut position)) = areas.get_mut(scroll.entity) else {
+        return;
+    };
+    let max =
+        ((computed.content_size().x - computed.size().x) * computed.inverse_scale_factor).max(0.0);
+    if max <= 0.0 {
+        return;
+    }
+    scroll.propagate(false);
+    position.x = (position.x - sideways).clamp(0.0, max);
+}
+
+/// The copy button of a code block.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct MdCopyButton;
 
