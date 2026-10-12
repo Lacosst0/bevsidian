@@ -61,6 +61,10 @@ pub struct TouchScroll {
     tracker: VelocityTracker,
     /// When a touch last stopped a fling (that touch must not also tap a link).
     caught: Option<f64>,
+    /// Recent frame lengths, for even fling steps.
+    frames: FrameClock,
+    /// Time on the fling's curve shown this frame.
+    fling_time: f64,
 }
 
 impl TouchScroll {
@@ -120,6 +124,47 @@ impl Fling {
         let t = ((now - self.start_time) / self.duration).clamp(0.0, 1.0);
         let progress = 1.0 - (1.0 - t).powf(DECELERATION_RATE);
         (self.start + self.distance * progress as f32, t >= 1.0)
+    }
+}
+
+/// Display frame length, estimated from recent updates. A fling advances by whole frames of
+/// this length rather than by the measured time between updates: that time wobbles by a few
+/// milliseconds, which at fling speeds is a visible judder.
+#[derive(Default)]
+struct FrameClock {
+    /// Recent frame lengths (s), newest last.
+    deltas: std::collections::VecDeque<f64>,
+}
+
+impl FrameClock {
+    const WINDOW: usize = 15;
+
+    fn record(&mut self, delta: f64) {
+        // Longer gaps are idle waits, not display frames.
+        if delta <= 0.0 || delta > 0.05 {
+            return;
+        }
+        if self.deltas.len() == Self::WINDOW {
+            self.deltas.pop_front();
+        }
+        self.deltas.push_back(delta);
+    }
+
+    /// Median recent frame length.
+    fn interval(&self) -> Option<f64> {
+        let mut sorted: Vec<f64> = self.deltas.iter().copied().collect();
+        sorted.sort_by(f64::total_cmp);
+        sorted.get(sorted.len() / 2).copied()
+    }
+
+    /// Advances `clock` by the whole frames that fit in `delta`, staying within a frame of
+    /// `now`.
+    fn advance(&self, clock: f64, delta: f64, now: f64) -> f64 {
+        let Some(frame) = self.interval() else {
+            return now;
+        };
+        let frames = (delta / frame).round().max(1.0);
+        (clock + frames * frame).clamp(now - frame, now + frame)
     }
 }
 
@@ -330,6 +375,7 @@ fn touch_drag_end(
             (scroll.tracker.velocity(now, frame) * speed.0).clamp_length_max(MAX_FLING_VELOCITY);
         let start = areas.get(target).map_or(Vec2::ZERO, |(_, _, p)| p.0);
         scroll.fling = Fling::new(now, start, velocity);
+        scroll.fling_time = now;
         scroll.coasting = scroll.fling.is_some().then_some(target);
     }
 }
@@ -364,10 +410,17 @@ fn touch_momentum(
     mut scroll: ResMut<TouchScroll>,
     mut areas: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
 ) {
+    let delta = time.delta_secs_f64();
+    scroll.frames.record(delta);
     let (Some(target), Some(fling)) = (scroll.coasting, scroll.fling) else {
         return;
     };
-    let (position, done) = fling.at(time.elapsed_secs_f64());
+    let now = time.elapsed_secs_f64();
+    // The first frame can run in the same update as the release: it stays at the start.
+    if now > fling.start_time {
+        scroll.fling_time = scroll.frames.advance(scroll.fling_time, delta, now);
+    }
+    let (position, done) = fling.at(scroll.fling_time);
     let Ok((_, _, current)) = areas.get(target) else {
         scroll.coasting = None;
         return;
@@ -490,6 +543,21 @@ fn smooth_scroll(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fling_clock_steps_in_whole_frames() {
+        let mut frames = FrameClock::default();
+        for delta in [0.009, 0.008, 0.0085, 0.0075, 0.0083] {
+            frames.record(delta);
+        }
+        frames.record(1.0); // idle wait: ignored
+        assert!((frames.interval().unwrap() - 0.0083).abs() < 1e-9);
+        // A late update still shows one frame later; a missed frame shows two.
+        assert!((frames.advance(1.0, 0.0105, 1.0105) - 1.0083).abs() < 1e-9);
+        assert!((frames.advance(1.0, 0.017, 1.017) - 1.0166).abs() < 1e-9);
+        // Never drifts more than a frame from real time.
+        assert!((frames.advance(1.0, 0.0083, 1.05) - (1.05 - 0.0083)).abs() < 1e-9);
+    }
 
     #[test]
     fn velocity_of_a_steady_finger() {
