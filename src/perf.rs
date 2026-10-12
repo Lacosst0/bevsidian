@@ -185,30 +185,22 @@ fn update_readout(
     if !shown || stats.interval == 0.0 {
         return;
     }
-    // Two short lines, so the readout fits on phones.
     let mut line = format!(
-        "{:.0} fps · {:.1} ms · worst {:.0} · cpu {:.1} ms\n",
+        "{:.0} fps · {:.1} ms · worst {:.0} · cpu {:.1} ms",
         1000.0 / stats.interval,
         stats.interval,
         stats.worst,
         stats.cpu,
     );
     if let Some(hz) = display_hz() {
-        let _ = write!(line, "{hz:.0} Hz display · ");
+        let _ = write!(line, "\n{hz:.0} Hz display");
     }
-    let _ = write!(
-        line,
-        "{} clock",
-        frame_clock().as_deref().unwrap_or("native")
-    );
     text.0 = line;
     stats.worst = 0.0;
 }
 
 /// Starts or stops a tiny `requestAnimationFrame` loop that measures how often the browser
-/// offers frames to the page. It only runs while the readout or Settings is open. With the
-/// worker frame clock, the worker reports its own rate instead (`web/frameclock.js`); the loop
-/// then only keeps that clock running.
+/// offers frames to the page. It only runs while the readout or Settings is open.
 fn display_probe(on: bool) {
     #[cfg(target_arch = "wasm32")]
     {
@@ -218,7 +210,7 @@ fn display_probe(on: bool) {
              const tick = (t) => { if (!window.__bvsProbe) return; \
                if (last) { acc += t - last; n++; \
                  if (acc >= 500) { \
-                   if (window.__bvsClock !== 'worker') window.__bvsHz = 1000 * n / acc; \
+                   window.__bvsHz = 1000 * n / acc; \
                    n = 0; acc = 0; } } \
                last = t; requestAnimationFrame(tick); }; \
              requestAnimationFrame(tick); })()"
@@ -240,21 +232,6 @@ fn display_hz() -> Option<f64> {
         js_sys::Reflect::get(&window, &"__bvsHz".into())
             .ok()?
             .as_f64()
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        None
-    }
-}
-
-/// Which clock paces frames on the web: "worker" (see `web/frameclock.js`) or "page".
-fn frame_clock() -> Option<String> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let window = web_sys::window()?;
-        js_sys::Reflect::get(&window, &"__bvsClock".into())
-            .ok()?
-            .as_string()
     }
     #[cfg(not(target_arch = "wasm32"))]
     {

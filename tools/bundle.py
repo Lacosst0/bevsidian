@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bundle the web build into one self-contained index.html.
 
-Inlines web/style.css, web/frameclock.js, the wasm-bindgen JS glue, web/boot.js and the
+Inlines web/style.css, the wasm-bindgen JS glue, web/boot.js and the
 gzip-compressed, base64-encoded WebAssembly module, so the page works from any static host
 or file://.
 
@@ -24,7 +24,6 @@ def main() -> None:
     css = (web / "style.css").read_text(encoding="utf-8")
     glue = (pkg / "bevsidian.js").read_text(encoding="utf-8")
     boot = (web / "boot.js").read_text(encoding="utf-8")
-    frameclock = (web / "frameclock.js").read_text(encoding="utf-8")
     wasm = (pkg / "bevsidian_bg.wasm").read_bytes()
 
     packed = base64.b64encode(gzip.compress(wasm, compresslevel=9, mtime=0)).decode("ascii")
@@ -56,12 +55,6 @@ boot(async () => __wbg_init({{ module_or_path: await wasmBytes() }}));
         '<link rel="stylesheet" href="style.css">', f"<style>\n{css}\n</style>"
     )
     html = html.replace('<script type="module" src="loader.js"></script>\n', "")
-    # A classic script: it must patch the canvas and requestAnimationFrame before the wasm
-    # module (deferred) starts.
-    html = html.replace(
-        '<script src="frameclock.js"></script>',
-        "<script>\n" + frameclock.replace("</script", "<\\/script") + "\n</script>",
-    )
     html = html.replace(
         "<!-- BEVSIDIAN_SCRIPT -->", f'<script type="module">\n{script}\n</script>'
     )

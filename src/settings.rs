@@ -4,7 +4,7 @@
 //! remembered in `localStorage`.
 
 use bevy::{picking::events::PointerClick, prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::coat::{Signal, coat};
+use bevy_radioactive::coat::{Signal, coat, signal};
 
 use bevsidian_core::{
     nav::{MAX_FPS_CHOICES, Nav, SCROLL_SPEEDS, TEXT_SIZES},
@@ -190,6 +190,15 @@ fn vsync_target(hz: Signal<Option<u32>>) -> impl Scene {
 }
 
 /// The settings dialog.
+/// Shown by the Help button.
+const HELP: &str = "Low frame rate or stutter? Bevsidian draws with WebGL, so it needs \
+hardware acceleration.\n\n\
+• Desktop Chrome / Edge: Settings → System → turn on \"Use graphics acceleration when \
+available\", then restart the browser.\n\
+• Android: open chrome://gpu; WebGL should say \"Hardware accelerated\". If it does not, \
+try another browser (Brave runs it at 120 Hz).\n\
+• Battery Saver limits the screen to 60 Hz.";
+
 pub fn settings_panel(nav: Nav) -> impl Scene {
     let (is_open, size, speed, max_fps) = (
         nav.settings.clone(),
@@ -197,6 +206,7 @@ pub fn settings_panel(nav: Nav) -> impl Scene {
         nav.scroll_speed.clone(),
         nav.max_fps.clone(),
     );
+    let help = signal(|| false);
     coat! {
         Node {
             position_type: PositionType::Absolute,
@@ -211,6 +221,7 @@ pub fn settings_panel(nav: Nav) -> impl Scene {
                 let (smaller, larger, slower, faster, toggle_fps) =
                     (nav.clone(), nav.clone(), nav.clone(), nav.clone(), nav.clone());
                 let (fewer, more, vsync_nav) = (nav.clone(), nav.clone(), nav.clone());
+                let toggle_help = help.clone();
                 Node {
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
@@ -303,9 +314,23 @@ pub fn settings_panel(nav: Nav) -> impl Scene {
                             @{vsync_control(&vsync_nav)}
                         ]
                         --
-                        Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center }
+                        if $help {
+                            Text(HELP) @{ui_font(12.5, FontWeight::NORMAL)} TextColor(palette::MUTED)
+                            Node {
+                                padding: UiRect::all(Val::Px(10.0)),
+                                border_radius: BorderRadius::all(Val::Px(6.0)),
+                            }
+                            BackgroundColor(palette::BG)
+                        }
+                        --
+                        Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center, column_gap: Val::Px(6.0) }
                         Children [
                             Text("Ctrl+, opens settings") @{ui_font(11.5, FontWeight::NORMAL)} TextColor(palette::FAINT)
+                            Node { flex_grow: 1.0 }
+                            --
+                            @{segment("Help")}
+                            BackgroundColor($(if $help { palette::BG_ACTIVE } else { palette::BG_HOVER }))
+                            on(move |_: On<Activate>| toggle_help.set(!toggle_help.get_untracked()))
                             --
                             @{segment("Done")}
                             BackgroundColor(palette::BG_ACTIVE)
