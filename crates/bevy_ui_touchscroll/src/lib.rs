@@ -372,9 +372,11 @@ fn touch_momentum(
         scroll.coasting = None;
         return;
     };
-    let moved = apply_scroll(target, position - current.0, &mut areas);
-    // Stop at the end of the curve, or at an edge.
-    if done || !moved {
+    let step = position - current.0;
+    let moved = apply_scroll(target, step, &mut areas);
+    // Stop at the end of the curve, or at an edge (a step that could not move). The first
+    // frame can run in the same update as the release, with no time elapsed and no step.
+    if done || (step != Vec2::ZERO && !moved) {
         scroll.coasting = None;
         scroll.fling = None;
     }
