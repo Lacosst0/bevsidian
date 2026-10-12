@@ -4,14 +4,11 @@
 //! `bevy_ui_commonmark`, selectable with `bevy_ui_textselect`, and navigated through
 //! `[[wikilinks]]`, `#tags`, backlinks and a graph view.
 
-mod graph;
 mod layout;
 mod menu;
-mod nav;
 mod perf;
 mod settings;
 mod ui;
-mod vault;
 
 use std::{sync::Arc, time::Duration};
 
@@ -24,13 +21,12 @@ use bevy::{
 use bevy_radioactive::RadioactivePlugin;
 use bevy_ui_commonmark::CommonMarkPlugin;
 
-use crate::{
-    nav::Nav,
-    vault::{Vault, VaultData},
-};
+use bevsidian_core::{Nav, Vault, VaultData, theme::palette};
+
+include!(concat!(env!("OUT_DIR"), "/notes.rs"));
 
 fn main() {
-    let vault = Vault(Arc::new(VaultData::embedded()));
+    let vault = Vault(Arc::new(VaultData::from_sources(NOTES.iter().copied())));
     let nav = Nav::new(vault.home);
     App::new()
         .add_plugins(
@@ -55,7 +51,7 @@ fn main() {
                 .disable::<bevy::world_serialization::WorldSerializationPlugin>(),
         )
         .add_plugins((FeathersPlugins, RadioactivePlugin, CommonMarkPlugin))
-        .insert_resource(ClearColor(ui::palette::BG))
+        .insert_resource(ClearColor(palette::BG))
         // Render on input and while something animates (see `layout::keep_awake`).
         .insert_resource(WinitSettings {
             focused_mode: layout::IDLE,
@@ -69,9 +65,9 @@ fn main() {
         .insert_resource(nav)
         .add_systems(PreStartup, load_fonts)
         .add_plugins((
-            nav::plugin,
+            bevsidian_core::nav::plugin,
             ui::plugin,
-            graph::plugin,
+            bevsidian_graph::plugin,
             layout::plugin,
             menu::plugin,
             perf::plugin,
@@ -100,3 +96,22 @@ fn load_fonts(mut fonts: ResMut<Assets<Font>>, mut commands: Commands) {
 #[derive(Resource)]
 #[allow(dead_code)]
 struct EmbeddedFonts(Vec<Handle<Font>>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_vault_is_consistent() {
+        let v = VaultData::from_sources(NOTES.iter().copied());
+        assert!(v.notes.len() >= 4);
+        for note in &v.notes {
+            assert!(
+                note.unresolved.is_empty(),
+                "{} has broken links: {:?}",
+                note.name,
+                note.unresolved
+            );
+        }
+    }
+}

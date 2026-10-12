@@ -11,10 +11,7 @@ use bevy_radioactive::coat::{Signal, signal};
 use bevy_ui_commonmark::{LinkTarget, MdFootnote, MdHeading, MdLinkActivated};
 use bevy_ui_textselect::{Modifiers, TextSelection};
 
-use crate::{
-    layout::LayoutMode,
-    vault::{NoteId, Vault},
-};
+use crate::vault::{NoteId, Vault};
 
 pub fn plugin(app: &mut App) {
     app.add_observer(on_link).add_systems(
@@ -263,7 +260,7 @@ fn on_link(
     nav: Res<Nav>,
     vault: Res<Vault>,
     time: Res<Time<Real>>,
-    mut touch: ResMut<crate::layout::TouchScroll>,
+    mut touch: ResMut<bevy_ui_touchscroll::TouchScroll>,
 ) {
     // The tap only stopped a fling.
     if touch.take_caught(time.elapsed_secs_f64()) {
@@ -410,7 +407,7 @@ fn reset_scroll_on_navigation(
     mut panes: Query<
         (
             &mut ScrollPosition,
-            Option<&mut crate::layout::SmoothScroll>,
+            Option<&mut bevy_ui_touchscroll::SmoothScroll>,
         ),
         With<NotePane>,
     >,
@@ -458,5 +455,39 @@ fn scroll_to_anchor(
         nav.anchor.set(None);
     } else if *wait > 30 {
         nav.anchor.set(None);
+    }
+}
+
+/// Width class of the window.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LayoutMode {
+    /// Both sidebars inline (≥ 1100 px).
+    #[default]
+    Wide,
+    /// Files inline, outline/backlinks as a drawer (≥ 760 px).
+    Medium,
+    /// Phone: both sidebars are drawers.
+    Compact,
+}
+
+impl LayoutMode {
+    pub fn from_width(width: f32) -> Self {
+        if width >= 1100.0 {
+            Self::Wide
+        } else if width >= 760.0 {
+            Self::Medium
+        } else {
+            Self::Compact
+        }
+    }
+
+    /// Whether the files sidebar is a drawer.
+    pub fn left_drawer(self) -> bool {
+        self == Self::Compact
+    }
+
+    /// Whether the outline/backlinks sidebar is a drawer.
+    pub fn right_drawer(self) -> bool {
+        self != Self::Wide
     }
 }

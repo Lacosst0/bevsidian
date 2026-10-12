@@ -18,7 +18,9 @@ use bevy::{
 use bevy_ui_commonmark::{CopiedBubble, LinkTarget, MdLink, MdLinkActivated, MdRoot};
 use bevy_ui_textselect::{CopySelection, PreserveSelection, SelectAll, TextSelection};
 
-use crate::ui::{HoverRow, palette};
+use bevsidian_core::theme::palette;
+
+use crate::ui::HoverRow;
 
 pub fn plugin(app: &mut App) {
     app.add_observer(open_menu)

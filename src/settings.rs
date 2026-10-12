@@ -6,10 +6,12 @@
 use bevy::{picking::events::PointerClick, prelude::*, text::FontWeight, ui_widgets::Activate};
 use bevy_radioactive::coat::{Signal, coat};
 
-use crate::{
+use bevsidian_core::{
     nav::{MAX_FPS_CHOICES, Nav, SCROLL_SPEEDS, TEXT_SIZES},
-    ui::{palette, segment, ui_font},
+    theme::{palette, ui_font},
 };
+
+use crate::ui::segment;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, load).add_systems(Last, save);

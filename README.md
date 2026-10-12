@@ -17,7 +17,10 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 | --- | --- |
 | [`bevy_ui_textselect`](crates/bevy_ui_textselect) | Mouse and keyboard selection, clipboard copy, link-click events and accessibility labels for rich `Text`/`TextSpan` UI text. Hit-testing and highlight geometry come straight from the parley layout Bevy already computes. |
 | [`bevy_ui_commonmark`](crates/bevy_ui_commonmark) | CommonMark + GFM + Obsidian wikilinks/tags parser, and a builder that turns documents into BSN scenes of selectable text. |
-| `bevsidian` (root) | The vault app: navigation state, UI shell, graph view. |
+| [`bevy_ui_touchscroll`](crates/bevy_ui_touchscroll) | Native-feeling touch scrolling for `ScrollArea`s: 1:1 drags, Android/Flutter fling physics, tap-to-stop, and eased wheel scrolling. |
+| [`bevsidian_core`](crates/bevsidian_core) | The note vault (links, backlinks, tags, search), navigation state (`Nav` signals, shortcuts, links) and the theme. |
+| [`bevsidian_graph`](crates/bevsidian_graph) | The graph view: force-directed notes and tags with pan, pinch/wheel zoom and click-to-open. |
+| `bevsidian` (root) | The app: UI shell, responsive layout, context menu, settings, FPS readout, and the embedded vault. |
 
 ## Adding notes
 

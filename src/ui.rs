@@ -12,47 +12,22 @@ use bevy::{
     ui_widgets::{Activate, ScrollArea},
 };
 use bevy_radioactive::coat::{coat, shard};
-use bevy_ui_commonmark::{MdTheme, RenderOptions, insert, markdown_scene};
+use bevy_ui_commonmark::{MdTheme, RenderOptions, markdown_scene};
 use bevy_ui_textselect::{ClickableSpan, SelectableText};
 
-use crate::{
-    graph::GraphViewport,
-    layout::LayoutMode,
-    nav::{Nav, NotePane, SearchInput, View},
+use bevsidian_core::{
+    nav::{LayoutMode, Nav, NotePane, SearchInput, View},
+    theme::{palette, ui_font},
     vault::{NoteId, Vault},
 };
+use bevsidian_graph::GraphViewport;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(Startup, spawn_shell)
         .add_systems(Update, hover_rows);
 }
 
-/// Interface colours (Obsidian-like dark palette).
-pub mod palette {
-    use bevy::prelude::Color;
-
-    pub const BG: Color = Color::srgb(0.118, 0.118, 0.118);
-    pub const BG_SIDEBAR: Color = Color::srgb(0.149, 0.149, 0.149);
-    pub const BG_HOVER: Color = Color::srgb(0.2, 0.2, 0.21);
-    pub const BG_ACTIVE: Color = Color::srgb(0.24, 0.22, 0.32);
-    pub const BORDER: Color = Color::srgb(0.21, 0.21, 0.21);
-    pub const TEXT: Color = Color::srgb(0.855, 0.855, 0.855);
-    pub const MUTED: Color = Color::srgb(0.6, 0.6, 0.6);
-    pub const FAINT: Color = Color::srgb(0.42, 0.42, 0.42);
-    pub const ACCENT: Color = Color::srgb(0.659, 0.545, 0.98);
-    pub const TAG_BG: Color = Color::srgba(0.545, 0.424, 0.937, 0.18);
-}
-
 use palette::{ACCENT, BG, BG_ACTIVE, BG_HOVER, BG_SIDEBAR, BORDER, FAINT, MUTED, TAG_BG, TEXT};
-
-pub(crate) fn ui_font(size: f32, weight: FontWeight) -> impl Scene {
-    insert(TextFont {
-        font: bevy::text::FontSource::families("Inter, sans-serif"),
-        font_size: size.into(),
-        weight,
-        ..default()
-    })
-}
 
 /// A list row that highlights on hover.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -558,7 +533,7 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
                     let graph_nav = graph_nav.clone();
                     Node { flex_grow: 1.0, flex_basis: Val::Px(0.0), overflow: Overflow::clip() }
                     GraphViewport
-                    Children [ @{crate::graph::zoom_controls(graph_nav)} ]
+                    Children [ @{bevsidian_graph::zoom_controls(graph_nav)} ]
                 },
             }
         ]

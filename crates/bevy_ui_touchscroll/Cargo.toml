@@ -1,0 +1,17 @@
+[package]
+name = "bevy_ui_touchscroll"
+description = "Native-feeling touch flings and smooth wheel scrolling for Bevy UI scroll areas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["bevy", "ui", "scroll", "touch", "fling"]
+categories = ["game-development", "gui"]
+
+[dependencies]
+bevy = { workspace = true, features = ["std", "bevy_ui", "bevy_ui_widgets", "bevy_picking", "ui_picking"] }
+bevy_ui_textselect.workspace = true
+
+[lints]
+workspace = true

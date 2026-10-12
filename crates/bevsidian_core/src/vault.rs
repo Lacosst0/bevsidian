@@ -5,8 +5,6 @@ use std::{collections::BTreeMap, sync::Arc};
 use bevy::prelude::*;
 use bevy_ui_commonmark::{MdDocument, WikiLink};
 
-include!(concat!(env!("OUT_DIR"), "/notes.rs"));
-
 /// Index of a note in [`Vault::notes`].
 pub type NoteId = usize;
 
@@ -107,11 +105,6 @@ impl VaultData {
             .or_else(|| vault.find("README"))
             .unwrap_or(0);
         vault
-    }
-
-    /// The embedded vault.
-    pub fn embedded() -> Self {
-        Self::from_sources(NOTES.iter().copied())
     }
 
     /// Finds a note by name or path, case-insensitively.
@@ -236,19 +229,5 @@ mod tests {
                 .unwrap()
                 .contains("Back to")
         );
-    }
-
-    #[test]
-    fn embedded_vault_is_consistent() {
-        let v = VaultData::embedded();
-        assert!(v.notes.len() >= 4);
-        for note in &v.notes {
-            assert!(
-                note.unresolved.is_empty(),
-                "{} has broken links: {:?}",
-                note.name,
-                note.unresolved
-            );
-        }
     }
 }

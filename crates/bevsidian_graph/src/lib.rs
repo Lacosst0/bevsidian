@@ -19,14 +19,15 @@ use bevy::{
     ui::UiGlobalTransform,
 };
 
-use crate::{
+use bevsidian_core::{
     nav::{Nav, View},
-    ui::palette,
+    theme::{palette, ui_font},
     vault::Vault,
 };
 
 const LAYER: usize = 1;
 
+/// Adds the graph view; place a [`GraphViewport`] node in the UI to show it.
 pub fn plugin(app: &mut App) {
     app.init_resource::<GraphState>()
         .add_systems(Startup, setup)
@@ -79,7 +80,7 @@ struct GraphNode {
 struct GraphLabel;
 
 #[derive(Resource, Default)]
-pub(crate) struct GraphState {
+pub struct GraphState {
     image: Handle<Image>,
     edges: Vec<(Entity, Entity, bool)>,
     hovered: Option<Entity>,
@@ -108,7 +109,7 @@ struct GraphMaterials {
 
 impl GraphState {
     /// Whether the simulation or a drag still needs frames.
-    pub(crate) fn animating(&self) -> bool {
+    pub fn animating(&self) -> bool {
         self.alpha >= 0.002
             || self.dragging.is_some()
             || self.pan_velocity != Vec2::ZERO
@@ -892,7 +893,7 @@ pub fn zoom_controls(_nav: Nav) -> impl Scene {
             })
             Children [
                 text
-                @{crate::ui::ui_font(if label.len() > 1 { 12.0 } else { 18.0 }, FontWeight::MEDIUM)}
+                @{ui_font(if label.len() > 1 { 12.0 } else { 18.0 }, FontWeight::MEDIUM)}
                 TextColor(palette::TEXT)
                 Pickable::IGNORE
             ]

@@ -437,12 +437,35 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 name = "bevsidian"
 version = "0.1.0"
 dependencies = [
+ "bevsidian_core",
+ "bevsidian_graph",
  "bevy",
  "bevy_radioactive",
  "bevy_ui_commonmark",
  "bevy_ui_textselect",
+ "bevy_ui_touchscroll",
  "js-sys",
  "web-sys",
+]
+
+[[package]]
+name = "bevsidian_core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_radioactive",
+ "bevy_ui_commonmark",
+ "bevy_ui_textselect",
+ "bevy_ui_touchscroll",
+ "web-sys",
+]
+
+[[package]]
+name = "bevsidian_graph"
+version = "0.1.0"
+dependencies = [
+ "bevsidian_core",
+ "bevy",
 ]
 
 [[package]]
@@ -1913,6 +1936,14 @@ dependencies = [
  "bevy",
  "parley",
  "web-sys",
+]
+
+[[package]]
+name = "bevy_ui_touchscroll"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_ui_textselect",
 ]
 
 [[package]]

@@ -23,7 +23,7 @@ use bevy::{
     window::{PresentMode, PrimaryWindow},
 };
 
-use crate::{nav::Nav, ui::palette};
+use bevsidian_core::{Nav, theme::palette};
 
 pub fn plugin(app: &mut App) {
     let render_end = RenderEnd::default();
