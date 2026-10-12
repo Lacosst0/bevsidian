@@ -35,27 +35,15 @@ fn main() {
     ));
     let nav = Nav::new(vault.get_untracked().home);
     App::new()
-        .add_plugins(
-            DefaultPlugins
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "Bevsidian".into(),
-                        canvas: Some("#bevy".into()),
-                        fit_canvas_to_parent: true,
-                        ..default()
-                    }),
-                    ..default()
-                })
-                // Plugins this app does not use. Each still runs systems every frame, which
-                // adds up on a single-threaded phone browser.
-                .disable::<bevy::gilrs::GilrsPlugin>()
-                .disable::<bevy::gizmos::GizmoPlugin>()
-                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
-                .disable::<bevy::post_process::PostProcessPlugin>()
-                .disable::<bevy::animation::AnimationPlugin>()
-                .disable::<bevy::state::app::StatesPlugin>()
-                .disable::<bevy::world_serialization::WorldSerializationPlugin>(),
-        )
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevsidian".into(),
+                canvas: Some("#bevy".into()),
+                fit_canvas_to_parent: true,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins((FeathersPlugins, RadioactivePlugin, CommonMarkPlugin))
         .insert_resource(ClearColor(palette::BG))
         // Render on input and while something animates (see `layout::keep_awake`).

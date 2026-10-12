@@ -44,9 +44,39 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-# 2D + UI only: the 3D, audio and glTF stacks are not needed and cost frame time and
-# download size on phones.
-bevy = { workspace = true, features = ["2d", "ui", "system_clipboard", "bevy_feathers"] }
+# Only the parts of Bevy the app uses (2D rendering, UI, text, picking, scenes): every other
+# feature costs compile time, download size and frame time on phones. The `2d` and `ui`
+# collections would add animation, gizmos, gamepads, HDR, post-processing, states and more.
+bevy = { workspace = true, features = [
+    # App and platform
+    "std",
+    "multi_threaded",
+    "async_executor",
+    "bevy_asset",
+    "bevy_log",
+    "bevy_winit",
+    "bevy_window",
+    "custom_cursor",
+    "webgl2",
+    "x11",
+    "wayland",
+    "default_font",
+    "system_clipboard",
+    # Rendering
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_sprite_render",
+    "bevy_ui_render",
+    # UI, text and input
+    "bevy_ui",
+    "bevy_text",
+    "bevy_ui_widgets",
+    "bevy_feathers",
+    "bevy_input_focus",
+    "bevy_picking",
+    "ui_picking",
+    "bevy_scene",
+] }
 bevy_radioactive.workspace = true
 bevy_ui_textselect.workspace = true
 bevy_ui_commonmark.workspace = true

@@ -24,9 +24,6 @@ bevy = { workspace = true, features = [
 parley.workspace = true
 accesskit = "0.24"
 
-[dev-dependencies]
-bevy = { workspace = true, features = ["default", "system_clipboard"] }
-
 [lints]
 workspace = true
 

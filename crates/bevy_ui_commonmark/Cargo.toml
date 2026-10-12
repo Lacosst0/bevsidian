@@ -24,8 +24,5 @@ bevy = { workspace = true, features = [
 bevy_ui_textselect.workspace = true
 pulldown-cmark.workspace = true
 
-[dev-dependencies]
-bevy = { workspace = true, features = ["default", "system_clipboard"] }
-
 [lints]
 workspace = true

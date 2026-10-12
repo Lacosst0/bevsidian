@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-bevy = { workspace = true, features = ["2d", "ui"] }
+bevy = { workspace = true, features = ["std", "bevy_sprite_render", "bevy_ui", "bevy_picking", "bevy_window", "bevy_log"] }
 bevsidian_core.workspace = true
 
 [lints]
