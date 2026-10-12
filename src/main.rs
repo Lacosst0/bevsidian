@@ -7,6 +7,7 @@
 mod graph;
 mod layout;
 mod nav;
+mod perf;
 mod ui;
 mod vault;
 
@@ -30,15 +31,20 @@ fn main() {
     let vault = Vault(Arc::new(VaultData::embedded()));
     let nav = Nav::new(vault.home);
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevsidian".into(),
-                canvas: Some("#bevy".into()),
-                fit_canvas_to_parent: true,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevsidian".into(),
+                        canvas: Some("#bevy".into()),
+                        fit_canvas_to_parent: true,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                // No gamepad support: skip polling for gamepads every frame.
+                .disable::<bevy::gilrs::GilrsPlugin>(),
+        )
         .add_plugins((FeathersPlugins, RadioactivePlugin, CommonMarkPlugin))
         .insert_resource(ClearColor(ui::palette::BG))
         // Render on input and while something animates (see `layout::keep_awake`).
@@ -50,7 +56,13 @@ fn main() {
         .insert_resource(vault)
         .insert_resource(nav)
         .add_systems(PreStartup, load_fonts)
-        .add_plugins((nav::plugin, ui::plugin, graph::plugin, layout::plugin))
+        .add_plugins((
+            nav::plugin,
+            ui::plugin,
+            graph::plugin,
+            layout::plugin,
+            perf::plugin,
+        ))
         .run();
 }
 

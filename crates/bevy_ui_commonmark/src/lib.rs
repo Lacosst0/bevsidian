@@ -32,7 +32,7 @@ pub mod theme;
 
 pub use document::*;
 pub use scene::{
-    MdCopyButton, MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions, markdown_scene,
+    MdBlock, MdCopyButton, MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions, markdown_scene,
 };
 pub use theme::MdTheme;
 
@@ -63,7 +63,55 @@ impl Plugin for CommonMarkPlugin {
         if !app.is_plugin_added::<TextSelectPlugin>() {
             app.add_plugins(TextSelectPlugin);
         }
-        app.init_resource::<MdTheme>().add_observer(activate_links);
+        app.init_resource::<MdTheme>()
+            .add_observer(activate_links)
+            .add_systems(
+                PostUpdate,
+                // Visibility propagates before UI layout, so changes show a frame later; the
+                // margin in `cull_offscreen_blocks` covers that.
+                cull_offscreen_blocks.after(bevy::ui::UiSystems::Layout),
+            );
+    }
+}
+
+/// Hides top-level blocks that are scrolled more than half a screen out of view.
+///
+/// Scrolling moves every node of a document, so without this each frame re-extracts and
+/// re-clips every glyph of the whole note. Hidden blocks keep their layout and text, so
+/// scroll extents, anchors, selection and copy are unaffected.
+fn cull_offscreen_blocks(
+    roots: Query<(Entity, &Children), With<MdRoot>>,
+    parents: Query<&ChildOf>,
+    viewports: Query<(&Node, &ComputedNode, &UiGlobalTransform)>,
+    mut blocks: Query<(&ComputedNode, &UiGlobalTransform, &mut Visibility), With<MdBlock>>,
+) {
+    for (root, children) in &roots {
+        // The nearest vertically scrolling ancestor is the viewport.
+        let Some((viewport, transform)) = parents.iter_ancestors(root).find_map(|e| {
+            viewports
+                .get(e)
+                .ok()
+                .filter(|(node, ..)| node.overflow.y == OverflowAxis::Scroll)
+                .map(|(_, computed, transform)| (computed.size(), transform.translation))
+        }) else {
+            continue;
+        };
+        // Visible band, extended by half a viewport height on each side so blocks are already
+        // shown when a fast fling reaches them.
+        let (top, bottom) = (transform.y - viewport.y, transform.y + viewport.y);
+        for child in children {
+            let Ok((computed, transform, mut visibility)) = blocks.get_mut(*child) else {
+                continue;
+            };
+            let half = computed.size().y / 2.0;
+            let center = transform.translation.y;
+            let visible = center + half >= top && center - half <= bottom;
+            visibility.set_if_neq(if visible {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            });
+        }
     }
 }
 

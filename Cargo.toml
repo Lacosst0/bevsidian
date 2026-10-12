@@ -71,4 +71,4 @@ strip = "debuginfo"
 panic = "abort"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features = ["Window"] }
+web-sys = { version = "0.3", features = ["Location", "Window"] }

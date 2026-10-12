@@ -2,4 +2,6 @@
 git-fetch-with-cli = true
 
 [target.wasm32-unknown-unknown]
-rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+# SIMD speeds up the math-heavy UI layout, clipping and batching code. Supported by every
+# current browser (Chrome 91+, Firefox 89+, Safari 16.4+).
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"', '-C', 'target-feature=+simd128']

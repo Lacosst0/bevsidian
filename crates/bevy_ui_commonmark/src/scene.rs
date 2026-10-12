@@ -45,6 +45,11 @@ pub struct MdFootnote(pub String);
 #[derive(Component, Clone, Debug, Default)]
 pub struct MdRoot;
 
+/// A top-level block of a rendered document. Blocks scrolled far out of view are hidden
+/// (see [`CommonMarkPlugin`](crate::CommonMarkPlugin)) so they cost nothing to render.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct MdBlock;
+
 /// Options for [`markdown_scene`].
 pub struct RenderOptions<'a> {
     /// Visual theme.
@@ -60,7 +65,10 @@ type Scenes = Vec<Box<dyn Scene>>;
 /// The root is a [`SelectionGroup`], so a drag can select across all blocks.
 pub fn markdown_scene(doc: &MdDocument, options: &RenderOptions) -> impl Scene + use<> {
     let theme = options.theme;
-    let blocks = render_blocks(&doc.blocks, options, 0);
+    let blocks: Scenes = render_blocks(&doc.blocks, options, 0)
+        .into_iter()
+        .map(|block| Box::new(bsn! { @{block} MdBlock }) as Box<dyn Scene>)
+        .collect();
     let node = Node {
         flex_direction: FlexDirection::Column,
         row_gap: Val::Px(theme.block_gap),
