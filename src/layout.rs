@@ -9,7 +9,10 @@
 
 use bevy::{
     feathers::controls::{VirtualKeyPressed, VirtualKeyboard},
-    input::{mouse::MouseButtonInput, touch::TouchInput},
+    input::{
+        mouse::MouseButtonInput,
+        touch::{TouchInput, Touches},
+    },
     input_focus::InputFocus,
     prelude::*,
     text::{EditableText, FontWeight, TextEdit},
@@ -56,23 +59,29 @@ fn keep_awake(
     editable: Query<(), With<EditableText>>,
     layout_changed: Query<(), Or<(Changed<ComputedNode>, Changed<ScrollPosition>, Added<Node>)>>,
     smooth: Query<&SmoothScroll>,
+    touches: Res<Touches>,
+    time: Res<Time<Real>>,
     mut winit: ResMut<bevy::winit::WinitSettings>,
-    mut settle: Local<u8>,
+    mut awake_until: Local<f64>,
     mut redraw: MessageWriter<bevy::window::RequestRedraw>,
 ) {
+    // A finger on the screen counts as busy: rendering at full rate from the touch on means the
+    // first moves of a scroll are not slowed by the display ramping up from idle.
     let busy = scroll.busy()
+        || touches.iter().next().is_some()
         || selection.is_busy()
         || (nav.view.get_untracked() == View::Graph && graph.animating())
         || nav.anchor.with_untracked(Option::is_some)
         || focus.get().is_some_and(|e| editable.contains(e))
         || smooth.iter().any(SmoothScroll::animating);
+    let now = time.elapsed_secs_f64();
     if busy || !layout_changed.is_empty() {
-        // A few more frames let layout, text and reactive regions settle after a change.
-        *settle = 3;
+        // Keep going a little longer: layout, text and reactive regions settle after a change,
+        // and the next flick of a scroll often follows right away.
+        *awake_until = now + AWAKE_TAIL;
     }
     let cap = nav.max_fps.get_untracked();
-    let mode = if *settle > 0 {
-        *settle -= 1;
+    let mode = if now < *awake_until {
         if cap == 0 {
             // Next frame as soon as the display allows.
             redraw.write(bevy::window::RequestRedraw);
@@ -93,6 +102,9 @@ fn keep_awake(
         winit.focused_mode = mode;
     }
 }
+
+/// How long (s) frames keep coming after the last change or interaction.
+const AWAKE_TAIL: f64 = 0.5;
 
 /// Update mode while nothing animates: wake on input, or once a second.
 pub const IDLE: bevy::winit::UpdateMode = bevy::winit::UpdateMode::Reactive {
