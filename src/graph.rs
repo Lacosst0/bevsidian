@@ -28,8 +28,7 @@ use crate::{
 const LAYER: usize = 1;
 
 pub fn plugin(app: &mut App) {
-    app.init_gizmo_group::<GraphGizmos>()
-        .init_resource::<GraphState>()
+    app.init_resource::<GraphState>()
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -48,9 +47,10 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-/// Gizmos drawn only by the graph camera.
-#[derive(Default, Reflect, GizmoConfigGroup)]
-struct GraphGizmos;
+/// The mesh holding every edge as a thin quad (cheaper than gizmos, which add dozens of
+/// systems that run every frame).
+#[derive(Component)]
+struct EdgeMesh;
 
 /// UI node that displays the graph.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -136,13 +136,19 @@ fn setup(
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut gizmos: ResMut<GizmoConfigStore>,
     mut state: ResMut<GraphState>,
     vault: Res<Vault>,
 ) {
-    let (config, _) = gizmos.config_mut::<GraphGizmos>();
-    config.render_layers = RenderLayers::layer(LAYER);
-    config.line.width = 1.5;
+    commands.spawn((
+        EdgeMesh,
+        Mesh2d(meshes.add(Mesh::new(
+            bevy::mesh::PrimitiveTopology::TriangleList,
+            bevy::asset::RenderAssetUsages::default(),
+        ))),
+        MeshMaterial2d(materials.add(ColorMaterial::default())),
+        Transform::default(),
+        RenderLayers::layer(LAYER),
+    ));
 
     let image = Image::new_target_texture(
         512,
@@ -464,16 +470,28 @@ fn style_nodes(
     }
 }
 
+/// Edge width on screen, in render-target pixels.
+const EDGE_WIDTH: f32 = 1.5;
+
 fn draw_edges(
     nav: Res<Nav>,
     state: Res<GraphState>,
     nodes: Query<&Transform, With<GraphNode>>,
-    mut gizmos: Gizmos<GraphGizmos>,
+    camera: Query<&Projection, With<GraphCamera>>,
+    edge_mesh: Query<&Mesh2d, With<EdgeMesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     if nav.view.get_untracked() != View::Graph {
         return;
     }
+    let (Ok(mesh), Ok(projection)) = (edge_mesh.single(), camera.single()) else {
+        return;
+    };
+    let half = EDGE_WIDTH / 2.0 * ortho_scale(projection);
     let focus = state.hovered.or(state.dragging);
+    let mut positions = Vec::with_capacity(state.edges.len() * 4);
+    let mut colors = Vec::with_capacity(state.edges.len() * 4);
+    let mut indices = Vec::with_capacity(state.edges.len() * 6);
     for &(a, b, tag) in &state.edges {
         let (Ok(ta), Ok(tb)) = (nodes.get(a), nodes.get(b)) else {
             continue;
@@ -488,7 +506,19 @@ fn draw_edges(
         } else {
             Color::srgb(0.38, 0.38, 0.42)
         };
-        gizmos.line_2d(ta.translation.truncate(), tb.translation.truncate(), color);
+        let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
+        let normal = (pb - pa).normalize_or_zero().perp() * half;
+        let base = positions.len() as u32;
+        for p in [pa + normal, pa - normal, pb - normal, pb + normal] {
+            positions.push([p.x, p.y, 0.0]);
+            colors.push(color.to_linear().to_f32_array());
+        }
+        indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+    if let Some(mut mesh) = meshes.get_mut(&mesh.0) {
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+        mesh.insert_indices(bevy::mesh::Indices::U32(indices));
     }
 }
 

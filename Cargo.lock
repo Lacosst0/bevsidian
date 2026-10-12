@@ -441,6 +441,7 @@ dependencies = [
  "bevy_radioactive",
  "bevy_ui_commonmark",
  "bevy_ui_textselect",
+ "js-sys",
  "web-sys",
 ]
 

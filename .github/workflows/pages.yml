@@ -33,19 +33,37 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
-          key: wasm-release
-      - name: Install wasm-bindgen-cli (version from Cargo.lock)
+          # One cache for the Pages and Release builds. Tag builds can only restore caches
+          # saved on the default branch, so they reuse the last `main` build: compiled
+          # dependencies are restored and only this workspace and the final link rebuild.
+          shared-key: wasm-release
+          cache-on-failure: true
+      - name: Cache wasm-bindgen and wasm-opt
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/wasm-tools
+          key: wasm-tools-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-binaryen-125
+      - name: Install wasm-bindgen and wasm-opt
+        # wasm-bindgen must match the version in Cargo.lock. Distro binaryen is too old for
+        # wasm-bindgen's externref tables, so use a release build. Both are cached above.
         run: |
-          version=$(awk '/^name = "wasm-bindgen"$/ { getline; gsub(/"/, "", $3); print $3 }' Cargo.lock)
-          curl -sSL "https://github.com/rustwasm/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-x86_64-unknown-linux-musl.tar.gz" \
-            | tar xz --strip-components=1 -C /usr/local/bin "wasm-bindgen-${version}-x86_64-unknown-linux-musl/wasm-bindgen" \
-            || cargo install wasm-bindgen-cli --version "$version" --locked
-      - name: Install binaryen (wasm-opt)
-        run: |
-          curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN}/binaryen-version_${BINARYEN}-x86_64-linux.tar.gz" | tar xz
-          echo "$PWD/binaryen-version_${BINARYEN}/bin" >> "$GITHUB_PATH"
-        env:
-          BINARYEN: "125"
+          tools="$HOME/.local/wasm-tools"
+          mkdir -p "$tools"
+          if [ ! -x "$tools/wasm-bindgen" ]; then
+            version=$(awk '/^name = "wasm-bindgen"$/ { getline; gsub(/"/, "", $3); print $3 }' Cargo.lock)
+            echo "wasm-bindgen $version"
+            url="https://github.com/rustwasm/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-x86_64-unknown-linux-musl.tar.gz"
+            if ! curl -sSfL "$url" | tar xz --strip-components=1 -C "$tools" "wasm-bindgen-${version}-x86_64-unknown-linux-musl/wasm-bindgen"; then
+              cargo install wasm-bindgen-cli --version "$version" --locked --root "$tools/cargo"
+              cp "$tools/cargo/bin/wasm-bindgen" "$tools/"
+            fi
+          fi
+          if [ ! -d "$tools/binaryen" ]; then
+            curl -sSL "https://github.com/WebAssembly/binaryen/releases/download/version_125/binaryen-version_125-x86_64-linux.tar.gz" | tar xz -C "$tools"
+            mv "$tools/binaryen-version_125" "$tools/binaryen"
+          fi
+          echo "$tools" >> "$GITHUB_PATH"
+          echo "$tools/binaryen/bin" >> "$GITHUB_PATH"
       - name: Build single-file web bundle
         run: tools/build-web.sh
       - name: Prepare site

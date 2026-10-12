@@ -17,6 +17,8 @@ use bevy::{
     ui_widgets::Activate,
     window::PrimaryWindow,
 };
+use std::time::Duration;
+
 use bevy_radioactive::coat::coat;
 use bevy_ui_textselect::{ClearSelection, CopySelection, SelectAll, TextSelection};
 
@@ -59,6 +61,7 @@ fn keep_awake(
     editable: Query<(), With<EditableText>>,
     layout_changed: Query<(), Or<(Changed<ComputedNode>, Changed<ScrollPosition>, Added<Node>)>>,
     smooth: Query<&SmoothScroll>,
+    mut winit: ResMut<bevy::winit::WinitSettings>,
     mut settle: Local<u8>,
     mut redraw: MessageWriter<bevy::window::RequestRedraw>,
 ) {
@@ -74,11 +77,37 @@ fn keep_awake(
         // A few more frames let layout, text and reactive regions settle after a change.
         *settle = 3;
     }
-    if *settle > 0 {
+    let cap = nav.max_fps.get_untracked();
+    let mode = if *settle > 0 {
         *settle -= 1;
-        redraw.write(bevy::window::RequestRedraw);
+        if cap == 0 {
+            // Next frame as soon as the display allows.
+            redraw.write(bevy::window::RequestRedraw);
+            IDLE
+        } else {
+            // Frame-rate cap: the next update comes from a timer, and input waits for it.
+            bevy::winit::UpdateMode::Reactive {
+                wait: Duration::from_secs_f64(1.0 / f64::from(cap)),
+                react_to_device_events: false,
+                react_to_user_events: false,
+                react_to_window_events: false,
+            }
+        }
+    } else {
+        IDLE
+    };
+    if winit.focused_mode != mode {
+        winit.focused_mode = mode;
     }
 }
+
+/// Update mode while nothing animates: wake on input, or once a second.
+pub const IDLE: bevy::winit::UpdateMode = bevy::winit::UpdateMode::Reactive {
+    wait: Duration::from_secs(1),
+    react_to_device_events: true,
+    react_to_user_events: true,
+    react_to_window_events: true,
+};
 
 /// Width class of the window.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

@@ -73,7 +73,14 @@ pub struct Nav {
     pub scroll_speed: Signal<u32>,
     /// Show the frame-rate readout.
     pub show_fps: Signal<bool>,
+    /// Frame-rate cap while animating; 0 = as fast as the display allows.
+    pub max_fps: Signal<u32>,
+    /// Wait for the display's refresh (desktop only; browsers always do).
+    pub vsync: Signal<bool>,
 }
+
+/// Choices for [`Nav::max_fps`], in the order the setting cycles through them.
+pub const MAX_FPS_CHOICES: [u32; 6] = [30, 60, 90, 120, 144, 0];
 
 /// Smallest and largest reading text size.
 pub const TEXT_SIZES: std::ops::RangeInclusive<u32> = 13..=24;
@@ -115,6 +122,8 @@ impl Nav {
             settings: signal(|| false),
             scroll_speed: signal(|| 100),
             show_fps: signal(|| false),
+            max_fps: signal(|| 0),
+            vsync: signal(|| true),
         }
     }
 
@@ -186,6 +195,19 @@ impl Nav {
             .saturating_add_signed(steps * SCROLL_SPEED_STEP)
             .clamp(*SCROLL_SPEEDS.start(), *SCROLL_SPEEDS.end());
         self.scroll_speed.set_if_neq(next);
+    }
+
+    /// Moves the frame-rate cap one choice up or down.
+    pub fn change_max_fps(&self, steps: i32) {
+        let current = self.max_fps.get_untracked();
+        let index = MAX_FPS_CHOICES
+            .iter()
+            .position(|c| *c == current)
+            .unwrap_or(MAX_FPS_CHOICES.len() - 1);
+        let next = index
+            .saturating_add_signed(steps as isize)
+            .min(MAX_FPS_CHOICES.len() - 1);
+        self.max_fps.set_if_neq(MAX_FPS_CHOICES[next]);
     }
 
     /// Multiplier for wheel deltas and touch flings.

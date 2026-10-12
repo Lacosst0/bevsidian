@@ -44,16 +44,26 @@ fn main() {
                     }),
                     ..default()
                 })
-                // No gamepad support: skip polling for gamepads every frame.
-                .disable::<bevy::gilrs::GilrsPlugin>(),
+                // Plugins this app does not use. Each still runs systems every frame, which
+                // adds up on a single-threaded phone browser.
+                .disable::<bevy::gilrs::GilrsPlugin>()
+                .disable::<bevy::gizmos::GizmoPlugin>()
+                .disable::<bevy::gizmos_render::GizmoRenderPlugin>()
+                .disable::<bevy::post_process::PostProcessPlugin>()
+                .disable::<bevy::animation::AnimationPlugin>()
+                .disable::<bevy::state::app::StatesPlugin>()
+                .disable::<bevy::world_serialization::WorldSerializationPlugin>(),
         )
         .add_plugins((FeathersPlugins, RadioactivePlugin, CommonMarkPlugin))
         .insert_resource(ClearColor(ui::palette::BG))
         // Render on input and while something animates (see `layout::keep_awake`).
         .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::reactive(Duration::from_secs(1)),
+            focused_mode: layout::IDLE,
             unfocused_mode: UpdateMode::reactive_low_power(Duration::from_secs(5)),
         })
+        // Nothing runs in `FixedUpdate`; without this the fixed-step loop still runs its
+        // schedules (up to several times per frame on slow frames).
+        .insert_resource(Time::<Fixed>::from_seconds(3600.0))
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(vault)
         .insert_resource(nav)
