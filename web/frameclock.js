@@ -16,7 +16,8 @@
 (() => {
   window.__bvsClock = "page";
   // Frames sent to and shown by the worker (diagnostics).
-  const stats = (window.__bvsFrameStats = { sent: 0, shown: 0, requests: 0, ticks: 0 });
+  // `idleTicks`: ticks that found no frame requested (the app was idle or still busy).
+  const stats = (window.__bvsFrameStats = { sent: 0, shown: 0, requests: 0, ticks: 0, idleTicks: 0 });
   const forced = new URLSearchParams(location.search).get("clock");
   const ua = navigator.userAgent;
   const androidChrome = /Android/.test(ua) && /Chrome\//.test(ua);
@@ -33,10 +34,14 @@
     return;
   }
 
-  // Shows frames, oldest first, one per refresh; ticks the page while it wants frames;
-  // stops a few refreshes after going idle.
+  // Shows frames, oldest first, one per refresh. While the page is producing frames it ticks
+  // the page on every refresh, without waiting for its next request: a request only comes at
+  // the end of a frame, and waiting for it (two message hops) made frames that took over about
+  // half a refresh miss every other one. Stops a few refreshes after the page goes idle.
   const workerSource = `
-    let view = null, ctx = null, running = false, wanted = false, idle = 0, shown = 0;
+    let view = null, ctx = null, running = false, shown = 0;
+    // Refresh count, and the last refresh in which the page asked for a frame or sent one.
+    let refresh = 0, active = 0;
     // The worker clock's own rate (refreshes per second while running): the ceiling for
     // this page, whatever the app manages.
     let since = 0, ticks = 0;
@@ -48,10 +53,11 @@
         queue.push(m.frame);
         while (queue.length > 2) queue.shift().close();
       }
-      if (m.want) wanted = true;
-      if (!running) { running = true; idle = 0; since = 0; requestAnimationFrame(tick); }
+      if (m.want || m.frame) active = refresh;
+      if (!running) { running = true; since = 0; requestAnimationFrame(tick); }
     };
     function tick(time) {
+      refresh++;
       if (!since) since = time;
       ticks++;
       if (time - since >= 500) {
@@ -66,14 +72,11 @@
         ctx.transferFromImageBitmap(frame);
         shown++;
       }
-      if (wanted) {
-        wanted = false;
-        idle = 0;
-        postMessage({ tick: true, shown });
-      } else if (!frame && ++idle > 6) {
+      if (refresh - active > 6 && !queue.length) {
         running = false;
         return;
       }
+      postMessage({ tick: true, shown, sent: performance.timeOrigin + performance.now() });
       requestAnimationFrame(tick);
     }
   `;
@@ -101,6 +104,8 @@
   let callbacks = new Map();
   let nextId = 1;
   let requested = false;
+  // When the page last ran its frame callbacks (epoch ms, comparable with the worker's).
+  let frameStart = 0;
   const raf = (callback) => {
     const id = nextId++;
     stats.requests++;
@@ -121,6 +126,13 @@
     stats.shown = event.data.shown;
     stats.ticks++;
     requested = false;
+    // A tick sent before the last frame started is a backlog: the app runs slower than the
+    // display, and the newer tick that came during that frame already started the next one.
+    if (!callbacks.size || event.data.sent < frameStart) {
+      stats.idleTicks++;
+      return;
+    }
+    frameStart = performance.timeOrigin + performance.now();
     const due = callbacks;
     callbacks = new Map();
     const now = performance.now();

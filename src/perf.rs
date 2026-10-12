@@ -185,19 +185,22 @@ fn update_readout(
     if !shown || stats.interval == 0.0 {
         return;
     }
+    // Two short lines, so the readout fits on phones.
     let mut line = format!(
-        "{:.0} fps  {:.1} ms (worst {:.0})  cpu {:.1} ms",
+        "{:.0} fps · {:.1} ms · worst {:.0} · cpu {:.1} ms\n",
         1000.0 / stats.interval,
         stats.interval,
         stats.worst,
         stats.cpu,
     );
     if let Some(hz) = display_hz() {
-        let _ = write!(line, "  display {hz:.0} Hz");
+        let _ = write!(line, "{hz:.0} Hz display · ");
     }
-    if let Some(clock) = frame_clock() {
-        let _ = write!(line, "  {clock} clock");
-    }
+    let _ = write!(
+        line,
+        "{} clock",
+        frame_clock().as_deref().unwrap_or("native")
+    );
     text.0 = line;
     stats.worst = 0.0;
 }

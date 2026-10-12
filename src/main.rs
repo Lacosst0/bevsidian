@@ -14,6 +14,7 @@ mod ui;
 use std::time::Duration;
 
 use bevy::{
+    ecs::message::{MessageRegistry, ShouldUpdateMessages},
     feathers::{FeathersPlugins, dark_theme::create_dark_theme, theme::UiTheme},
     prelude::*,
     text::Font,
@@ -66,6 +67,12 @@ fn main() {
         // Nothing runs in `FixedUpdate`; without this the fixed-step loop still runs its
         // schedules (up to several times per frame on slow frames).
         .insert_resource(Time::<Fixed>::from_seconds(3600.0))
+        // Bevy only clears messages after a `FixedUpdate` run, which never comes now. Clear
+        // them every frame instead: otherwise they pile up, and winit re-reads every stale
+        // `RequestRedraw` each frame, so the app never idles and slows down over time.
+        .add_systems(Startup, |mut registry: ResMut<MessageRegistry>| {
+            registry.should_update = ShouldUpdateMessages::Always;
+        })
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(vault)
         .insert_resource(nav)
