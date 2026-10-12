@@ -69,7 +69,8 @@ fn spawn_readout(mut commands: Commands) {
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
-            right: Val::Px(8.0),
+            // Bottom left: the graph's zoom buttons sit bottom right.
+            left: Val::Px(8.0),
             bottom: Val::Px(8.0),
             padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
             border_radius: BorderRadius::all(Val::Px(6.0)),

@@ -670,7 +670,8 @@ fn on_drag(
         }
     } else {
         cam.translation -= delta.extend(0.0);
-        let dt = time.delta_secs().clamp(1.0 / 240.0, 1.0 / 20.0);
+        // Real frame time: a lower cap would overestimate the fling speed on slow frames.
+        let dt = time.delta_secs().clamp(1.0 / 240.0, 0.1);
         state.pan_velocity = state.pan_velocity.lerp(-delta / dt, 0.4);
     }
 }
