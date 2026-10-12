@@ -54,11 +54,18 @@ bevy_ui_touchscroll.workspace = true
 bevsidian_core.workspace = true
 bevsidian_graph.workspace = true
 
+[features]
+# `cargo run --features dev`: links Bevy as a shared library, so a rebuild only relinks this app.
+# Native only.
+dev = ["bevy/dynamic_linking"]
+
 [lints]
 workspace = true
 
 [profile.dev]
 opt-level = 1
+# Line tables are enough for backtraces, and much cheaper to generate and link.
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -68,11 +75,22 @@ debug = false
 codegen-units = 1
 lto = "thin"
 
-# Profile used for the web build: optimized for speed (phones are CPU-bound).
+# Profile used for the web build: optimized for speed (phones are CPU-bound). Thin LTO builds
+# in less than half the time but makes frames ~8% slower and the download ~25% bigger.
 [profile.wasm-release]
 inherits = "release"
 opt-level = 3
 lto = "fat"
+strip = "debuginfo"
+panic = "abort"
+
+# Quick web build for testing: `PROFILE=wasm-dev tools/build-web.sh`.
+[profile.wasm-dev]
+inherits = "release"
+opt-level = 2
+lto = false
+codegen-units = 256
+incremental = true
 strip = "debuginfo"
 panic = "abort"
 

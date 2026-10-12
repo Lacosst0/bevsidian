@@ -13,7 +13,9 @@ rm -rf target/web-pkg dist
 mkdir -p target/web-pkg dist
 wasm-bindgen --target web --no-typescript --out-dir target/web-pkg --out-name bevsidian "$WASM"
 
-if command -v wasm-opt >/dev/null; then
+if [ "$PROFILE" != wasm-release ]; then
+  echo "skipping wasm-opt for the $PROFILE profile"
+elif command -v wasm-opt >/dev/null; then
   wasm-opt -O3 --enable-simd --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext \
     --enable-mutable-globals --enable-reference-types --enable-multivalue \
     -o target/web-pkg/bevsidian_bg.wasm target/web-pkg/bevsidian_bg.wasm
