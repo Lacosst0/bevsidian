@@ -186,25 +186,29 @@
   window.cancelAnimationFrame = cancel;
 
   // Chrome delivers moves (touchmove, pointermove) just before the page's own frames. With the
-  // app off the page clock, keep a no-op page frame loop going while a pointer is active, so
-  // moves arrive promptly instead of piling up (a delayed move reads as a long-press).
+  // app off the page clock (and idle between inputs), nothing else asks for page frames, so
+  // keep a no-op page frame loop going while a pointer is down and shortly after any input;
+  // otherwise moves stall until something else draws.
+  const down = new Set();
   let lastInput = 0;
   let heartbeat = false;
   const beat = (time) => {
-    if (time - lastInput > 250) {
+    if (!down.size && time - lastInput > 250) {
       heartbeat = false;
       return;
     }
     pageRaf(beat);
   };
-  const onInput = () => {
+  const onInput = (event) => {
     lastInput = performance.now();
+    if (event.type === "pointerdown") down.add(event.pointerId);
+    if (event.type === "pointerup" || event.type === "pointercancel") down.delete(event.pointerId);
     if (!heartbeat) {
       heartbeat = true;
       pageRaf(beat);
     }
   };
-  for (const type of ["pointerdown", "pointermove", "pointerup", "wheel"]) {
+  for (const type of ["pointerdown", "pointermove", "pointerup", "pointercancel", "wheel"]) {
     window.addEventListener(type, onInput, { capture: true, passive: true });
   }
 
