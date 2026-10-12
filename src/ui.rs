@@ -634,12 +634,12 @@ fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -
                 .backlinks
                 .iter()
                 .map(|&source| {
-                    let text = Text::new(vault.notes[source].name.clone());
+                    let link = note_label(&vault.notes[source], 15.0, ACCENT);
                     let nav = nav.clone();
                     Box::new(bsn! {
                         @{side_row(Val::Px(10.0))}
                         on(move |_: On<Activate>| nav.open(source, None))
-                        Children [ text @{ui_font(15.0, FontWeight::NORMAL)} TextColor(ACCENT) Pickable::IGNORE ]
+                        Children [ @{link} ]
                     }) as Box<dyn Scene>
                 })
                 .collect();
@@ -725,13 +725,12 @@ fn side_panel(id: NoteId, world: &World, nav: Nav) -> Box<dyn Scene> {
     let note_rows = |ids: &[NoteId]| -> Vec<Box<dyn Scene>> {
         ids.iter()
             .map(|&target| {
-                let text = Text::new(vault.notes[target].name.clone());
-
+                let link = note_label(&vault.notes[target], 13.0, ACCENT);
                 let nav = nav.clone();
                 Box::new(bsn! {
                     @{side_row(Val::Px(12.0))}
                     on(move |_: On<Activate>| nav.open(target, None))
-                    Children [ text @{ui_font(13.0, FontWeight::NORMAL)} TextColor(ACCENT) Pickable::IGNORE ]
+                    Children [ @{link} ]
                 }) as Box<dyn Scene>
             })
             .collect()
@@ -815,6 +814,28 @@ fn side_panel(id: NoteId, world: &World, nav: Nav) -> Box<dyn Scene> {
             Node { margin: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(18.0), Val::Px(0.0)) }
         ]
     })
+}
+
+/// A note's icon and name, e.g. in link lists.
+fn note_label(note: &bevsidian_core::vault::Note, size: f32, color: Color) -> impl Scene + use<> {
+    let (icon, name) = (
+        Text::new(note.icon.to_string()),
+        Text::new(note.name.clone()),
+    );
+    let row = Node {
+        align_items: AlignItems::Center,
+        column_gap: Val::Px(size * 0.5),
+        ..default()
+    };
+    bsn! {
+        row
+        Pickable::IGNORE
+        Children [
+            icon @{icon_font(size)} TextColor(FAINT) Pickable::IGNORE
+            --
+            name @{ui_font(size, FontWeight::NORMAL)} TextColor(color) Pickable::IGNORE
+        ]
+    }
 }
 
 fn side_row(indent: Val) -> impl Scene {
@@ -909,7 +930,7 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
                                 nav_rows.switcher.set(false);
                             })
                             Children [
-                                Text({names.get_untracked().notes[id].name.clone()}) @{ui_font(14.0, FontWeight::NORMAL)} TextColor(TEXT) Pickable::IGNORE
+                                @{note_label(&names.get_untracked().notes[id], 14.0, TEXT)}
                                 --
                                 Text({names.get_untracked().notes[id].path.clone()}) @{ui_font(11.5, FontWeight::NORMAL)} TextColor(FAINT) Pickable::IGNORE
                             ]
