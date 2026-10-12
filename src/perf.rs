@@ -167,14 +167,24 @@ fn update_readout(
     if root.display != display {
         root.display = display;
     }
-    if *probing != shown {
-        *probing = shown;
-        display_probe(shown);
+    // The refresh-rate probe runs while the readout or the Settings panel (which shows the
+    // VSync target) is open.
+    let probe = shown || nav.settings.get_untracked();
+    if *probing != probe {
+        *probing = probe;
+        display_probe(probe);
     }
-    if !shown || stats.last_refresh.elapsed().as_secs_f32() < 0.5 || stats.interval == 0.0 {
+    if stats.last_refresh.elapsed().as_secs_f32() < 0.5 {
         return;
     }
     stats.last_refresh = Instant::now();
+    if probe {
+        nav.display_hz
+            .set_if_neq(display_hz().map(|hz| hz.round() as u32));
+    }
+    if !shown || stats.interval == 0.0 {
+        return;
+    }
     let mut line = format!(
         "{:.0} fps  {:.1} ms (worst {:.0})  cpu {:.1} ms",
         1000.0 / stats.interval,
@@ -185,12 +195,15 @@ fn update_readout(
     if let Some(hz) = display_hz() {
         let _ = write!(line, "  display {hz:.0} Hz");
     }
+    if let Some(clock) = frame_clock() {
+        let _ = write!(line, "  {clock} clock");
+    }
     text.0 = line;
     stats.worst = 0.0;
 }
 
 /// Starts or stops a tiny `requestAnimationFrame` loop that measures how often the browser
-/// offers frames to the page. It only runs while the readout is shown.
+/// offers frames to the page. It only runs while the readout or Settings is open.
 fn display_probe(on: bool) {
     #[cfg(target_arch = "wasm32")]
     {
@@ -220,6 +233,21 @@ fn display_hz() -> Option<f64> {
         js_sys::Reflect::get(&window, &"__bvsHz".into())
             .ok()?
             .as_f64()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        None
+    }
+}
+
+/// Which clock paces frames on the web: "worker" (see `web/frameclock.js`) or "page".
+fn frame_clock() -> Option<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let window = web_sys::window()?;
+        js_sys::Reflect::get(&window, &"__bvsClock".into())
+            .ok()?
+            .as_string()
     }
     #[cfg(not(target_arch = "wasm32"))]
     {

@@ -165,16 +165,25 @@ fn switch(value: Signal<bool>) -> impl Scene {
     }
 }
 
-/// `VSync` switch on desktop; in a browser the canvas is always presented in sync with the
-/// display, so there is nothing to switch.
-fn vsync_control(value: Signal<bool>) -> Box<dyn Scene> {
+/// `VSync` switch on desktop. In a browser the canvas is always presented in sync with the
+/// display, so this shows the refresh rate it targets instead.
+fn vsync_control(nav: &Nav) -> Box<dyn Scene> {
     if cfg!(target_arch = "wasm32") {
-        let _ = value;
-        Box::new(bsn! {
-            Text("Always on in browsers") @{ui_font(12.5, FontWeight::NORMAL)} TextColor(palette::FAINT)
-        })
+        Box::new(vsync_target(nav.display_hz.clone()))
     } else {
-        Box::new(switch(value))
+        Box::new(switch(nav.vsync.clone()))
+    }
+}
+
+/// "120 Hz target": the measured refresh rate the browser syncs the page to.
+fn vsync_target(hz: Signal<Option<u32>>) -> impl Scene {
+    coat! {
+        Text($(match $hz {
+            Some(hz) => format!("{hz} Hz target"),
+            None => "Measuring…".to_owned(),
+        }))
+        @{ui_font(12.5, FontWeight::NORMAL)}
+        TextColor(palette::FAINT)
     }
 }
 
@@ -289,7 +298,7 @@ pub fn settings_panel(nav: Nav) -> impl Scene {
                         Children [
                             @{row_label("VSync")}
                             --
-                            @{vsync_control(vsync_nav.vsync.clone())}
+                            @{vsync_control(&vsync_nav)}
                         ]
                         --
                         Node { justify_content: JustifyContent::SpaceBetween, align_items: AlignItems::Center }

@@ -2,7 +2,8 @@
 //!
 //! - [`LayoutMode`] follows the window width: sidebars are inline on wide screens and become
 //!   slide-over drawers on tablets and phones.
-//! - Touch drags scroll the nearest `ScrollArea` with momentum (mouse drags select text).
+//! - Touch drags scroll the nearest `ScrollArea` 1:1, then fling with Android's physics
+//!   (mouse drags select text).
 //! - On touch devices, a selection action bar offers Copy / Select all, and focusing a text
 //!   field shows an in-app keyboard (a Feathers [`VirtualKeyboard`]), since a WebGL canvas
 //!   cannot summon the phone's keyboard.
@@ -30,6 +31,7 @@ pub fn plugin(app: &mut App) {
         .add_observer(touch_drag_start)
         .add_observer(touch_drag)
         .add_observer(touch_drag_end)
+        .add_observer(catch_fling)
         .add_observer(add_smooth_scroll)
         .add_observer(boost_wheel)
         .add_systems(
@@ -172,15 +174,177 @@ fn detect_touch(
 // ---------------------------------------------------------------------------
 
 #[derive(Resource, Default)]
-struct TouchScroll {
+pub(crate) struct TouchScroll {
     /// Touch drag that has not picked a scroll area yet (decided by its first movement).
     pending: Option<(Entity, bevy::picking::pointer::PointerId)>,
     /// Scroll area being dragged, and the pointer dragging it.
     active: Option<(Entity, bevy::picking::pointer::PointerId)>,
     /// Scroll area coasting after release.
     coasting: Option<Entity>,
-    /// Velocity in logical px per second.
-    velocity: Vec2,
+    /// The fling it follows.
+    fling: Option<Fling>,
+    /// Recent finger positions, for the release velocity.
+    tracker: VelocityTracker,
+    /// When a touch last stopped a fling (that touch must not also tap a link).
+    caught: Option<f64>,
+}
+
+impl TouchScroll {
+    /// Whether the touch that just ended only stopped a fling, so its tap should be ignored.
+    pub(crate) fn take_caught(&mut self, now: f64) -> bool {
+        self.caught.take().is_some_and(|t| now - t < 1.0)
+    }
+}
+
+// Fling physics, as on Android (Flutter's `ClampingScrollSimulation`, which matches
+// Android's `OverScroller`): the page decelerates along a fixed curve whose length and
+// distance follow from the release velocity.
+const DECELERATION_RATE: f64 = 2.358_201_815; // ln(0.78) / ln(0.9)
+const INFLEXION: f64 = 0.35;
+const FRICTION: f64 = 0.015;
+/// Earth's gravity in logical px/s² at 160 dpi, times 0.84 (Android's physical coefficient).
+const PHYSICAL_COEFF: f64 = 9.806_65 * 39.37 * 160.0 * 0.84;
+/// Slower releases do not fling; faster ones are capped (Flutter's limits, px/s).
+const MIN_FLING_VELOCITY: f32 = 50.0;
+const MAX_FLING_VELOCITY: f32 = 8000.0;
+
+#[derive(Clone, Copy, Debug)]
+struct Fling {
+    start_time: f64,
+    start: Vec2,
+    /// Total travel (px).
+    distance: Vec2,
+    /// Length (s).
+    duration: f64,
+}
+
+impl Fling {
+    fn new(now: f64, start: Vec2, velocity: Vec2) -> Option<Self> {
+        let speed = f64::from(velocity.length());
+        if speed < f64::from(MIN_FLING_VELOCITY) {
+            return None;
+        }
+        let reference = FRICTION * PHYSICAL_COEFF / INFLEXION;
+        let duration = DECELERATION_RATE
+            * INFLEXION
+            * (speed / reference).powf(1.0 / (DECELERATION_RATE - 1.0));
+        Some(Self {
+            start_time: now,
+            start,
+            distance: velocity * (duration / DECELERATION_RATE) as f32,
+            duration,
+        })
+    }
+
+    /// Position at `now`, and whether the fling is over.
+    fn at(&self, now: f64) -> (Vec2, bool) {
+        let t = ((now - self.start_time) / self.duration).clamp(0.0, 1.0);
+        let progress = 1.0 - (1.0 - t).powf(DECELERATION_RATE);
+        (self.start + self.distance * progress as f32, t >= 1.0)
+    }
+}
+
+/// Release velocity from recent finger positions: a least-squares quadratic fit over the
+/// last 100 ms, as Flutter's `VelocityTracker` does (a finger resting for 40 ms means zero).
+#[derive(Default)]
+struct VelocityTracker {
+    /// (time in s, total finger travel in scroll px).
+    samples: std::collections::VecDeque<(f64, Vec2)>,
+    travel: Vec2,
+}
+
+impl VelocityTracker {
+    const HORIZON: f64 = 0.100;
+    const STOPPED: f64 = 0.040;
+
+    fn reset(&mut self) {
+        self.samples.clear();
+        self.travel = Vec2::ZERO;
+    }
+
+    fn add(&mut self, now: f64, delta: Vec2) {
+        self.travel += delta;
+        // Several moves can arrive in one frame: keep one sample per timestamp.
+        if let Some(last) = self.samples.back_mut()
+            && (now - last.0).abs() < 1e-6
+        {
+            last.1 = self.travel;
+        } else {
+            self.samples.push_back((now, self.travel));
+        }
+        while self.samples.len() > 20 {
+            self.samples.pop_front();
+        }
+    }
+
+    fn velocity(&self, now: f64) -> Vec2 {
+        let Some(&(newest, _)) = self.samples.back() else {
+            return Vec2::ZERO;
+        };
+        if now - newest > Self::STOPPED {
+            return Vec2::ZERO;
+        }
+        // Samples within the horizon, without a pause between them.
+        let mut used: Vec<(f64, Vec2)> = Vec::new();
+        let mut previous = newest;
+        for &(time, travel) in self.samples.iter().rev() {
+            if newest - time > Self::HORIZON || previous - time > Self::STOPPED {
+                break;
+            }
+            used.push((time - newest, travel));
+            previous = time;
+        }
+        match used.len() {
+            0 | 1 => Vec2::ZERO,
+            2 => {
+                let ((t0, p0), (t1, p1)) = (used[1], used[0]);
+                if t1 - t0 <= 0.0 {
+                    Vec2::ZERO
+                } else {
+                    (p1 - p0) / (t1 - t0) as f32
+                }
+            }
+            _ => Vec2::new(
+                quadratic_slope(&used, |p| p.x),
+                quadratic_slope(&used, |p| p.y),
+            ),
+        }
+    }
+}
+
+/// Least-squares fit of `y = a + b·t + c·t²`; returns `b`, the slope at `t = 0` (the newest
+/// sample).
+fn quadratic_slope(samples: &[(f64, Vec2)], axis: impl Fn(Vec2) -> f32) -> f32 {
+    // Normal equations: sums of t^k and y·t^k.
+    let mut s = [0.0_f64; 5];
+    let mut r = [0.0_f64; 3];
+    for &(t, p) in samples {
+        let y = f64::from(axis(p));
+        let mut tk = 1.0;
+        for (k, sk) in s.iter_mut().enumerate() {
+            *sk += tk;
+            if k < 3 {
+                r[k] += y * tk;
+            }
+            tk *= t;
+        }
+    }
+    let m = [[s[0], s[1], s[2]], [s[1], s[2], s[3]], [s[2], s[3], s[4]]];
+    let det = |m: [[f64; 3]; 3]| {
+        m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+            - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+            + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+    };
+    let d = det(m);
+    if d.abs() < 1e-18 {
+        return 0.0;
+    }
+    // Cramer's rule for the middle coefficient.
+    let mut mb = m;
+    for (row, value) in mb.iter_mut().zip(r) {
+        row[1] = value;
+    }
+    (det(mb) / d) as f32
 }
 
 /// The nearest ancestor (or self) of `entity` that can scroll along the drag's main axis,
@@ -213,7 +377,25 @@ fn touch_drag_start(drag: On<PointerDragStart>, mut scroll: ResMut<TouchScroll>)
     scroll.pending = Some((drag.entity, drag.pointer.id));
     scroll.active = None;
     scroll.coasting = None;
-    scroll.velocity = Vec2::ZERO;
+    scroll.fling = None;
+    scroll.tracker.reset();
+}
+
+/// A finger landing on a fling stops it, like on Android; that touch must not also tap.
+fn catch_fling(
+    press: On<bevy::picking::events::PointerPress>,
+    time: Res<Time<Real>>,
+    mut scroll: ResMut<TouchScroll>,
+) {
+    if !press.pointer.id.is_touch() || press.entity != press.original_event_target() {
+        return;
+    }
+    if scroll.coasting.take().is_some() {
+        scroll.fling = None;
+        scroll.caught = Some(time.elapsed_secs_f64());
+    } else {
+        scroll.caught = None;
+    }
 }
 
 fn touch_drag(
@@ -242,22 +424,29 @@ fn touch_drag(
         scroll.active = None;
         return;
     }
-    if apply_scroll(target, -drag.delta, &mut areas) {
-        let dt = time.delta_secs().clamp(1.0 / 240.0, 1.0 / 20.0);
-        let instant = -drag.delta / dt;
-        scroll.velocity = scroll.velocity.lerp(instant, 0.4);
-    }
+    apply_scroll(target, -drag.delta, &mut areas);
+    scroll.tracker.add(time.elapsed_secs_f64(), -drag.delta);
 }
 
-fn touch_drag_end(drag: On<PointerDragEnd>, nav: Res<Nav>, mut scroll: ResMut<TouchScroll>) {
+fn touch_drag_end(
+    drag: On<PointerDragEnd>,
+    time: Res<Time<Real>>,
+    nav: Res<Nav>,
+    areas: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
+    mut scroll: ResMut<TouchScroll>,
+) {
     scroll.pending = None;
     if let Some((target, pointer)) = scroll.active
         && pointer == drag.pointer.id
     {
         scroll.active = None;
-        scroll.coasting = Some(target);
+        let now = time.elapsed_secs_f64();
         // The finger moves the page 1:1; the scroll speed setting scales the fling.
-        scroll.velocity *= nav.scroll_factor();
+        let velocity = (scroll.tracker.velocity(now) * nav.scroll_factor())
+            .clamp_length_max(MAX_FLING_VELOCITY);
+        let start = areas.get(target).map_or(Vec2::ZERO, |(_, _, p)| p.0);
+        scroll.fling = Fling::new(now, start, velocity);
+        scroll.coasting = scroll.fling.is_some().then_some(target);
     }
 }
 
@@ -291,17 +480,19 @@ fn touch_momentum(
     mut scroll: ResMut<TouchScroll>,
     mut areas: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
 ) {
-    let Some(target) = scroll.coasting else {
+    let (Some(target), Some(fling)) = (scroll.coasting, scroll.fling) else {
         return;
     };
-    // Clamp: in reactive mode the first frame after idling can be long.
-    let dt = time.delta_secs().min(1.0 / 30.0);
-    let velocity = scroll.velocity;
-    let moved = apply_scroll(target, velocity * dt, &mut areas);
-    scroll.velocity *= (-4.0 * dt).exp();
-    if !moved || scroll.velocity.length() < 20.0 {
+    let (position, done) = fling.at(time.elapsed_secs_f64());
+    let Ok((_, _, current)) = areas.get(target) else {
         scroll.coasting = None;
-        scroll.velocity = Vec2::ZERO;
+        return;
+    };
+    let moved = apply_scroll(target, position - current.0, &mut areas);
+    // Stop at the end of the curve, or at an edge.
+    if done || !moved {
+        scroll.coasting = None;
+        scroll.fling = None;
     }
 }
 
@@ -581,5 +772,46 @@ pub fn keyboard_panel(nav: Nav) -> impl Scene {
                 ]
             }
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn velocity_of_a_steady_finger() {
+        let mut tracker = VelocityTracker::default();
+        // 1200 px/s downwards, sampled at 120 Hz.
+        for i in 0..12 {
+            tracker.add(f64::from(i) / 120.0, Vec2::new(0.0, 10.0));
+        }
+        let v = tracker.velocity(11.0 / 120.0);
+        assert!((v.y - 1200.0).abs() < 1.0, "{v}");
+        assert!(v.x.abs() < 1e-3);
+        // A finger that rested for more than 40 ms before lifting does not fling.
+        assert_eq!(tracker.velocity(11.0 / 120.0 + 0.05), Vec2::ZERO);
+    }
+
+    #[test]
+    fn fling_matches_android_curve() {
+        let fling = Fling::new(0.0, Vec2::ZERO, Vec2::new(0.0, 3000.0)).unwrap();
+        // Same numbers as Flutter's ClampingScrollSimulation for 3000 px/s.
+        assert!((fling.duration - 1.028).abs() < 0.01, "{}", fling.duration);
+        assert!(
+            (fling.distance.y - 1308.0).abs() < 10.0,
+            "{}",
+            fling.distance
+        );
+        let (end, done) = fling.at(fling.duration);
+        assert!(done && (end.y - fling.distance.y).abs() < 1e-3);
+        // Starts at the release speed: ~3000 px/s over the first millisecond.
+        let (early, _) = fling.at(0.001);
+        assert!(
+            (early.y / 0.001 - 3000.0).abs() < 30.0,
+            "{}",
+            early.y / 0.001
+        );
+        assert!(Fling::new(0.0, Vec2::ZERO, Vec2::new(0.0, 10.0)).is_none());
     }
 }

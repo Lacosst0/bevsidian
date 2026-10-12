@@ -77,6 +77,9 @@ pub struct Nav {
     pub max_fps: Signal<u32>,
     /// Wait for the display's refresh (desktop only; browsers always do).
     pub vsync: Signal<bool>,
+    /// Refresh rate the browser offers the page (measured while Settings or the FPS readout
+    /// is open; web only).
+    pub display_hz: Signal<Option<u32>>,
 }
 
 /// Choices for [`Nav::max_fps`], in the order the setting cycles through them.
@@ -124,6 +127,7 @@ impl Nav {
             show_fps: signal(|| false),
             max_fps: signal(|| 0),
             vsync: signal(|| true),
+            display_hz: signal(|| None),
         }
     }
 
@@ -254,7 +258,17 @@ impl Nav {
     }
 }
 
-fn on_link(link: On<MdLinkActivated>, nav: Res<Nav>, vault: Res<Vault>) {
+fn on_link(
+    link: On<MdLinkActivated>,
+    nav: Res<Nav>,
+    vault: Res<Vault>,
+    time: Res<Time<Real>>,
+    mut touch: ResMut<crate::layout::TouchScroll>,
+) {
+    // The tap only stopped a fling.
+    if touch.take_caught(time.elapsed_secs_f64()) {
+        return;
+    }
     match &link.target {
         LinkTarget::Wiki(wiki) => {
             if let Some(id) = vault.resolve(wiki) {
