@@ -12,7 +12,7 @@
 //!
 //! fn setup(mut commands: Commands, theme: Res<MdTheme>) {
 //!     let doc = MdDocument::parse("# Hello\n\nSee [[Other note]] and #bevy.");
-//!     let options = RenderOptions { theme: &theme, resolve: &|_| true };
+//!     let options = RenderOptions { theme: &theme, resolve: &|_| true, title_badge: None };
 //!     commands.spawn(Camera2d);
 //!     commands.spawn_scene(markdown_scene(&doc, &options));
 //! }

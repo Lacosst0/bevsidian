@@ -17,7 +17,7 @@ use bevy_ui_textselect::{ClickableSpan, SelectableText};
 
 use bevsidian_core::{
     nav::{LayoutMode, Nav, NotePane, SearchInput, View},
-    theme::{palette, ui_font},
+    theme::{icon_font, palette, ui_font},
     vault::{NoteId, Vault},
 };
 use bevsidian_graph::GraphViewport;
@@ -265,6 +265,7 @@ fn file_row(
 ) -> impl Scene + use<> {
     let note = &vault.notes[id];
     let name = Text::new(note.name.clone());
+    let icon = Text::new(note.icon.to_string());
     let folder = (!note.folder.is_empty()).then(|| {
         let text = Text::new(format!("{}/", note.folder));
         bsn! { text @{ui_font(11.0, FontWeight::NORMAL)} TextColor(FAINT) }
@@ -292,8 +293,15 @@ fn file_row(
         Children [
             @{folder}
             --
-            name @{ui_font(14.5, FontWeight::NORMAL)} TextColor($(if $current == id { TEXT } else { MUTED }))
+            Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0) }
             Pickable::IGNORE
+            Children [
+                icon @{icon_font(15.0)} TextColor($(if $current == id { ACCENT } else { FAINT }))
+                Pickable::IGNORE
+                --
+                name @{ui_font(14.5, FontWeight::NORMAL)} TextColor($(if $current == id { TEXT } else { MUTED }))
+                Pickable::IGNORE
+            ]
             --
             @{excerpt}
         ]
@@ -540,6 +548,12 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
     }
 }
 
+/// The note icon shown to the right of its title.
+fn title_icon(icon: char, size: f32) -> impl Scene + use<> {
+    let text = Text::new(icon.to_string());
+    bsn! { text @{icon_font(size * 0.9)} TextColor(ACCENT) Pickable::IGNORE Node { flex_shrink: 0.0 } }
+}
+
 fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -> Box<dyn Scene> {
     let vault = world.resource::<Vault>().clone();
     let nav = world.resource::<Nav>().clone();
@@ -550,16 +564,32 @@ fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -
     }
     let note = &vault.notes[id];
     let resolve = |link: &bevy_ui_commonmark::WikiLink| vault.resolve(link).is_some();
+    let icon = note.icon;
+    let badge = move |size: f32| -> Box<dyn Scene> { Box::new(title_icon(icon, size)) };
     let options = RenderOptions {
         theme: &theme,
         resolve: &resolve,
+        title_badge: Some(&badge),
     };
     let body = markdown_scene(&note.doc, &options);
     // Obsidian-style inline title when the note has no level-1 heading.
     let title = note.doc.title.is_none().then(|| {
         let text = Text::new(note.name.clone());
         let size = theme.heading_size(1);
-        bsn! { text @{ui_font(size, FontWeight::BOLD)} TextColor(TEXT) SelectableText Node { margin: UiRect::bottom(Val::Px(16.0)) } }
+        let row = Node {
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(size * 0.45),
+            margin: UiRect::bottom(Val::Px(16.0)),
+            ..default()
+        };
+        bsn! {
+            row
+            Children [
+                text @{ui_font(size, FontWeight::BOLD)} TextColor(TEXT) SelectableText Node { flex_shrink: 1.0 }
+                --
+                @{title_icon(icon, size)}
+            ]
+        }
     });
     // Without an inline sidebar, show backlinks at the end of the note like Obsidian mobile.
     let footer: Vec<Box<dyn Scene>> = (mode.right_drawer() && !note.backlinks.is_empty())

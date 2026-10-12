@@ -21,6 +21,9 @@ pub struct MdDocument {
     /// Every distinct `#tag` (without `#`), in order of first appearance.
     /// Includes tags from a YAML front-matter `tags:` list.
     pub tags: Vec<String>,
+    /// Single-line `key: value` properties of the YAML front matter (e.g. `icon: rocket`),
+    /// in order, with quotes removed. Lists such as `tags` are not included.
+    pub properties: Vec<(String, String)>,
     /// Every heading as `(level, text, slug)`, for outlines.
     pub headings: Vec<Heading>,
 }
@@ -376,6 +379,24 @@ impl InlineState {
     }
 }
 
+/// Top-level `key: value` lines of front matter; values are unquoted.
+fn front_matter_properties(yaml: &str, properties: &mut Vec<(String, String)>) {
+    for line in yaml.lines() {
+        if line.starts_with([' ', '\t', '-', '#']) {
+            continue;
+        }
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let value = value.trim();
+        if key == "tags" || value.is_empty() || value.starts_with('[') {
+            continue;
+        }
+        let value = value.trim_matches(['"', '\'']);
+        properties.push((key.trim().to_owned(), value.to_owned()));
+    }
+}
+
 fn front_matter_tags(yaml: &str, tags: &mut Vec<String>) {
     // Minimal YAML subset: `tags: [a, b]`, `tags: a b`, or a `tags:` list of `- a`.
     let mut in_list = false;
@@ -658,6 +679,7 @@ impl MdDocument {
                     TagEnd::MetadataBlock(_) => {
                         if let Some(yaml) = metadata.take() {
                             front_matter_tags(&yaml, &mut doc.tags);
+                            front_matter_properties(&yaml, &mut doc.properties);
                         }
                     }
                     _ => {}
@@ -856,8 +878,14 @@ mod tests {
 
     #[test]
     fn front_matter() {
-        let doc = MdDocument::parse("---\ntags: [beginner, \"ecs\"]\n---\n# Title\n");
+        let doc = MdDocument::parse(
+            "---\ntags: [beginner, \"ecs\"]\nicon: \"rocket\"\naliases:\n  - a\n---\n# Title\n",
+        );
         assert_eq!(doc.tags, vec!["beginner", "ecs"]);
+        assert_eq!(
+            doc.properties,
+            vec![("icon".to_owned(), "rocket".to_owned())]
+        );
         assert_eq!(doc.title.as_deref(), Some("Title"));
     }
 

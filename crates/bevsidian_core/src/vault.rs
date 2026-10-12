@@ -17,6 +17,8 @@ pub struct Note {
     pub path: String,
     /// Folder relative to the vault root (empty for the root).
     pub folder: String,
+    /// Icon (a character of the icon font): the `icon:` front-matter property, or a page.
+    pub icon: char,
     /// Parsed content.
     pub doc: MdDocument,
     /// Lowercase plain text, for search.
@@ -58,8 +60,15 @@ impl VaultData {
                     .map(|(folder, _)| folder.to_owned())
                     .unwrap_or_default();
                 let search_text = format!("{name}\n{}", doc.plain_text()).to_lowercase();
+                let icon = doc
+                    .properties
+                    .iter()
+                    .find(|(key, _)| key == "icon")
+                    .and_then(|(_, value)| crate::icons::find(value))
+                    .unwrap_or(crate::icons::DEFAULT);
                 Note {
                     name,
+                    icon,
                     path: path.to_owned(),
                     folder,
                     doc,

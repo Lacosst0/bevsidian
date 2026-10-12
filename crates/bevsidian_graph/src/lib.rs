@@ -1,6 +1,6 @@
 //! Obsidian-style graph view.
 //!
-//! Notes (and tags) are simulated as a force-directed graph in a 2D world on its own render
+//! Notes, drawn as their icons, are simulated as a force-directed graph in a 2D world on its own render
 //! layer. A dedicated camera renders that world into an image that the UI shows in the
 //! [`GraphViewport`] node; pointer events on the node are mapped back into the world for
 //! hovering, clicking, dragging nodes, panning (with momentum) and zooming (wheel, pinch
@@ -22,7 +22,7 @@ use bevy::{
 use bevsidian_core::{
     nav::{Nav, View},
     theme::{palette, ui_font},
-    vault::Vault,
+    vault::{NoteId, Vault},
 };
 
 const LAYER: usize = 1;
@@ -60,16 +60,10 @@ pub struct GraphViewport;
 #[derive(Component)]
 struct GraphCamera;
 
-/// What a graph node represents.
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum NodeKind {
-    Note(usize),
-    Tag(String),
-}
-
+/// A note in the graph, drawn as its icon with its name below.
 #[derive(Component)]
 struct GraphNode {
-    kind: NodeKind,
+    note: NoteId,
     velocity: Vec2,
     radius: f32,
     pinned: bool,
@@ -79,10 +73,20 @@ struct GraphNode {
 #[derive(Component)]
 struct GraphLabel;
 
+#[derive(Component)]
+struct GraphIcon;
+
+/// Text drawn in the graph world, re-rasterized as the camera zooms so it stays sharp.
+#[derive(Component)]
+struct GraphText {
+    /// Size in world units.
+    size: f32,
+}
+
 #[derive(Resource, Default)]
 pub struct GraphState {
     image: Handle<Image>,
-    edges: Vec<(Entity, Entity, bool)>,
+    edges: Vec<(Entity, Entity)>,
     hovered: Option<Entity>,
     dragging: Option<Entity>,
     /// The current press, until the next one.
@@ -95,16 +99,6 @@ pub struct GraphState {
     pinch: Option<f32>,
     /// Simulation "temperature": decays to zero, re-heated by interaction.
     alpha: f32,
-    materials: Option<GraphMaterials>,
-}
-
-#[derive(Clone)]
-struct GraphMaterials {
-    note: Handle<ColorMaterial>,
-    tag: Handle<ColorMaterial>,
-    current: Handle<ColorMaterial>,
-    hovered: Handle<ColorMaterial>,
-    dim: Handle<ColorMaterial>,
 }
 
 impl GraphState {
@@ -174,94 +168,81 @@ fn setup(
         Msaa::Sample4,
     ));
 
-    let mats = GraphMaterials {
-        note: materials.add(Color::srgb(0.62, 0.62, 0.66)),
-        tag: materials.add(palette::ACCENT.with_alpha(0.55)),
-        current: materials.add(palette::ACCENT),
-        hovered: materials.add(Color::srgb(0.95, 0.95, 1.0)),
-        dim: materials.add(Color::srgb(0.3, 0.3, 0.33)),
-    };
+    // A disc of background colour behind each icon, so edges stop at its outline.
+    let mask = materials.add(palette::BG);
     let circle = meshes.add(Circle::new(1.0));
-    let font = TextFont {
-        font: bevy::text::FontSource::families("Inter, sans-serif"),
-        font_size: LABEL_SIZE.into(),
-        weight: FontWeight::MEDIUM,
+    let font = |family: &'static str, size: f32, weight: FontWeight| TextFont {
+        font: bevy::text::FontSource::families(family),
+        font_size: size.into(),
+        weight,
         ..default()
     };
 
-    // Notes on a circle, tags on an inner circle; the simulation untangles them.
+    // Notes start on a circle; the simulation untangles them.
     let note_count = vault.notes.len();
     let mut note_entities = Vec::with_capacity(note_count);
-    let spawn_node = |commands: &mut Commands,
-                      kind: NodeKind,
-                      label: String,
-                      pos: Vec2,
-                      radius: f32,
-                      material: Handle<ColorMaterial>| {
-        commands
+    for (i, note) in vault.notes.iter().enumerate() {
+        let angle = i as f32 / note_count.max(1) as f32 * std::f32::consts::TAU;
+        let degree = note.outgoing.len() + note.backlinks.len();
+        // Better-linked notes are bigger.
+        let radius = 14.0 + 4.0 * (degree as f32).sqrt();
+        let icon_size = radius * 2.0;
+        let id = commands
             .spawn((
                 GraphNode {
-                    kind,
+                    note: i,
                     velocity: Vec2::ZERO,
                     radius,
                     pinned: false,
                     neighbors: Vec::new(),
                 },
-                Mesh2d(circle.clone()),
-                MeshMaterial2d(material),
-                Transform::from_translation(pos.extend(1.0)).with_scale(Vec3::splat(radius)),
+                Transform::from_translation((Vec2::from_angle(angle) * 180.0).extend(1.0)),
+                Visibility::default(),
                 RenderLayers::layer(LAYER),
             ))
-            .with_child((
-                GraphLabel,
-                Text2d::new(label),
-                font.clone(),
-                TextColor(palette::MUTED),
-                // Counter the parent's radius scale so labels keep their size.
-                Transform::from_xyz(0.0, -1.0 - 14.0 / radius, 0.0)
-                    .with_scale(Vec3::splat(1.0 / radius)),
-                RenderLayers::layer(LAYER),
-            ))
-            .id()
-    };
-    for (i, note) in vault.notes.iter().enumerate() {
-        let angle = i as f32 / note_count.max(1) as f32 * std::f32::consts::TAU;
-        let degree = note.outgoing.len() + note.backlinks.len();
-        let radius = 7.0 + 2.0 * (degree as f32).sqrt() * 2.0;
-        let id = spawn_node(
-            &mut commands,
-            NodeKind::Note(i),
-            note.name.clone(),
-            Vec2::from_angle(angle) * 180.0,
-            radius,
-            mats.note.clone(),
-        );
+            .with_children(|node| {
+                node.spawn((
+                    Mesh2d(circle.clone()),
+                    MeshMaterial2d(mask.clone()),
+                    Transform::from_xyz(0.0, 0.0, -0.1).with_scale(Vec3::splat(radius * 0.8)),
+                    RenderLayers::layer(LAYER),
+                ));
+                node.spawn((
+                    GraphIcon,
+                    GraphText { size: icon_size },
+                    Text2d::new(note.icon.to_string()),
+                    font("lucide", icon_size, FontWeight::NORMAL),
+                    TextColor(NOTE_COLOR),
+                    Transform::default(),
+                    RenderLayers::layer(LAYER),
+                ));
+                node.spawn((
+                    GraphLabel,
+                    GraphText { size: LABEL_SIZE },
+                    Text2d::new(note.name.clone()),
+                    font("Inter, sans-serif", LABEL_SIZE, FontWeight::MEDIUM),
+                    TextColor(palette::MUTED),
+                    Transform::from_xyz(0.0, -radius - 12.0, 0.0),
+                    RenderLayers::layer(LAYER),
+                ));
+            })
+            .id();
         note_entities.push(id);
     }
     let mut edges = Vec::new();
     for (i, note) in vault.notes.iter().enumerate() {
         for &target in &note.outgoing {
-            edges.push((note_entities[i], note_entities[target], false));
-        }
-    }
-    for (j, (tag, notes)) in vault.tags.iter().enumerate() {
-        let angle = j as f32 / vault.tags.len().max(1) as f32 * std::f32::consts::TAU + 0.3;
-        let id = spawn_node(
-            &mut commands,
-            NodeKind::Tag(tag.clone()),
-            format!("#{tag}"),
-            Vec2::from_angle(angle) * 90.0,
-            5.0,
-            mats.tag.clone(),
-        );
-        for &note in notes {
-            edges.push((id, note_entities[note], true));
+            edges.push((note_entities[i], note_entities[target]));
         }
     }
     state.edges = edges;
     state.alpha = 1.0;
-    state.materials = Some(mats);
 }
+
+/// Icon colours.
+const NOTE_COLOR: Color = Color::srgb(0.62, 0.62, 0.66);
+const HOVERED_COLOR: Color = Color::srgb(0.95, 0.95, 1.0);
+const DIM_COLOR: Color = Color::srgb(0.3, 0.3, 0.33);
 
 /// Shows the render target in a freshly spawned viewport node and wires pointer input.
 fn attach_viewport(
@@ -348,12 +329,12 @@ fn simulate(
         }
     }
     // Springs along edges.
-    for &(a, b, tag) in &state.edges {
+    for &(a, b) in &state.edges {
         let (Some(i), Some(j)) = (index(a), index(b)) else {
             continue;
         };
         let delta = positions[j].1 - positions[i].1;
-        let rest = if tag { 90.0 } else { 160.0 };
+        let rest = 160.0;
         let f = delta.normalize_or_zero() * (delta.length() - rest) * 0.6;
         forces[i] += f;
         forces[j] -= f;
@@ -384,8 +365,7 @@ const LABEL_SIZE: f32 = 13.0;
 /// label's scale compensates, keeping its size in the world unchanged.
 fn sharpen_labels(
     camera: Query<&Projection, With<GraphCamera>>,
-    nodes: Query<(&GraphNode, &Children)>,
-    mut labels: Query<(&mut TextFont, &mut Transform), With<GraphLabel>>,
+    mut texts: Query<(&GraphText, &mut TextFont, &mut Transform)>,
     mut current: Local<Option<i32>>,
 ) {
     let Ok(projection) = camera.single() else {
@@ -397,14 +377,10 @@ fn sharpen_labels(
         return;
     }
     *current = Some(step);
-    let size = LABEL_SIZE * (step as f32 / 2.0).exp2();
-    for (node, children) in &nodes {
-        for child in children {
-            if let Ok((mut font, mut transform)) = labels.get_mut(*child) {
-                font.font_size = size.into();
-                transform.scale = Vec3::splat(LABEL_SIZE / size / node.radius);
-            }
-        }
+    let factor = (step as f32 / 2.0).exp2();
+    for (text, mut font, mut transform) in &mut texts {
+        font.font_size = (text.size * factor).into();
+        transform.scale = Vec3::splat(1.0 / factor);
     }
 }
 
@@ -412,7 +388,7 @@ fn neighbors(state: &GraphState, entity: Entity) -> Vec<Entity> {
     state
         .edges
         .iter()
-        .filter_map(|&(a, b, _)| {
+        .filter_map(|&(a, b)| {
             if a == entity {
                 Some(b)
             } else if b == entity {
@@ -427,45 +403,33 @@ fn neighbors(state: &GraphState, entity: Entity) -> Vec<Entity> {
 fn style_nodes(
     nav: Res<Nav>,
     state: Res<GraphState>,
-    mut nodes: Query<(
-        Entity,
-        &mut GraphNode,
-        &mut MeshMaterial2d<ColorMaterial>,
-        &Children,
-    )>,
-    mut labels: Query<&mut TextColor, With<GraphLabel>>,
+    mut nodes: Query<(Entity, &mut GraphNode, &Children)>,
+    mut icons: Query<&mut TextColor, (With<GraphIcon>, Without<GraphLabel>)>,
+    mut labels: Query<&mut TextColor, (With<GraphLabel>, Without<GraphIcon>)>,
 ) {
-    let Some(mats) = &state.materials else {
-        return;
-    };
     let current = nav.current.get_untracked();
     let focus = state.hovered.or(state.dragging);
     let focus_neighbors = focus.map(|f| neighbors(&state, f)).unwrap_or_default();
-    for (entity, mut node, mut material, children) in &mut nodes {
+    for (entity, mut node, children) in &mut nodes {
         if node.neighbors.is_empty() {
             node.neighbors = neighbors(&state, entity);
         }
         let lit = focus.is_none_or(|f| f == entity || focus_neighbors.contains(&entity));
-        let wanted = if Some(entity) == focus {
-            &mats.hovered
+        let icon = if Some(entity) == focus {
+            HOVERED_COLOR
         } else if !lit {
-            &mats.dim
-        } else if node.kind == NodeKind::Note(current) {
-            &mats.current
-        } else if matches!(node.kind, NodeKind::Tag(_)) {
-            &mats.tag
+            DIM_COLOR
+        } else if node.note == current {
+            palette::ACCENT
         } else {
-            &mats.note
+            NOTE_COLOR
         };
-        if material.0 != *wanted {
-            material.0 = wanted.clone();
-        }
+        let label = if lit { palette::TEXT } else { palette::FAINT };
         for child in children {
-            if let Ok(mut color) = labels.get_mut(*child) {
-                let c = if lit { palette::TEXT } else { palette::FAINT };
-                if color.0 != c {
-                    color.0 = c;
-                }
+            if let Ok(mut color) = icons.get_mut(*child) {
+                color.set_if_neq(TextColor(icon));
+            } else if let Ok(mut color) = labels.get_mut(*child) {
+                color.set_if_neq(TextColor(label));
             }
         }
     }
@@ -493,7 +457,7 @@ fn draw_edges(
     let mut positions = Vec::with_capacity(state.edges.len() * 4);
     let mut colors = Vec::with_capacity(state.edges.len() * 4);
     let mut indices = Vec::with_capacity(state.edges.len() * 6);
-    for &(a, b, tag) in &state.edges {
+    for &(a, b) in &state.edges {
         let (Ok(ta), Ok(tb)) = (nodes.get(a), nodes.get(b)) else {
             continue;
         };
@@ -502,8 +466,6 @@ fn draw_edges(
             palette::ACCENT
         } else if focus.is_some() {
             Color::srgb(0.2, 0.2, 0.22)
-        } else if tag {
-            palette::ACCENT.with_alpha(0.25)
         } else {
             Color::srgb(0.38, 0.38, 0.42)
         };
@@ -644,10 +606,8 @@ fn on_click(
     else {
         return;
     };
-    match nodes.get(entity).map(|n| &n.kind) {
-        Ok(NodeKind::Note(id)) => nav.open(*id, None),
-        Ok(NodeKind::Tag(tag)) => nav.tag.set(Some(tag.clone())),
-        Err(_) => {}
+    if let Ok(node) = nodes.get(entity) {
+        nav.open(node.note, None);
     }
 }
 

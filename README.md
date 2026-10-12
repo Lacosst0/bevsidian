@@ -26,6 +26,16 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 
 Put markdown files in [`vault/`](vault) (sub-folders are fine). They are embedded at compile time by `build.rs`. A note's name is its file name, so `vault/guides/Assets.md` is linked as `[[Assets]]`.
 
+Give a note an icon with an `icon:` property naming a [Lucide](https://lucide.dev/icons) icon:
+
+```markdown
+---
+icon: rocket
+---
+```
+
+The icon shows next to the title, in the file list and in the graph. Only the icons listed in [`tools/icons.py`](tools/icons.py) are bundled (to keep the download small); add a name there and run `python3 tools/icons.py` to bundle another.
+
 ## Running
 
 ```sh

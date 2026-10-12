@@ -1,3 +1,6 @@
+---
+icon: boxes
+---
 # ECS
 
 Bevy is built on an **Entity Component System** (ECS). Data lives in *components*, which are attached to *entities*; logic lives in *systems*. #ecs #beginner

@@ -1,3 +1,6 @@
+---
+icon: palette
+---
 # Rendering
 
 Bevy renders with `wgpu`, which targets Vulkan, Metal, DirectX 12, WebGL2 and WebGPU. Rendering is driven by ordinary [[ECS]] components. #rendering

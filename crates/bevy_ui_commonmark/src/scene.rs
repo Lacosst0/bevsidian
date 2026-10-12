@@ -57,6 +57,9 @@ pub struct RenderOptions<'a> {
     pub theme: &'a MdTheme,
     /// Whether a wikilink target exists (unresolved links are dimmed).
     pub resolve: &'a dyn Fn(&WikiLink) -> bool,
+    /// Shown to the right of the document title (its first top-level level-1 heading),
+    /// e.g. a note icon. Called with the heading's font size.
+    pub title_badge: Option<&'a dyn Fn(f32) -> Box<dyn Scene>>,
 }
 
 type Scenes = Vec<Box<dyn Scene>>;
@@ -66,8 +69,31 @@ type Scenes = Vec<Box<dyn Scene>>;
 /// The root is a [`SelectionGroup`], so a drag can select across all blocks.
 pub fn markdown_scene(doc: &MdDocument, options: &RenderOptions) -> impl Scene + use<> {
     let theme = options.theme;
-    let blocks: Scenes = render_blocks(&doc.blocks, options, 0)
-        .into_iter()
+    let title = doc
+        .blocks
+        .iter()
+        .position(|b| matches!(b, Block::Heading { level: 1, .. }));
+    let blocks: Scenes = doc
+        .blocks
+        .iter()
+        .enumerate()
+        .map(|(i, block)| match (block, options.title_badge) {
+            (
+                Block::Heading {
+                    level,
+                    inlines,
+                    slug,
+                },
+                Some(badge),
+            ) if Some(i) == title => heading_block(
+                *level,
+                inlines,
+                slug,
+                options,
+                Some(badge(theme.heading_size(1))),
+            ),
+            _ => render_block(block, options, 0),
+        })
         .map(|block| Box::new(bsn! { @{block} MdBlock }) as Box<dyn Scene>)
         .collect();
     let node = Node {
@@ -92,6 +118,69 @@ fn render_blocks(blocks: &[Block], options: &RenderOptions, depth: usize) -> Sce
         .collect()
 }
 
+fn heading_block(
+    level: u8,
+    inlines: &[Inline],
+    slug: &str,
+    options: &RenderOptions,
+    badge: Option<Box<dyn Scene>>,
+) -> Box<dyn Scene> {
+    let theme = options.theme;
+    let size = theme.heading_size(level);
+    let base = SpanStyle {
+        font: theme.body.clone(),
+        size,
+        weight: if level <= 2 {
+            FontWeight::BOLD
+        } else {
+            FontWeight::SEMIBOLD
+        },
+        color: theme.heading,
+        ..SpanStyle::body(theme)
+    };
+    let heading = MdHeading {
+        level,
+        slug: slug.to_owned(),
+    };
+    let node = Node {
+        flex_direction: FlexDirection::Column,
+        margin: UiRect::top(Val::Px(if level <= 2 { 12.0 } else { 6.0 })),
+        ..default()
+    };
+    let text = text_block(inlines, &base, options);
+    let rule = (level == 1).then(|| {
+        let line = Node {
+            height: Val::Px(1.0),
+            width: Val::Percent(100.0),
+            margin: UiRect::top(Val::Px(6.0)),
+            ..default()
+        };
+        let bg = BackgroundColor(theme.border);
+        bsn! { line bg }
+    });
+    let title: Box<dyn Scene> = match badge {
+        Some(badge) => {
+            let row = Node {
+                align_items: AlignItems::Center,
+                column_gap: Val::Px(size * 0.45),
+                ..default()
+            };
+            Box::new(
+                bsn! { row Children [ @{text} heading Node { flex_shrink: 1.0 } -- @{badge} ] },
+            )
+        }
+        None => Box::new(bsn! { @{text} heading }),
+    };
+    Box::new(bsn! {
+        node
+        Children [
+            @{title}
+            --
+            {rule}
+        ]
+    })
+}
+
 #[allow(clippy::too_many_lines)]
 fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn Scene> {
     let theme = options.theme;
@@ -100,48 +189,7 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
             level,
             inlines,
             slug,
-        } => {
-            let size = theme.heading_size(*level);
-            let base = SpanStyle {
-                font: theme.body.clone(),
-                size,
-                weight: if *level <= 2 {
-                    FontWeight::BOLD
-                } else {
-                    FontWeight::SEMIBOLD
-                },
-                color: theme.heading,
-                ..SpanStyle::body(theme)
-            };
-            let heading = MdHeading {
-                level: *level,
-                slug: slug.clone(),
-            };
-            let node = Node {
-                flex_direction: FlexDirection::Column,
-                margin: UiRect::top(Val::Px(if *level <= 2 { 12.0 } else { 6.0 })),
-                ..default()
-            };
-            let text = text_block(inlines, &base, options);
-            let rule = (*level == 1).then(|| {
-                let line = Node {
-                    height: Val::Px(1.0),
-                    width: Val::Percent(100.0),
-                    margin: UiRect::top(Val::Px(6.0)),
-                    ..default()
-                };
-                let bg = BackgroundColor(theme.border);
-                bsn! { line bg }
-            });
-            Box::new(bsn! {
-                node
-                Children [
-                    @{text} heading
-                    --
-                    {rule}
-                ]
-            })
-        }
+        } => heading_block(*level, inlines, slug, options, None),
         Block::Paragraph(inlines) => {
             let base = SpanStyle::body(theme);
             Box::new(text_block(inlines, &base, options))

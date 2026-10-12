@@ -28,3 +28,12 @@ pub fn ui_font(size: f32, weight: FontWeight) -> impl Scene {
         ..default()
     })
 }
+
+/// The icon font at `size`; its text is an icon character (see [`crate::icons`]).
+pub fn icon_font(size: f32) -> impl Scene {
+    insert(TextFont {
+        font: bevy::text::FontSource::families("lucide"),
+        font_size: size.into(),
+        ..default()
+    })
+}

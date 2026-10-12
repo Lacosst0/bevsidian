@@ -1,3 +1,6 @@
+---
+icon: layout-template
+---
 # Scenes and BSN
 
 **BSN**[^1] (*Bevy Scene Notation*) describes an entity, its components and its children in one place. Bevy 0.20 ships the `bsn!` macro for code-defined scenes. #scenes #ui

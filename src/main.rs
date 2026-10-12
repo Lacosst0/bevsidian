@@ -88,6 +88,10 @@ fn load_fonts(mut fonts: ResMut<Assets<Font>>, mut commands: Commands) {
         fonts.add(Font::from_bytes(
             include_bytes!("../assets/fonts/JetBrainsMono.ttf").to_vec(),
         )),
+        // Note icons (a Lucide subset, see `tools/icons.py`).
+        fonts.add(Font::from_bytes(
+            include_bytes!("../assets/fonts/Lucide.ttf").to_vec(),
+        )),
     ];
     commands.insert_resource(EmbeddedFonts(handles.to_vec()));
 }
@@ -112,6 +116,13 @@ mod tests {
                 note.name,
                 note.unresolved
             );
+            if let Some((_, icon)) = note.doc.properties.iter().find(|(k, _)| k == "icon") {
+                assert!(
+                    bevsidian_core::icons::find(icon).is_some(),
+                    "{} has an unknown icon {icon:?} (add it to tools/icons.py)",
+                    note.name
+                );
+            }
         }
     }
 }
