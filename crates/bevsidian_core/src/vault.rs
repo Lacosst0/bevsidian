@@ -3,6 +3,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use bevy::prelude::*;
+use bevy_radioactive::coat::Signal;
 use bevy_ui_commonmark::{MdDocument, WikiLink};
 
 /// Index of a note in [`Vault::notes`].
@@ -19,6 +20,8 @@ pub struct Note {
     pub folder: String,
     /// Icon (a character of the icon font): the `icon:` front-matter property, or a page.
     pub icon: char,
+    /// Markdown source.
+    pub source: String,
     /// Parsed content.
     pub doc: MdDocument,
     /// Lowercase plain text, for search.
@@ -32,8 +35,46 @@ pub struct Note {
 }
 
 /// All notes, shared cheaply between systems and UI closures.
-#[derive(Resource, Clone, Debug, Deref)]
-pub struct Vault(pub Arc<VaultData>);
+///
+/// Notes can be edited ([`Vault::save`]), so this is a signal: reactive UI regions that
+/// read it with [`Vault::get`] re-render when a note changes.
+#[derive(Resource, Clone)]
+pub struct Vault(Signal<Arc<VaultData>>);
+
+impl Vault {
+    pub fn new(data: VaultData) -> Self {
+        Self(Signal::new(Arc::new(data)))
+    }
+
+    /// The current contents (tracked: inside a reactive region, re-runs it on change).
+    pub fn get(&self) -> Arc<VaultData> {
+        self.0.get()
+    }
+
+    /// The current contents, untracked (for systems).
+    pub fn get_untracked(&self) -> Arc<VaultData> {
+        self.0.get_untracked()
+    }
+
+    /// Replaces the source of note `id` and rebuilds links, backlinks and tags.
+    /// Returns whether anything changed.
+    pub fn save(&self, id: NoteId, source: &str) -> bool {
+        let old = self.get_untracked();
+        if old.notes.get(id).is_none_or(|n| n.source == source) {
+            return false;
+        }
+        let mut data = VaultData::from_sources(old.notes.iter().enumerate().map(|(i, n)| {
+            (
+                n.path.as_str(),
+                if i == id { source } else { n.source.as_str() },
+            )
+        }));
+        data.home = old.home;
+        data.revision = old.revision + 1;
+        self.0.set(Arc::new(data));
+        true
+    }
+}
 
 /// Vault contents.
 #[derive(Debug, Default)]
@@ -44,6 +85,8 @@ pub struct VaultData {
     pub tags: BTreeMap<String, Vec<NoteId>>,
     /// The note opened on start.
     pub home: NoteId,
+    /// Bumped by every saved edit.
+    pub revision: u64,
 }
 
 impl VaultData {
@@ -69,6 +112,7 @@ impl VaultData {
                 Note {
                     name,
                     icon,
+                    source: source.to_owned(),
                     path: path.to_owned(),
                     folder,
                     doc,

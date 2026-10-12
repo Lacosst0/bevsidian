@@ -27,10 +27,12 @@ use bevy_ui_textselect::{TextSelectPlugin, TextSpanClick};
 
 pub mod document;
 pub mod highlight;
+pub mod md_highlight;
 pub mod scene;
 pub mod theme;
 
 pub use document::*;
+pub use md_highlight::{MdToken, highlight_markdown};
 pub use scene::{
     CopiedBubble, MdBlock, MdCopyButton, MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions,
     markdown_scene,

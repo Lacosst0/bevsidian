@@ -18,7 +18,7 @@ use bevy_ui_textselect::{ClickableSpan, SelectableText};
 use bevsidian_core::{
     nav::{LayoutMode, Nav, NotePane, SearchInput, View},
     theme::{icon_font, palette, ui_font},
-    vault::{NoteId, Vault},
+    vault::{NoteId, Vault, VaultData},
 };
 use bevsidian_graph::GraphViewport;
 
@@ -64,7 +64,7 @@ fn spawn_shell(mut commands: Commands, nav: Res<Nav>, vault: Res<Vault>) {
 fn shell(nav: Nav, vault: Vault) -> impl Scene {
     let left = left_sidebar(nav.clone(), vault.clone());
     let main = main_area(nav.clone(), vault.clone());
-    let right = right_sidebar(nav.clone());
+    let right = right_sidebar(nav.clone(), vault.clone());
     let backdrop = drawer_backdrop(nav.clone());
     let selection = crate::layout::selection_bar(nav.clone());
     let keyboard = crate::layout::keyboard_panel(nav.clone());
@@ -140,11 +140,7 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
     let files_title = section_title("Files");
     let tags_title = section_title("Tags");
 
-    let tags: Vec<(String, usize)> = vault
-        .tags
-        .iter()
-        .map(|(tag, notes)| (tag.clone(), notes.len()))
-        .collect();
+    let tags_vault = vault.clone();
     let (query, tag, current) = (nav.query.clone(), nav.tag.clone(), nav.current.clone());
     let files_vault = vault.clone();
     let empty_vault = vault.clone();
@@ -222,12 +218,16 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
             ScrollArea
             Children [
                 #[key(entry.clone())]
-                for entry in $(files_vault.search(&$query, $tag.as_deref()).into_iter().map(|id| (id, $query.clone())).collect::<Vec<_>>()) {
-                    let (id, search) = entry;
-                    @{file_row(id, nav_files.clone(), &excerpt_vault, &search, current.clone())}
+                for entry in $({
+                    // The revision re-renders rows (icons, excerpts) after an edit.
+                    let vault = files_vault.get();
+                    vault.search(&$query, $tag.as_deref()).into_iter().map(|id| (id, $query.clone(), vault.revision)).collect::<Vec<_>>()
+                }) {
+                    let (id, search, _) = entry;
+                    @{file_row(id, nav_files.clone(), &excerpt_vault.get_untracked(), &search, current.clone())}
                 }
                 --
-                if $(empty_vault.search(&$query, $tag.as_deref()).is_empty()) {
+                if $(empty_vault.get().search(&$query, $tag.as_deref()).is_empty()) {
                     Text("No matching notes") @{ui_font(12.0, FontWeight::NORMAL)} TextColor(FAINT)
                     Node { margin: UiRect::all(Val::Px(8.0)) }
                 }
@@ -242,7 +242,9 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
                 padding: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(0.0), Val::Px(14.0)),
             }
             Children [
-                for (name, count) in tags.clone() {
+                #[key(entry.clone())]
+                for entry in $(tags_vault.get().tags.iter().map(|(name, notes)| (name.clone(), notes.len())).collect::<Vec<_>>()) {
+                    let (name, count) = entry;
                     @{tag_chip(name, count, nav_tags.clone())}
                 }
             ]
@@ -259,7 +261,7 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
 fn file_row(
     id: NoteId,
     nav: Nav,
-    vault: &Vault,
+    vault: &VaultData,
     query: &str,
     current: bevy_radioactive::coat::Signal<NoteId>,
 ) -> impl Scene + use<> {
@@ -343,6 +345,13 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
         nav.mode.clone(),
     );
     let nav_settings = nav.clone();
+    let (nav_edit, editing) = (nav.clone(), nav.editing.clone());
+    let pen = bevsidian_core::icons::find("pencil")
+        .unwrap_or('✎')
+        .to_string();
+    let done = bevsidian_core::icons::find("check")
+        .unwrap_or('✓')
+        .to_string();
     let (nav_back, nav_fwd, nav_note, nav_graph, nav_switch, nav_left, nav_right) = (
         nav.clone(),
         nav.clone(),
@@ -394,8 +403,8 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
             }
             Children [
                 Text($(match $view {
-                    View::Note if $mode == LayoutMode::Compact => vault.notes[$current].name.clone(),
-                    View::Note => vault.notes[$current].path.trim_end_matches(".md").replace('/', " / "),
+                    View::Note if $mode == LayoutMode::Compact => vault.get().notes[$current].name.clone(),
+                    View::Note => vault.get().notes[$current].path.trim_end_matches(".md").replace('/', " / "),
                     View::Graph => "Graph view".to_owned(),
                 }))
                 @{ui_font(13.5, FontWeight::MEDIUM)}
@@ -414,6 +423,17 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
             @{segment("Search")}
             Node { display: $(if $mode == LayoutMode::Compact { Display::None } else { Display::Flex }) }
             on(move |_: On<Activate>| nav_switch.open_switcher())
+            --
+            // Edit the note (Ctrl+E); a check mark closes the editor.
+            @{icon_button()}
+            Node { display: $(if $view == View::Note { Display::Flex } else { Display::None }) }
+            on(move |_: On<Activate>| nav_edit.toggle_editing())
+            Children [
+                Text($(if $editing { done.clone() } else { pen.clone() }))
+                @{icon_font(18.0)}
+                TextColor($(if $editing { ACCENT } else { TEXT }))
+                Pickable::IGNORE
+            ]
             --
             @{icon_button()}
             on(move |_: On<Activate>| nav_settings.settings.set(!nav_settings.settings.get_untracked()))
@@ -490,13 +510,15 @@ pub(crate) fn segment(label: &str) -> impl Scene + use<> {
 }
 
 fn main_area(nav: Nav, vault: Vault) -> impl Scene {
-    let top = top_bar(nav.clone(), vault);
+    let top = top_bar(nav.clone(), vault.clone());
     let view = nav.view.clone();
     let note_key = {
         let (current, size, mode) = (nav.current.clone(), nav.text_size.clone(), nav.mode.clone());
-        move || (current.get(), size.get(), mode.get())
+        let vault = vault.clone();
+        move || (current.get(), size.get(), mode.get(), vault.get().revision)
     };
     let mode = nav.mode.clone();
+    let (editing, current) = (nav.editing.clone(), nav.current.clone());
     let graph_nav = nav.clone();
     coat! {
         Node {
@@ -534,7 +556,16 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
                             flex_direction: FlexDirection::Column,
                             align_self: AlignSelf::Start,
                         }
-                        shard(note_key, |args: &(NoteId, u32, LayoutMode), world: &World| note_scene(*args, world))
+                        Children [
+                            if $editing {
+                                Node { position_type: PositionType::Relative, width: Val::Percent(100.0) }
+                                crate::editor::EditorSlot($current)
+                            } else {
+                                let note_key = note_key.clone();
+                                Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
+                                shard(note_key, note_shard)
+                            }
+                        ]
                     ]
                 },
                 View::Graph => {
@@ -554,8 +585,13 @@ fn title_icon(icon: char, size: f32) -> impl Scene + use<> {
     bsn! { text @{icon_font(size * 0.9)} TextColor(ACCENT) Pickable::IGNORE Node { flex_shrink: 0.0 } }
 }
 
+/// Shard builder for the reading pane; the key is `(note, text size, layout, vault revision)`.
+fn note_shard(key: &(NoteId, u32, LayoutMode, u64), world: &World) -> Box<dyn Scene> {
+    note_scene((key.0, key.1, key.2), world)
+}
+
 fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -> Box<dyn Scene> {
-    let vault = world.resource::<Vault>().clone();
+    let vault = world.resource::<Vault>().get_untracked();
     let nav = world.resource::<Nav>().clone();
     let mut theme = world.resource::<MdTheme>().clone();
     theme.base_size = text_size as f32;
@@ -633,10 +669,10 @@ fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -
     })
 }
 
-fn right_sidebar(nav: Nav) -> impl Scene {
+fn right_sidebar(nav: Nav, vault: Vault) -> impl Scene {
     let side_key = {
         let current = nav.current.clone();
-        move || current.get()
+        move || (current.get(), vault.get().revision)
     };
     let (mode, open) = (nav.mode.clone(), nav.right_open.clone());
     coat! {
@@ -658,13 +694,13 @@ fn right_sidebar(nav: Nav) -> impl Scene {
         BorderColor::all(BORDER)
         Children [
             Node { flex_direction: FlexDirection::Column, padding: UiRect::bottom(Val::Px(16.0)) }
-            shard(side_key.clone(), move |id: &NoteId, world: &World| side_panel(*id, world, nav.clone()))
+            shard(side_key.clone(), move |key: &(NoteId, u64), world: &World| side_panel(key.0, world, nav.clone()))
         ]
     }
 }
 
 fn side_panel(id: NoteId, world: &World, nav: Nav) -> Box<dyn Scene> {
-    let vault = world.resource::<Vault>().clone();
+    let vault = world.resource::<Vault>().get_untracked();
     let note = &vault.notes[id];
 
     let outline: Vec<Box<dyn Scene>> = note
@@ -856,7 +892,7 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
                         ]
                         --
                         #[key(*entry)]
-                        for entry in $(vault.search(&$query, None).into_iter().take(12).enumerate().collect::<Vec<_>>()) {
+                        for entry in $(vault.get().search(&$query, None).into_iter().take(12).enumerate().collect::<Vec<_>>()) {
                             let (i, id) = entry;
                             let nav_rows = nav_rows.clone();
                             let names = names.clone();
@@ -873,9 +909,9 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
                                 nav_rows.switcher.set(false);
                             })
                             Children [
-                                Text({names.notes[id].name.clone()}) @{ui_font(14.0, FontWeight::NORMAL)} TextColor(TEXT) Pickable::IGNORE
+                                Text({names.get_untracked().notes[id].name.clone()}) @{ui_font(14.0, FontWeight::NORMAL)} TextColor(TEXT) Pickable::IGNORE
                                 --
-                                Text({names.notes[id].path.clone()}) @{ui_font(11.5, FontWeight::NORMAL)} TextColor(FAINT) Pickable::IGNORE
+                                Text({names.get_untracked().notes[id].path.clone()}) @{ui_font(11.5, FontWeight::NORMAL)} TextColor(FAINT) Pickable::IGNORE
                             ]
                         }
                         --

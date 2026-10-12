@@ -4,13 +4,14 @@
 //! `bevy_ui_commonmark`, selectable with `bevy_ui_textselect`, and navigated through
 //! `[[wikilinks]]`, `#tags`, backlinks and a graph view.
 
+mod editor;
 mod layout;
 mod menu;
 mod perf;
 mod settings;
 mod ui;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use bevy::{
     feathers::{FeathersPlugins, dark_theme::create_dark_theme, theme::UiTheme},
@@ -26,8 +27,13 @@ use bevsidian_core::{Nav, Vault, VaultData, theme::palette};
 include!(concat!(env!("OUT_DIR"), "/notes.rs"));
 
 fn main() {
-    let vault = Vault(Arc::new(VaultData::from_sources(NOTES.iter().copied())));
-    let nav = Nav::new(vault.home);
+    let notes = editor::load_edits(NOTES);
+    let vault = Vault::new(VaultData::from_sources(
+        notes
+            .iter()
+            .map(|(path, source)| (path.as_str(), source.as_str())),
+    ));
+    let nav = Nav::new(vault.get_untracked().home);
     App::new()
         .add_plugins(
             DefaultPlugins
@@ -72,6 +78,7 @@ fn main() {
             menu::plugin,
             perf::plugin,
             settings::plugin,
+            editor::plugin,
         ))
         .run();
 }

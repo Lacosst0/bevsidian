@@ -73,7 +73,7 @@ fn storage() -> Option<web_sys::Storage> {
     web_sys::window()?.local_storage().ok()?
 }
 
-fn read(key: &str) -> Option<String> {
+pub(crate) fn read(key: &str) -> Option<String> {
     #[cfg(target_arch = "wasm32")]
     {
         storage()?.get_item(key).ok()?
@@ -85,7 +85,7 @@ fn read(key: &str) -> Option<String> {
     }
 }
 
-fn write(key: &str, value: &str) {
+pub(crate) fn write(key: &str, value: &str) {
     #[cfg(target_arch = "wasm32")]
     {
         if let Some(storage) = storage() {

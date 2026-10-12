@@ -34,6 +34,7 @@ pub fn plugin(app: &mut App) {
         .add_systems(
             Update,
             (
+                spawn_nodes,
                 attach_viewport,
                 toggle_camera,
                 resize_target,
@@ -99,6 +100,9 @@ pub struct GraphState {
     pinch: Option<f32>,
     /// Simulation "temperature": decays to zero, re-heated by interaction.
     alpha: f32,
+    /// Shared node meshes and material.
+    circle: Handle<Mesh>,
+    mask: Handle<ColorMaterial>,
 }
 
 impl GraphState {
@@ -132,7 +136,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut state: ResMut<GraphState>,
-    vault: Res<Vault>,
 ) {
     commands.spawn((
         EdgeMesh,
@@ -169,8 +172,33 @@ fn setup(
     ));
 
     // A disc of background colour behind each icon, so edges stop at its outline.
-    let mask = materials.add(palette::BG);
-    let circle = meshes.add(Circle::new(1.0));
+    state.mask = materials.add(palette::BG);
+    state.circle = meshes.add(Circle::new(1.0));
+}
+
+/// (Re)builds the nodes and edges from the vault, at startup and after a note is edited.
+/// Notes keep their place.
+fn spawn_nodes(
+    mut commands: Commands,
+    vault: Res<Vault>,
+    mut state: ResMut<GraphState>,
+    old: Query<(Entity, &GraphNode, &Transform)>,
+    mut built: Local<Option<u64>>,
+) {
+    let vault = vault.get_untracked();
+    if *built == Some(vault.revision) {
+        return;
+    }
+    *built = Some(vault.revision);
+    let mut kept = std::collections::HashMap::new();
+    for (entity, node, transform) in &old {
+        kept.insert(node.note, transform.translation);
+        commands.entity(entity).despawn();
+    }
+    state.hovered = None;
+    state.dragging = None;
+    state.press = None;
+    let (mask, circle) = (state.mask.clone(), state.circle.clone());
     let font = |family: &'static str, size: f32, weight: FontWeight| TextFont {
         font: bevy::text::FontSource::families(family),
         font_size: size.into(),
@@ -196,7 +224,11 @@ fn setup(
                     pinned: false,
                     neighbors: Vec::new(),
                 },
-                Transform::from_translation((Vec2::from_angle(angle) * 180.0).extend(1.0)),
+                Transform::from_translation(
+                    kept.get(&i)
+                        .copied()
+                        .unwrap_or((Vec2::from_angle(angle) * 180.0).extend(1.0)),
+                ),
                 Visibility::default(),
                 RenderLayers::layer(LAYER),
             ))
@@ -236,7 +268,7 @@ fn setup(
         }
     }
     state.edges = edges;
-    state.alpha = 1.0;
+    state.alpha = state.alpha.max(if kept.is_empty() { 1.0 } else { 0.3 });
 }
 
 /// Icon colours.

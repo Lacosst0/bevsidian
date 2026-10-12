@@ -77,6 +77,8 @@ pub struct Nav {
     /// Refresh rate the browser offers the page (measured while Settings or the FPS readout
     /// is open; web only).
     pub display_hz: Signal<Option<u32>>,
+    /// The current note is open in the editor.
+    pub editing: Signal<bool>,
 }
 
 /// Choices for [`Nav::max_fps`], in the order the setting cycles through them.
@@ -125,6 +127,7 @@ impl Nav {
             max_fps: signal(|| 0),
             vsync: signal(|| true),
             display_hz: signal(|| None),
+            editing: signal(|| false),
         }
     }
 
@@ -224,6 +227,13 @@ impl Nav {
         self.tag.set(None);
     }
 
+    /// Opens or closes the editor for the current note (switching to the note view).
+    pub fn toggle_editing(&self) {
+        let editing = self.view.get_untracked() == View::Note && self.editing.get_untracked();
+        self.view.set_if_neq(View::Note);
+        self.editing.set(!editing);
+    }
+
     pub fn toggle_graph(&self) {
         let next = match self.view.get_untracked() {
             View::Note => View::Graph,
@@ -268,7 +278,7 @@ fn on_link(
     }
     match &link.target {
         LinkTarget::Wiki(wiki) => {
-            if let Some(id) = vault.resolve(wiki) {
+            if let Some(id) = vault.get_untracked().resolve(wiki) {
                 nav.open(id, wiki.heading.clone());
             } else if wiki.target.is_empty()
                 && let Some(heading) = &wiki.heading
@@ -353,6 +363,7 @@ fn shortcuts(
         match input.key_code {
             KeyCode::KeyO if command => nav.open_switcher(),
             KeyCode::KeyG if command => nav.toggle_graph(),
+            KeyCode::KeyE if command => nav.toggle_editing(),
             KeyCode::Comma if command => nav.settings.set(!nav.settings.get_untracked()),
             KeyCode::Equal | KeyCode::NumpadAdd if command => nav.change_text_size(1),
             KeyCode::Minus | KeyCode::NumpadSubtract if command => nav.change_text_size(-1),
@@ -372,6 +383,7 @@ fn shortcuts(
             }
             KeyCode::ArrowDown | KeyCode::ArrowUp if nav.switcher.get_untracked() => {
                 let count = vault
+                    .get_untracked()
                     .search(&nav.switcher_query.get_untracked(), None)
                     .len()
                     .max(1);
@@ -384,7 +396,9 @@ fn shortcuts(
                 nav.switcher_index.set(next);
             }
             KeyCode::Enter | KeyCode::NumpadEnter if nav.switcher.get_untracked() => {
-                let results = vault.search(&nav.switcher_query.get_untracked(), None);
+                let results = vault
+                    .get_untracked()
+                    .search(&nav.switcher_query.get_untracked(), None);
                 if let Some(id) = results.get(nav.switcher_index.get_untracked()) {
                     nav.open(*id, None);
                 }

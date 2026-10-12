@@ -232,11 +232,12 @@ fn track_keyboard_target(
     nav.keyboard.set_if_neq(target.0.is_some());
 }
 
-const ROWS: [&[&str]; 4] = [
+const ROWS: [&[&str]; 5] = [
+    &["#", "*", "-", "`", "[", "]", "(", ")", ".", ","],
     &["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
     &["a", "s", "d", "f", "g", "h", "j", "k", "l"],
     &["z", "x", "c", "v", "b", "n", "m", "del"],
-    &["space", "Done"],
+    &["space", "enter", "Done"],
 ];
 
 fn on_virtual_key(
@@ -263,8 +264,16 @@ fn on_virtual_key(
         }
         k => {
             if let Ok(mut field) = fields.get_mut(entity) {
-                let text = if k == "space" { " " } else { k };
-                field.queue_edit(TextEdit::Insert(text.into()));
+                let text = match k {
+                    "space" => " ",
+                    // New line in the note editor; single-line fields ignore it.
+                    "enter" if field.allow_newlines => "\n",
+                    "enter" => "",
+                    k => k,
+                };
+                if !text.is_empty() {
+                    field.queue_edit(TextEdit::Insert(text.into()));
+                }
             }
         }
     }
