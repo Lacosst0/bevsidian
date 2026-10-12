@@ -3,13 +3,15 @@
 //! Notes (and tags) are simulated as a force-directed graph in a 2D world on its own render
 //! layer. A dedicated camera renders that world into an image that the UI shows in the
 //! [`GraphViewport`] node; pointer events on the node are mapped back into the world for
-//! hovering, clicking, dragging nodes, panning and zooming.
+//! hovering, clicking, dragging nodes, panning (with momentum) and zooming (wheel, pinch
+//! and buttons). A press only opens a note if the pointer did not move: drags never click.
 
 use bevy::{
     camera::{RenderTarget, visibility::RenderLayers},
+    input::touch::{Touch, Touches},
     picking::events::{
-        PointerClick, PointerDrag, PointerDragEnd, PointerDragStart, PointerMove, PointerOut,
-        PointerScroll,
+        PointerClick, PointerDrag, PointerDragEnd, PointerMove, PointerOut, PointerPress,
+        PointerRelease, PointerScroll,
     },
     prelude::*,
     render::render_resource::{Extent3d, TextureFormat},
@@ -36,6 +38,9 @@ pub fn plugin(app: &mut App) {
                 toggle_camera,
                 resize_target,
                 simulate,
+                pinch_zoom,
+                camera_motion,
+                sharpen_labels,
                 style_nodes,
                 draw_edges,
             )
@@ -79,6 +84,14 @@ pub(crate) struct GraphState {
     edges: Vec<(Entity, Entity, bool)>,
     hovered: Option<Entity>,
     dragging: Option<Entity>,
+    /// The current press, until the next one.
+    press: Option<Press>,
+    /// Panning momentum after a fling, in world units per second.
+    pan_velocity: Vec2,
+    /// Camera position and zoom being eased towards (zoom buttons, "Fit").
+    camera_goal: Option<(Vec2, f32)>,
+    /// Distance between two fingers in the previous frame of a pinch.
+    pinch: Option<f32>,
     /// Simulation "temperature": decays to zero, re-heated by interaction.
     alpha: f32,
     materials: Option<GraphMaterials>,
@@ -96,9 +109,27 @@ struct GraphMaterials {
 impl GraphState {
     /// Whether the simulation or a drag still needs frames.
     pub(crate) fn animating(&self) -> bool {
-        self.alpha >= 0.002 || self.dragging.is_some()
+        self.alpha >= 0.002
+            || self.dragging.is_some()
+            || self.pan_velocity != Vec2::ZERO
+            || self.camera_goal.is_some()
+            || self.pinch.is_some()
     }
 }
+
+/// A primary-button press on the graph.
+#[derive(Clone, Copy, Debug)]
+struct Press {
+    /// Node under the pointer when pressed.
+    node: Option<Entity>,
+    /// Whether the pointer moved far enough to count as a drag (then it never clicks).
+    moved: bool,
+}
+
+/// How far (logical px) a press may move and still count as a click.
+const CLICK_SLOP: f32 = 6.0;
+/// The same for fingers, which wobble more.
+const TOUCH_CLICK_SLOP: f32 = 12.0;
 
 fn setup(
     mut commands: Commands,
@@ -146,7 +177,7 @@ fn setup(
     let circle = meshes.add(Circle::new(1.0));
     let font = TextFont {
         font: bevy::text::FontSource::families("Inter, sans-serif"),
-        font_size: 13.0.into(),
+        font_size: LABEL_SIZE.into(),
         weight: FontWeight::MEDIUM,
         ..default()
     };
@@ -238,8 +269,9 @@ fn attach_viewport(
             .insert(ImageNode::new(state.image.clone()))
             .observe(on_move)
             .observe(on_out)
+            .observe(on_press)
+            .observe(on_release)
             .observe(on_click)
-            .observe(on_drag_start)
             .observe(on_drag)
             .observe(on_drag_end)
             .observe(on_scroll);
@@ -334,6 +366,38 @@ fn simulate(
     }
     if state.dragging.is_none() {
         state.alpha *= 0.99;
+    }
+}
+
+/// Label font size at zoom 1.
+const LABEL_SIZE: f32 = 13.0;
+
+/// Re-rasterizes labels for the current zoom so they stay sharp when zoomed in. The size
+/// moves in steps of √2 (so a smooth zoom does not re-render text every frame) and the
+/// label's scale compensates, keeping its size in the world unchanged.
+fn sharpen_labels(
+    camera: Query<&Projection, With<GraphCamera>>,
+    nodes: Query<(&GraphNode, &Children)>,
+    mut labels: Query<(&mut TextFont, &mut Transform), With<GraphLabel>>,
+    mut current: Local<Option<i32>>,
+) {
+    let Ok(projection) = camera.single() else {
+        return;
+    };
+    let zoom = 1.0 / ortho_scale(projection);
+    let step = (zoom.log2() * 2.0).ceil().max(0.0) as i32;
+    if *current == Some(step) {
+        return;
+    }
+    *current = Some(step);
+    let size = LABEL_SIZE * (step as f32 / 2.0).exp2();
+    for (node, children) in &nodes {
+        for child in children {
+            if let Ok((mut font, mut transform)) = labels.get_mut(*child) {
+                font.font_size = size.into();
+                transform.scale = Vec3::splat(LABEL_SIZE / size / node.radius);
+            }
+        }
     }
 }
 
@@ -506,6 +570,32 @@ fn on_out(_: On<PointerOut>, mut state: ResMut<GraphState>) {
     }
 }
 
+fn on_press(
+    event: On<PointerPress>,
+    nodes_ui: Query<(&ComputedNode, &UiGlobalTransform)>,
+    camera: Query<(&Camera, &GlobalTransform, &Projection), With<GraphCamera>>,
+    nodes: Query<(Entity, &Transform, &GraphNode)>,
+    mut state: ResMut<GraphState>,
+) {
+    if event.button != PointerButton::Primary {
+        return;
+    }
+    // Touch has no hover, so pick here as well.
+    let node = to_world(event.pointer.position, event.entity, &nodes_ui, &camera)
+        .and_then(|world| pick(world, &nodes));
+    state.hovered = node;
+    state.press = Some(Press { node, moved: false });
+    state.pan_velocity = Vec2::ZERO;
+    state.camera_goal = None;
+}
+
+fn on_release(event: On<PointerRelease>, mut state: ResMut<GraphState>) {
+    // A finger leaves no hover behind.
+    if event.pointer.id.is_touch() && state.dragging.is_none() {
+        state.hovered = None;
+    }
+}
+
 fn on_click(
     event: On<PointerClick>,
     state: Res<GraphState>,
@@ -515,7 +605,12 @@ fn on_click(
     if event.button != PointerButton::Primary {
         return;
     }
-    let Some(entity) = state.hovered else {
+    // Only a press that stayed put is a click; dragging a node or panning never opens it.
+    let Some(Press {
+        node: Some(entity),
+        moved: false,
+    }) = state.press
+    else {
         return;
     };
     match nodes.get(entity).map(|n| &n.kind) {
@@ -525,55 +620,208 @@ fn on_click(
     }
 }
 
-fn on_drag_start(event: On<PointerDragStart>, mut state: ResMut<GraphState>) {
-    if event.button == PointerButton::Primary {
-        state.dragging = state.hovered;
-        state.alpha = state.alpha.max(0.3);
-    }
-}
-
 fn on_drag(
     event: On<PointerDrag>,
+    time: Res<Time<Real>>,
+    touches: Res<Touches>,
     nodes_ui: Query<(&ComputedNode, &UiGlobalTransform)>,
     mut camera: Query<(&Camera, &mut Transform, &Projection), With<GraphCamera>>,
     mut nodes: Query<&mut Transform, (With<GraphNode>, Without<GraphCamera>)>,
-    state: Res<GraphState>,
+    mut state: ResMut<GraphState>,
 ) {
+    if event.button != PointerButton::Primary {
+        return;
+    }
+    let Some(mut press) = state.press else {
+        return;
+    };
+    // Two fingers pinch instead (see `pinch_zoom`).
+    if touches.iter().count() > 1 {
+        return;
+    }
+    if !press.moved {
+        let slop = if event.pointer.id.is_touch() {
+            TOUCH_CLICK_SLOP
+        } else {
+            CLICK_SLOP
+        };
+        if event.distance.length() < slop {
+            return;
+        }
+        press.moved = true;
+        state.press = Some(press);
+        state.dragging = press.node;
+        if press.node.is_some() {
+            state.alpha = state.alpha.max(0.3);
+        }
+    }
     let Ok((node, _)) = nodes_ui.get(event.entity) else {
         return;
     };
     let Ok((_, mut cam, projection)) = camera.single_mut() else {
         return;
     };
-    let scale = match projection {
-        Projection::Orthographic(o) => o.scale,
-        _ => 1.0,
-    };
     // Logical px → target px → world units.
-    let delta = event.delta / node.inverse_scale_factor * scale;
+    let delta = event.delta / node.inverse_scale_factor * ortho_scale(projection);
     let delta = Vec2::new(delta.x, -delta.y);
-    match state.dragging {
-        Some(entity) => {
-            if let Ok(mut transform) = nodes.get_mut(entity) {
-                transform.translation += delta.extend(0.0);
-            }
+    if let Some(entity) = state.dragging {
+        if let Ok(mut transform) = nodes.get_mut(entity) {
+            transform.translation += delta.extend(0.0);
         }
-        None => cam.translation -= delta.extend(0.0),
+    } else {
+        cam.translation -= delta.extend(0.0);
+        let dt = time.delta_secs().clamp(1.0 / 240.0, 1.0 / 20.0);
+        state.pan_velocity = state.pan_velocity.lerp(-delta / dt, 0.4);
     }
 }
 
 fn on_drag_end(_: On<PointerDragEnd>, mut state: ResMut<GraphState>) {
-    state.dragging = None;
+    // A fling keeps panning (see `camera_motion`); a dragged node just stops.
+    if state.dragging.take().is_some() || !state.press.is_some_and(|p| p.moved) {
+        state.pan_velocity = Vec2::ZERO;
+    }
 }
 
-fn on_scroll(event: On<PointerScroll>, mut camera: Query<&mut Projection, With<GraphCamera>>) {
-    let Ok(mut projection) = camera.single_mut() else {
+fn on_scroll(
+    event: On<PointerScroll>,
+    nodes_ui: Query<(&ComputedNode, &UiGlobalTransform)>,
+    mut camera: Query<(&Camera, &mut Transform, &mut Projection), With<GraphCamera>>,
+    mut state: ResMut<GraphState>,
+) {
+    let Some(anchor) = viewport_to_world(event.pointer.position, event.entity, &nodes_ui, &camera)
+    else {
         return;
     };
-    if let Projection::Orthographic(o) = &mut *projection {
-        let factor = (1.0 - event.y.signum() * 0.1).clamp(0.5, 1.5);
-        o.scale = (o.scale * factor).clamp(0.25, 4.0);
+    let Ok((_, mut transform, mut projection)) = camera.single_mut() else {
+        return;
+    };
+    state.camera_goal = None;
+    let factor = (1.0 - event.y.signum() * 0.12).clamp(0.5, 1.5);
+    zoom_around(&mut transform, &mut projection, anchor, factor);
+}
+
+/// Like [`to_world`], for a camera query with mutable access.
+fn viewport_to_world(
+    pointer: Vec2,
+    viewport: Entity,
+    nodes_ui: &Query<(&ComputedNode, &UiGlobalTransform)>,
+    camera: &Query<(&Camera, &mut Transform, &mut Projection), With<GraphCamera>>,
+) -> Option<Vec2> {
+    let (node, transform) = nodes_ui.get(viewport).ok()?;
+    let (_, cam, projection) = camera.single().ok()?;
+    let local = transform
+        .try_inverse()?
+        .transform_point2(pointer / node.inverse_scale_factor);
+    Some(cam.translation.truncate() + Vec2::new(local.x, -local.y) * ortho_scale(projection))
+}
+
+fn ortho_scale(projection: &Projection) -> f32 {
+    match projection {
+        Projection::Orthographic(o) => o.scale,
+        _ => 1.0,
     }
+}
+
+const MIN_SCALE: f32 = 0.25;
+const MAX_SCALE: f32 = 4.0;
+
+/// Zooms by `factor` (< 1 zooms in) keeping the world point `anchor` fixed on screen.
+fn zoom_around(transform: &mut Transform, projection: &mut Projection, anchor: Vec2, factor: f32) {
+    let Projection::Orthographic(o) = projection else {
+        return;
+    };
+    let scale = (o.scale * factor).clamp(MIN_SCALE, MAX_SCALE);
+    let applied = scale / o.scale;
+    o.scale = scale;
+    let camera = transform.translation.truncate();
+    transform.translation = (anchor - (anchor - camera) * applied).extend(transform.translation.z);
+}
+
+/// Two-finger pinch zooms around the point between the fingers.
+fn pinch_zoom(
+    nav: Res<Nav>,
+    touches: Res<Touches>,
+    viewport: Query<Entity, With<GraphViewport>>,
+    nodes_ui: Query<(&ComputedNode, &UiGlobalTransform)>,
+    mut camera: Query<(&Camera, &mut Transform, &mut Projection), With<GraphCamera>>,
+    mut state: ResMut<GraphState>,
+) {
+    let fingers: Vec<Vec2> = touches.iter().map(Touch::position).collect();
+    let (true, [a, b], Ok(viewport)) = (
+        nav.view.get_untracked() == View::Graph,
+        fingers.as_slice(),
+        viewport.single(),
+    ) else {
+        state.pinch = None;
+        return;
+    };
+    let distance = a.distance(*b).max(1.0);
+    if let Some(previous) = state.pinch
+        && let Some(anchor) = viewport_to_world((a + b) / 2.0, viewport, &nodes_ui, &camera)
+        && let Ok((_, mut transform, mut projection)) = camera.single_mut()
+    {
+        zoom_around(&mut transform, &mut projection, anchor, previous / distance);
+    }
+    state.pinch = Some(distance);
+    state.dragging = None;
+    state.pan_velocity = Vec2::ZERO;
+    state.camera_goal = None;
+    // A pinch is never a click.
+    if let Some(press) = &mut state.press {
+        press.moved = true;
+    }
+}
+
+/// Panning momentum and eased camera moves.
+fn camera_motion(
+    time: Res<Time<Real>>,
+    mut state: ResMut<GraphState>,
+    mut camera: Query<(&mut Transform, &mut Projection), With<GraphCamera>>,
+) {
+    let Ok((mut transform, mut projection)) = camera.single_mut() else {
+        return;
+    };
+    let dt = time.delta_secs().min(1.0 / 30.0);
+    if state.pan_velocity != Vec2::ZERO && state.dragging.is_none() {
+        transform.translation += (state.pan_velocity * dt).extend(0.0);
+        state.pan_velocity *= (-5.0 * dt).exp();
+        if state.pan_velocity.length() < 5.0 {
+            state.pan_velocity = Vec2::ZERO;
+        }
+    }
+    if let Some((goal, goal_scale)) = state.camera_goal
+        && let Projection::Orthographic(o) = &mut *projection
+    {
+        let t = 1.0 - (-14.0 * dt).exp();
+        let position = transform.translation.truncate().lerp(goal, t);
+        transform.translation = position.extend(transform.translation.z);
+        o.scale += (goal_scale - o.scale) * t;
+        if position.distance(goal) < 0.5 && (o.scale - goal_scale).abs() < 0.002 {
+            transform.translation = goal.extend(transform.translation.z);
+            o.scale = goal_scale;
+            state.camera_goal = None;
+        }
+    }
+}
+
+/// Camera position and zoom that show every node.
+fn fit_all(
+    nodes: &Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
+    viewport: Option<&ComputedNode>,
+) -> (Vec2, f32) {
+    let mut bounds: Option<Rect> = None;
+    for transform in nodes {
+        let p = transform.translation.truncate();
+        // Leave room for the node and its label.
+        let r = Rect::from_center_half_size(p, Vec2::new(60.0, 30.0));
+        bounds = Some(bounds.map_or(r, |b| b.union(r)));
+    }
+    let (Some(bounds), Some(viewport)) = (bounds, viewport) else {
+        return (Vec2::ZERO, 1.0);
+    };
+    let size = viewport.size().max(Vec2::ONE);
+    let scale = (bounds.size() / size).max_element() * 1.1;
+    (bounds.center(), scale.clamp(MIN_SCALE, MAX_SCALE))
 }
 
 /// Zoom buttons over the graph (the only way to zoom on touch screens).
@@ -594,17 +842,22 @@ pub fn zoom_controls(_nav: Nav) -> impl Scene {
             bevy::ui_widgets::Button
             bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
             on(move |_: On<bevy::ui_widgets::Activate>,
-                     mut camera: Query<(&mut Projection, &mut Transform), With<GraphCamera>>| {
-                if let Ok((mut projection, mut transform)) = camera.single_mut()
-                    && let Projection::Orthographic(o) = &mut *projection
-                {
-                    if factor == 0.0 {
-                        o.scale = 1.0;
-                        transform.translation = Vec3::ZERO;
-                    } else {
-                        o.scale = (o.scale * factor).clamp(0.25, 4.0);
-                    }
-                }
+                     camera: Query<(&Transform, &Projection), With<GraphCamera>>,
+                     nodes: Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
+                     viewport: Query<&ComputedNode, With<GraphViewport>>,
+                     mut state: ResMut<GraphState>| {
+                let Ok((transform, projection)) = camera.single() else {
+                    return;
+                };
+                let (position, scale) = state
+                    .camera_goal
+                    .unwrap_or((transform.translation.truncate(), ortho_scale(projection)));
+                state.pan_velocity = Vec2::ZERO;
+                state.camera_goal = Some(if factor == 0.0 {
+                    fit_all(&nodes, viewport.single().ok())
+                } else {
+                    (position, (scale * factor).clamp(MIN_SCALE, MAX_SCALE))
+                });
             })
             Children [
                 text

@@ -99,13 +99,15 @@ impl Plugin for TextSelectPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    validate_selection,
-                    update_accessibility,
-                    draw_highlights.after(UiSystems::Layout),
+                    // Highlights are placed from the previous layout (text does not move
+                    // relative to its group between frames), so this frame's layout pass
+                    // positions them without a one-frame gap.
+                    (validate_selection, draw_highlights)
+                        .chain()
+                        .before(UiSystems::Layout),
+                    update_accessibility.after(UiSystems::Layout),
                 )
-                    .chain()
-                    .in_set(TextSelectSystems::Render)
-                    .after(UiSystems::Layout),
+                    .in_set(TextSelectSystems::Render),
             );
     }
 }
@@ -991,6 +993,7 @@ fn draw_highlights(
     blocks: Blocks,
     groups: Query<(Entity, &ComputedNode, &UiGlobalTransform), With<SelectionGroup>>,
     layers: Query<(Entity, &ChildOf, Option<&Children>), With<HighlightLayer>>,
+    mut rect_nodes: Query<(&mut Node, &mut BackgroundColor), With<HighlightRect>>,
     mut last: Local<
         Option<(
             Option<Entity>,
@@ -1047,58 +1050,66 @@ fn draw_highlights(
     }
     *last = Some(key);
 
-    // Remove stale layers / rects.
-    for (layer, parent, children) in &layers {
-        if Some(parent.parent()) != group || rects.is_empty() {
-            commands.entity(layer).despawn();
-        } else if let Some(children) = children {
-            for child in children {
-                commands.entity(*child).despawn();
-            }
+    // Rect entities are reused rather than respawned: a freshly spawned node has no layout
+    // until the next layout pass, which made the highlight flicker while dragging.
+    let mut layer = None;
+    for (entity, parent, children) in &layers {
+        if layer.is_none() && Some(parent.parent()) == group {
+            layer = Some((entity, children.map(|c| c.to_vec()).unwrap_or_default()));
+        } else {
+            commands.entity(entity).despawn();
         }
     }
-    let (Some(group), false) = (group, rects.is_empty()) else {
-        return;
+    let (layer, existing) = match (group, layer) {
+        (_, Some(layer)) => layer,
+        (Some(group), None) if !rects.is_empty() => (
+            commands
+                .spawn((
+                    HighlightLayer,
+                    Node {
+                        position_type: PositionType::Absolute,
+                        left: Val::Px(0.0),
+                        top: Val::Px(0.0),
+                        width: Val::Percent(100.0),
+                        height: Val::Percent(100.0),
+                        ..default()
+                    },
+                    ZIndex(1000),
+                    Pickable::IGNORE,
+                    ChildOf(group),
+                ))
+                .id(),
+            Vec::new(),
+        ),
+        _ => return,
     };
-    let layer = layers
-        .iter()
-        .find(|(_, parent, _)| parent.parent() == group)
-        .map_or_else(
-            || {
-                commands
-                    .spawn((
-                        HighlightLayer,
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(0.0),
-                            top: Val::Px(0.0),
-                            width: Val::Percent(100.0),
-                            height: Val::Percent(100.0),
-                            ..default()
-                        },
-                        ZIndex(1000),
-                        Pickable::IGNORE,
-                        ChildOf(group),
-                    ))
-                    .id()
-            },
-            |(e, ..)| e,
-        );
-    for rect in rects {
-        commands.spawn((
-            HighlightRect,
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(rect.min.x),
-                top: Val::Px(rect.min.y),
-                width: Val::Px(rect.width()),
-                height: Val::Px(rect.height()),
-                ..default()
-            },
-            BackgroundColor(style.color),
-            Pickable::IGNORE,
-            ChildOf(layer),
-        ));
+    for (i, rect) in rects.iter().enumerate() {
+        let node = Node {
+            position_type: PositionType::Absolute,
+            left: Val::Px(rect.min.x),
+            top: Val::Px(rect.min.y),
+            width: Val::Px(rect.width()),
+            height: Val::Px(rect.height()),
+            ..default()
+        };
+        if let Some(Ok((mut current, mut color))) = existing.get(i).map(|e| rect_nodes.get_mut(*e))
+        {
+            if *current != node {
+                *current = node;
+            }
+            color.set_if_neq(BackgroundColor(style.color));
+        } else {
+            commands.spawn((
+                HighlightRect,
+                node,
+                BackgroundColor(style.color),
+                Pickable::IGNORE,
+                ChildOf(layer),
+            ));
+        }
+    }
+    for surplus in existing.iter().skip(rects.len()) {
+        commands.entity(*surplus).despawn();
     }
 }
 

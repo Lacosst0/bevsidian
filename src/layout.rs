@@ -28,6 +28,11 @@ pub fn plugin(app: &mut App) {
         .add_observer(touch_drag_start)
         .add_observer(touch_drag)
         .add_observer(touch_drag_end)
+        .add_observer(add_smooth_scroll)
+        .add_systems(
+            PostUpdate,
+            smooth_scroll.before(bevy::ui::UiSystems::Layout),
+        )
         .add_systems(
             Update,
             (
@@ -52,6 +57,7 @@ fn keep_awake(
     focus: Res<InputFocus>,
     editable: Query<(), With<EditableText>>,
     layout_changed: Query<(), Or<(Changed<ComputedNode>, Changed<ScrollPosition>, Added<Node>)>>,
+    smooth: Query<&SmoothScroll>,
     mut settle: Local<u8>,
     mut redraw: MessageWriter<bevy::window::RequestRedraw>,
 ) {
@@ -61,7 +67,8 @@ fn keep_awake(
         || selection.is_busy()
         || (nav.view.get_untracked() == crate::nav::View::Graph && graph.animating())
         || nav.anchor.with_untracked(Option::is_some)
-        || focus.get().is_some_and(|e| editable.contains(e));
+        || focus.get().is_some_and(|e| editable.contains(e))
+        || smooth.iter().any(SmoothScroll::animating);
     if busy || !layout_changed.is_empty() {
         // A few more frames let layout, text and reactive regions settle after a change.
         *settle = 3;
@@ -263,6 +270,74 @@ fn touch_momentum(
     if !moved || scroll.velocity.length() < 20.0 {
         scroll.coasting = None;
         scroll.velocity = Vec2::ZERO;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Smooth scrolling
+// ---------------------------------------------------------------------------
+
+/// Eases a scroll area towards the position that wheel, keyboard and "scroll into view"
+/// requests set, instead of jumping there. Touch drags stay 1:1 with the finger.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SmoothScroll {
+    /// Position currently shown.
+    shown: Vec2,
+    /// Position being eased towards.
+    target: Vec2,
+}
+
+impl SmoothScroll {
+    fn animating(&self) -> bool {
+        self.shown.distance_squared(self.target) > 0.25
+    }
+
+    /// Jumps to `position` without easing (e.g. when a new note opens).
+    pub fn snap(&mut self, position: Vec2) {
+        self.shown = position;
+        self.target = position;
+    }
+}
+
+fn add_smooth_scroll(
+    add: On<Add<bevy::ui_widgets::ScrollArea>>,
+    positions: Query<&ScrollPosition>,
+    mut commands: Commands,
+) {
+    let position = positions.get(add.entity).map_or(Vec2::ZERO, |p| p.0);
+    commands.entity(add.entity).insert(SmoothScroll {
+        shown: position,
+        target: position,
+    });
+}
+
+fn smooth_scroll(
+    time: Res<Time<Real>>,
+    touch: Res<TouchScroll>,
+    mut areas: Query<(Entity, &mut ScrollPosition, &mut SmoothScroll)>,
+) {
+    // Frame-rate independent exponential easing (~90% of the way in 0.12 s).
+    let t = 1.0 - (-19.0 * time.delta_secs().min(0.1)).exp();
+    for (entity, mut position, mut smooth) in &mut areas {
+        let touching =
+            touch.active.is_some_and(|(e, _)| e == entity) || touch.coasting == Some(entity);
+        if position.0 != smooth.shown {
+            // Someone else moved it: that is the new target.
+            if touching {
+                smooth.snap(position.0);
+                continue;
+            }
+            smooth.target = position.0;
+        }
+        if !smooth.animating() {
+            if smooth.shown != smooth.target {
+                smooth.shown = smooth.target;
+                position.0 = smooth.target;
+            }
+            continue;
+        }
+        smooth.shown = smooth.shown.lerp(smooth.target, t);
+        position.0 = smooth.shown;
     }
 }
 

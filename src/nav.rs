@@ -337,13 +337,23 @@ pub struct NotePane;
 fn reset_scroll_on_navigation(
     nav: Res<Nav>,
     mut last: Local<Option<NoteId>>,
-    mut panes: Query<&mut ScrollPosition, With<NotePane>>,
+    mut panes: Query<
+        (
+            &mut ScrollPosition,
+            Option<&mut crate::layout::SmoothScroll>,
+        ),
+        With<NotePane>,
+    >,
 ) {
     let current = nav.current.get_untracked();
     if *last != Some(current) {
         *last = Some(current);
-        for mut scroll in &mut panes {
+        for (mut scroll, smooth) in &mut panes {
             *scroll = ScrollPosition::default();
+            // A new note starts at the top: jump, don't scroll there.
+            if let Some(mut smooth) = smooth {
+                smooth.snap(Vec2::ZERO);
+            }
         }
     }
 }
