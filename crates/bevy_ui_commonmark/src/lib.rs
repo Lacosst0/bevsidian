@@ -18,6 +18,7 @@
 //!         title_badge: None,
 //!         code_preview: None,
 //!         icon: None,
+//!         variant_picker: None,
 //!     };
 //!     commands.spawn(Camera2d);
 //!     commands.spawn_scene(markdown_scene(&doc, &options));
@@ -31,6 +32,7 @@
 use bevy::prelude::*;
 use bevy_ui_textselect::{TextSelectPlugin, TextSpanClick};
 
+pub mod diff;
 pub mod document;
 pub mod highlight;
 pub mod md_highlight;
@@ -41,8 +43,9 @@ pub mod theme;
 pub use document::*;
 pub use md_highlight::{MdToken, highlight_markdown};
 pub use scene::{
-    CodeBlockInfo, CodeHighlight, CodePreview, CopiedBubble, MdBlock, MdCodeGroup, MdCopyButton,
-    MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions, markdown_scene,
+    CodeBlockInfo, CodeHighlight, CodePreview, CopiedBubble, MdBlock, MdCodeGroup, MdCodeVariants,
+    MdCopyButton, MdFootnote, MdHeading, MdLink, MdRoot, MdVariantTab, RenderOptions,
+    markdown_scene,
 };
 pub use theme::MdTheme;
 
@@ -75,6 +78,7 @@ impl Plugin for CommonMarkPlugin {
         }
         app.init_resource::<MdTheme>()
             .add_observer(activate_links)
+            .add_observer(scene::choose_variant)
             .add_systems(
                 PostUpdate,
                 // Visibility propagates before UI layout, so changes show a frame later; the
@@ -88,6 +92,7 @@ impl Plugin for CommonMarkPlugin {
                     scene::draw_code_highlights,
                     scene::hover_table_rows,
                     pick::apply_picks,
+                    scene::show_variants,
                 ),
             );
     }

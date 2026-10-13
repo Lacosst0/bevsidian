@@ -10,9 +10,10 @@ use bevy::{
 use bevy_ui_textselect::{ClickableSpan, CopyText, SelectableText, SelectionGroup};
 
 use crate::{
+    diff::{DiffLine, LineKind},
     document::{
-        Block, Callout, ColumnAlign, Inline, LinkTarget, ListItem, MdDocument, WikiLink,
-        inline_text,
+        Block, Callout, CodeVariant, ColumnAlign, Inline, LinkTarget, ListItem, MdDocument,
+        WikiLink, inline_text,
     },
     highlight::{TokenKind, highlight},
     insert,
@@ -69,7 +70,27 @@ pub struct RenderOptions<'a> {
     /// Draws a named icon (`"copy"`, `"info"`, …) at a size and colour. Without it the copy
     /// button draws its own symbol and callouts have no icon.
     pub icon: Option<&'a dyn Fn(&str, f32, Color) -> Box<dyn Scene>>,
+    /// Draws the picker of a code block's variants (e.g. tabs), given their names; each
+    /// choice must carry an [`MdVariantTab`] with its index (choosing it triggers
+    /// `Activate`). Without it the picker is plain text buttons.
+    pub variant_picker: Option<&'a dyn Fn(&[String]) -> Box<dyn Scene>>,
 }
+
+/// A choice in a code block's variant picker: activating it shows variant `.0`.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct MdVariantTab(pub usize);
+
+/// A code block with variants: their code (for copying) and the one shown. Change
+/// `selected` to show another.
+#[derive(Component, Clone, Debug, Default)]
+pub struct MdCodeVariants {
+    pub codes: Vec<String>,
+    pub selected: usize,
+}
+
+/// The view of variant `.0` inside a code block, shown when it is selected.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub(crate) struct MdVariantView(pub usize);
 
 /// What [`RenderOptions::code_preview`] shows for a code block.
 pub struct CodePreview {
@@ -251,6 +272,9 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
             if info.split_whitespace().any(|word| word == "pick") =>
         {
             pick_block(lang.as_deref(), code, options)
+        }
+        Block::CodeVariants { lang, variants } => {
+            code_variants_block(lang.as_deref(), variants, options, None, false)
         }
         Block::CodeBlock { lang, info, code } => {
             let info = CodeBlockInfo {
@@ -673,7 +697,23 @@ fn code_block(
     actions: Option<Box<dyn Scene>>,
     framed: bool,
 ) -> Box<dyn Scene> {
-    let theme = options.theme;
+    let plain = CodeVariant {
+        name: String::new(),
+        code: code.to_owned(),
+        lines: code
+            .lines()
+            .map(|text| DiffLine {
+                kind: LineKind::Same,
+                text: text.to_owned(),
+            })
+            .collect(),
+    };
+    code_variants_block(lang, &[plain], options, actions, framed)
+}
+
+/// The highlighted code of one variant, padded, with a tinted bar behind each line it adds,
+/// removes or changes (and a mark in the left padding).
+fn code_view(lang: Option<&str>, lines: &[DiffLine], theme: &MdTheme) -> Box<dyn Scene> {
     let style = SpanStyle {
         font: theme.mono.clone(),
         size: theme.base_size * 0.875,
@@ -681,9 +721,37 @@ fn code_block(
         line_height: 1.5,
         ..SpanStyle::body(theme)
     };
-    let spans = code_spans(code, lang, theme);
+    let shown = crate::diff::shown(lines);
+    let spans = code_spans(&shown, lang, theme);
+    let line_px = style.size * style.line_height;
+    let bars: Scenes = lines
+        .iter()
+        .enumerate()
+        .filter_map(|(i, line)| {
+            let colors = match line.kind {
+                LineKind::Same => return None,
+                LineKind::Added => 0,
+                LineKind::Removed => 1,
+                LineKind::Changed => 2,
+            };
+            let (tint, mark) = (theme.diff[colors], theme.diff_marks[colors]);
+            let top = Val::Px(CODE_PADDING.y + i as f32 * line_px);
+            let height = Val::Px(line_px);
+            Some(Box::new(bsn! {
+                Node { position_type: PositionType::Absolute, left: Val::Px(0.0), right: Val::Px(0.0), top: top, height: height }
+                BackgroundColor(tint)
+                ZIndex(-1)
+                Pickable::IGNORE
+                Children [
+                    Node { width: Val::Px(3.0), height: Val::Percent(100.0) }
+                    BackgroundColor(mark)
+                    Pickable::IGNORE
+                ]
+            }) as Box<dyn Scene>)
+        })
+        .collect();
     let style_scene = style.scene();
-    let line_height = CodeLineHeight(style.size * style.line_height);
+    let line_height = CodeLineHeight(line_px);
     let highlight_color = theme.highlight;
     let root = Text::default();
     // Code keeps its line breaks and scrolls sideways instead of wrapping.
@@ -691,6 +759,80 @@ fn code_block(
         linebreak: LineBreak::NoWrap,
         ..default()
     };
+    Box::new(bsn! {
+        // The padded code, at least as wide as the block: highlight bars span it and
+        // scroll sideways with the text.
+        Node {
+            min_width: Val::Percent(100.0),
+            flex_shrink: 0.0,
+            padding: UiRect::axes(Val::Px(CODE_PADDING.x), Val::Px(CODE_PADDING.y)),
+        }
+        CodeHighlight
+        line_height
+        HighlightColor(highlight_color)
+        Children [
+            root @{style_scene} no_wrap SelectableText CodeText
+            Node { flex_shrink: 0.0 }
+            Children [ {spans} ]
+            --
+            {bars}
+        ]
+    })
+}
+
+/// Plain text buttons for picking a variant (when [`RenderOptions::variant_picker`] is unset).
+fn default_picker(names: &[String], theme: &MdTheme) -> Box<dyn Scene> {
+    let label = SpanStyle {
+        font: theme.body.clone(),
+        size: theme.base_size * 0.75,
+        color: theme.muted,
+        ..SpanStyle::body(theme)
+    };
+    let tabs: Scenes = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| {
+            let text = Text::new(name.clone());
+            let style = label.scene();
+            Box::new(bsn! {
+                MdVariantTab(i)
+                bevy::ui_widgets::Button
+                Node { padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)) }
+                Children [ text @{style} Pickable::IGNORE ]
+            }) as Box<dyn Scene>
+        })
+        .collect();
+    Box::new(bsn! { Node { column_gap: Val::Px(2.0) } Children [ {tabs} ] })
+}
+
+/// A code block: a header with the language (or, with variants, their picker), `actions`
+/// and a copy button, over the code of the variant shown. `framed` blocks sit inside a frame
+/// shared with a preview and draw only a top border.
+fn code_variants_block(
+    lang: Option<&str>,
+    variants: &[CodeVariant],
+    options: &RenderOptions,
+    actions: Option<Box<dyn Scene>>,
+    framed: bool,
+) -> Box<dyn Scene> {
+    let theme = options.theme;
+    let picking = variants.len() > 1;
+    let views: Scenes = variants
+        .iter()
+        .enumerate()
+        .map(|(i, variant)| {
+            let view = code_view(lang, &variant.lines, theme);
+            if !picking {
+                return view;
+            }
+            let display = if i == 0 { Display::Flex } else { Display::None };
+            Box::new(bsn! {
+                Node { display: display, min_width: Val::Percent(100.0), flex_shrink: 0.0 }
+                MdVariantView(i)
+                Children [ @{view} ]
+            }) as Box<dyn Scene>
+        })
+        .collect();
     let code_text: Box<dyn Scene> = Box::new(bsn! {
         Node {
             overflow: Overflow::scroll_x(),
@@ -700,25 +842,26 @@ fn code_block(
         // Not a `ScrollArea`: that would swallow vertical wheel scrolling over the block.
         ScrollPosition
         on(scroll_code_sideways)
-        Children [
-            // The padded code, at least as wide as the block: highlight bars span it and
-            // scroll sideways with the text.
-            Node {
-                min_width: Val::Percent(100.0),
-                flex_shrink: 0.0,
-                padding: UiRect::axes(Val::Px(CODE_PADDING.x), Val::Px(CODE_PADDING.y)),
-            }
-            CodeHighlight
-            line_height
-            HighlightColor(highlight_color)
-            Children [
-                root @{style_scene} no_wrap SelectableText CodeText
-                Node { flex_shrink: 0.0 }
-                Children [ {spans} ]
-            ]
-        ]
+        Children [ {views} ]
     });
-
+    let state = picking.then(|| MdCodeVariants {
+        codes: variants.iter().map(|v| v.code.clone()).collect(),
+        selected: 0,
+    });
+    let picker: Scenes = picking
+        .then(|| {
+            let names: Vec<String> = variants.iter().map(|v| v.name.clone()).collect();
+            match options.variant_picker {
+                Some(picker) => picker(&names),
+                None => default_picker(&names, theme),
+            }
+        })
+        .into_iter()
+        .collect();
+    let code = variants
+        .first()
+        .map(|v| v.code.as_str())
+        .unwrap_or_default();
     let copy_source = CopySource(code.to_owned());
     let label_style = SpanStyle {
         font: theme.mono.clone(),
@@ -728,6 +871,15 @@ fn code_block(
     };
     let label_scene = label_style.scene();
     let lang_label = Text::new(lang.unwrap_or("").to_owned());
+    // With variants, their picker takes the language's place.
+    let leading: Box<dyn Scene> = if picking {
+        Box::new(bsn! {
+            Node { flex_grow: 1.0, min_width: Val::Px(0.0), align_items: AlignItems::Center }
+            Children [ {picker} ]
+        })
+    } else {
+        Box::new(bsn! { lang_label @{label_scene} Node { flex_grow: 1.0 } })
+    };
     let node = Node {
         flex_direction: FlexDirection::Column,
         min_width: Val::Px(0.0),
@@ -763,7 +915,7 @@ fn code_block(
     let bubble_bg = theme.border;
     let bubble_text = theme.text;
     let bubble_font = label_style.font.clone();
-    Box::new(bsn! {
+    let frame = bsn! {
         node bg border SelectionGroup
         Children [
             Node {
@@ -777,7 +929,7 @@ fn code_block(
             header_bg
             header_border
             Children [
-                lang_label @{label_scene} Node { flex_grow: 1.0 }
+                @{leading}
                 --
                 {actions}
                 --
@@ -798,8 +950,16 @@ fn code_block(
                          time: Res<Time<Real>>,
                          sources: Query<&CopySource>,
                          bubbles: Query<(Entity, &ChildOf), With<CopiedBubble>>,
+                         parents: Query<&ChildOf>,
+                         variants: Query<&MdCodeVariants>,
                          mut commands: Commands| {
-                    let text = sources.get(click.entity).map(|s| s.0.clone()).unwrap_or_default();
+                    // With variants, the one shown.
+                    let text = parents
+                        .iter_ancestors(click.entity)
+                        .find_map(|e| variants.get(e).ok())
+                        .and_then(|v| v.codes.get(v.selected).cloned())
+                        .or_else(|| sources.get(click.entity).ok().map(|s| s.0.clone()))
+                        .unwrap_or_default();
                     if let Err(err) = clipboard.set_text(text) {
                         warn!("copy failed: {err:?}");
                         return;
@@ -842,7 +1002,53 @@ fn code_block(
             --
             @{code_text}
         ]
-    })
+    };
+    match state {
+        Some(state) => Box::new(bsn! { @{frame} state }),
+        None => Box::new(frame),
+    }
+}
+
+/// Activating a variant's tab shows it.
+pub(crate) fn choose_variant(
+    activate: On<bevy::ui_widgets::Activate>,
+    tabs: Query<&MdVariantTab>,
+    parents: Query<&ChildOf>,
+    mut blocks: Query<&mut MdCodeVariants>,
+) {
+    let Ok(&MdVariantTab(index)) = tabs.get(activate.entity) else {
+        return;
+    };
+    if let Some(block) = parents
+        .iter_ancestors(activate.entity)
+        .find(|&e| blocks.contains(e))
+        && let Ok(mut block) = blocks.get_mut(block)
+        && index < block.codes.len()
+    {
+        block.selected = index;
+    }
+}
+
+/// Shows the selected variant of the code blocks whose choice changed.
+pub(crate) fn show_variants(
+    blocks: Query<(Entity, &MdCodeVariants), Changed<MdCodeVariants>>,
+    children: Query<&Children>,
+    mut views: Query<(&MdVariantView, &mut Node)>,
+) {
+    for (block, variants) in &blocks {
+        for entity in children.iter_descendants(block) {
+            if let Ok((view, mut node)) = views.get_mut(entity) {
+                let display = if view.0 == variants.selected {
+                    Display::Flex
+                } else {
+                    Display::None
+                };
+                if node.display != display {
+                    node.display = display;
+                }
+            }
+        }
+    }
 }
 
 /// The text a code block's copy button copies.

@@ -55,6 +55,10 @@ pub struct MdTheme {
     pub code_block_bg: Color,
     /// Behind highlighted code lines.
     pub highlight: Color,
+    /// Behind the lines a code variant adds, removes and changes (in that order).
+    pub diff: [Color; 3],
+    /// The mark before those lines.
+    pub diff_marks: [Color; 3],
     /// Block quote bar and table borders.
     pub border: Color,
     /// Table header background.
@@ -112,6 +116,16 @@ impl MdTheme {
             code_bg: Color::srgb_u8(0x26, 0x26, 0x2b),
             code_block_bg: Color::srgb_u8(0x26, 0x26, 0x2b),
             highlight: Color::srgba_u8(0x8b, 0x6c, 0xef, 0x2e),
+            diff: [
+                Color::srgba(0.29, 0.87, 0.5, 0.06),
+                Color::srgba(0.97, 0.44, 0.44, 0.06),
+                Color::srgba(0.98, 0.75, 0.14, 0.06),
+            ],
+            diff_marks: [
+                Color::srgb(0.29, 0.87, 0.5),
+                Color::srgb(0.97, 0.44, 0.44),
+                Color::srgb(0.98, 0.75, 0.14),
+            ],
             border: Color::srgb_u8(0x3a, 0x3a, 0x42),
             table_header_bg: Color::srgb_u8(0x24, 0x24, 0x2a),
             table_header: Color::srgb_u8(0xf2, 0xf2, 0xf2),

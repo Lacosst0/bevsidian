@@ -71,7 +71,9 @@ Handy methods: `reset()`, `pause()`, `fraction()` (0 to 1, perfect for progress 
 
 ### Cooldowns
 
-```rust
+Pick a variant to see what it changes:
+
+```rust variant=Cooldown
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -86,6 +88,49 @@ fn shoot(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, mut guns: Query<&mut 
         }
     }
 }
+```
+
+```rust variant="Ready at once"
+use bevy::prelude::*;
+
+#[derive(Component)]
+struct Gun { cooldown: Timer }
+
+fn spawn_gun(mut commands: Commands) {
+    let mut cooldown = Timer::from_seconds(0.25, TimerMode::Once);
+    // Finished from the start: the first shot does not wait.
+    cooldown.finish();
+    commands.spawn(Gun { cooldown });
+}
+
+fn shoot(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, mut guns: Query<&mut Gun>) {
+    for mut gun in &mut guns {
+        gun.cooldown.tick(time.delta());
+        if keys.pressed(KeyCode::Space) && gun.cooldown.is_finished() {
+            gun.cooldown.reset();
+            // fire!
+        }
+    }
+}
+```
+
+```diff variant="One shot per press"
+ use bevy::prelude::*;
+
+ #[derive(Component)]
+ struct Gun { cooldown: Timer }
+
+ fn shoot(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, mut guns: Query<&mut Gun>) {
+     for mut gun in &mut guns {
+         gun.cooldown.tick(time.delta());
+-        if keys.pressed(KeyCode::Space) && gun.cooldown.is_finished() {
++        // One shot per press, and still no faster than the cooldown.
++        if keys.just_pressed(KeyCode::Space) && gun.cooldown.is_finished() {
+             gun.cooldown.reset();
+             // fire!
+         }
+     }
+ }
 ```
 
 ## Fixed timestep

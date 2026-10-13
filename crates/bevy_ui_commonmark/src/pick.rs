@@ -329,6 +329,7 @@ mod tests {
             title_badge: None,
             code_preview: None,
             icon: None,
+            variant_picker: None,
         };
         app.world_mut()
             .spawn_scene(markdown_scene(&doc, &options))

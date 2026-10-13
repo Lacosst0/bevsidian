@@ -4,7 +4,7 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 
 ## Features
 
-- **Markdown reading view** rendered natively with Bevy UI: headings, emphasis, inline code, syntax-highlighted code blocks with a copy button, tables (row hover; wide ones scroll sideways), task lists, nested lists, callouts (`> [!TIP]`), footnotes and horizontal rules.
+- **Markdown reading view** rendered natively with Bevy UI: headings, emphasis, inline code, syntax-highlighted code blocks with a copy button, code variants (consecutive blocks marked `variant=NAME`, or `variant="Two words"`, become one block with tabs; each variant shows the lines it adds, removes and changes against the first, and can be written as full code or as a `diff` block of the first with ` `/`-`/`+` line markers), tables (row hover; wide ones scroll sideways), task lists, nested lists, callouts (`> [!TIP]`), footnotes and horizontal rules.
 - **Selection like a web page**: drag across paragraphs, double-click a word, triple-click a block, Shift+click to extend, Shift+arrows, `Ctrl/Cmd+A`, `Ctrl/Cmd+C`.
 - **Obsidian linking**: `[[Note]]`, `[[Note#Heading]]`, `[[Note|alias]]`, `#tags` and front-matter `tags:`.
 - **Docs references**, like rustdoc's intra-doc links: `` [`Commands`] ``, `` [`Commands::spawn`] ``, `` [text][`bsn!`] ``, `[text](ecs::system::Query)` or `[text](docs:Time)` open Bevy's API docs on docs.rs. Names resolve through an index of Bevy's items ([`tools/docs_index.py`](tools/docs_index.py)); unknown ones open a docs.rs search.

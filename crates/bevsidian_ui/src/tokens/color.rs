@@ -63,6 +63,13 @@ pub const LINK_RING: Color = Color::srgba(0.984, 0.573, 0.235, 0.06);
 pub const WARNING: Color = Color::srgb(0.984, 0.749, 0.141);
 /// `#f87171`: caution callouts and errors.
 pub const DESTRUCTIVE: Color = Color::srgb(0.973, 0.443, 0.443);
+/// `#4ade80` (Tailwind green-400): what a code variant adds.
+pub const SUCCESS: Color = Color::srgb(0.290, 0.871, 0.502);
+
+/// Faint washes behind diff lines: added, removed, changed (CSS: 12 %).
+pub const SUCCESS_SOFT: Color = Color::srgba(0.290, 0.871, 0.502, 0.02);
+pub const DESTRUCTIVE_SOFT: Color = Color::srgba(0.973, 0.443, 0.443, 0.02);
+pub const WARNING_SOFT: Color = Color::srgba(0.984, 0.749, 0.141, 0.02);
 
 /// Behind dialogs and drawers (CSS: black 60 %).
 pub const SCRIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.8);

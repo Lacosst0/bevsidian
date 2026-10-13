@@ -1,10 +1,14 @@
-//! The notes' look: the markdown theme built from the UI kit's tokens, and the kit's icons for
-//! the renderer (callouts, copy buttons).
+//! The notes' look: the markdown theme built from the UI kit's tokens, and the kit's icons and
+//! tabs for the renderer (callouts, copy buttons, code variant pickers).
 
 use bevy::{prelude::*, text::FontWeight};
-use bevy_ui_commonmark::MdTheme;
+use bevy_ui_commonmark::{MdCodeVariants, MdTheme, MdVariantTab};
 
-use bevsidian_ui::color;
+use bevsidian_ui::{Selected, color, tab, tab_list};
+
+pub fn plugin(app: &mut App) {
+    app.add_systems(Update, select_variant_tabs);
+}
 
 /// shadcn/ui typography: Geist prose in neutral greys, orange links, neutral callouts (only
 /// warnings and cautions get colour) and GitHub-dark code colours.
@@ -29,6 +33,12 @@ pub fn note_theme() -> MdTheme {
         code_bg: color::ACCENT,
         code_block_bg: color::BACKGROUND,
         highlight: color::LINK_SOFT,
+        diff: [
+            color::SUCCESS_SOFT,
+            color::DESTRUCTIVE_SOFT,
+            color::WARNING_SOFT,
+        ],
+        diff_marks: [color::SUCCESS, color::DESTRUCTIVE, color::WARNING],
         border: color::BORDER,
         table_header_bg: Color::NONE,
         table_header: color::MUTED_FOREGROUND,
@@ -54,4 +64,36 @@ pub fn note_theme() -> MdTheme {
 /// A Lucide icon for the markdown renderer.
 pub fn icon(name: &str, size: f32, color: Color) -> Box<dyn Scene> {
     Box::new(bevsidian_ui::icon(name, size, color))
+}
+
+/// A code block's variant picker: the kit's tabs (like Note / Graph in the top bar).
+pub fn variant_picker(names: &[String]) -> Box<dyn Scene> {
+    let tabs: Vec<Box<dyn Scene>> = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| Box::new(bsn! { @{tab(name)} MdVariantTab(i) }) as Box<dyn Scene>)
+        .collect();
+    Box::new(bsn! {
+        @{tab_list()}
+        Node { max_width: Val::Percent(100.0), overflow: Overflow::clip() }
+        Children [ {tabs} ]
+    })
+}
+
+/// Marks the tab of each code block's shown variant as selected.
+fn select_variant_tabs(
+    blocks: Query<(Entity, &MdCodeVariants), Changed<MdCodeVariants>>,
+    children: Query<&Children>,
+    tabs: Query<&MdVariantTab>,
+    mut commands: Commands,
+) {
+    for (block, variants) in &blocks {
+        for entity in children.iter_descendants(block) {
+            if let Ok(tab) = tabs.get(entity) {
+                commands
+                    .entity(entity)
+                    .insert(Selected(tab.0 == variants.selected));
+            }
+        }
+    }
 }

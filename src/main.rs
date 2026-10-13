@@ -81,6 +81,7 @@ fn main() {
             perf::plugin,
             persist::plugin,
             editor::plugin,
+            theme::plugin,
         ))
         .run();
 }

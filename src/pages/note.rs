@@ -239,6 +239,7 @@ fn note_body(
         title_badge: Some(&badge),
         code_preview: Some(&bevsidian_preview::code_preview),
         icon: Some(&crate::theme::icon),
+        variant_picker: Some(&crate::theme::variant_picker),
     };
     let body = markdown_scene(&note.doc, &options);
     let title: Vec<Box<dyn Scene>> = note

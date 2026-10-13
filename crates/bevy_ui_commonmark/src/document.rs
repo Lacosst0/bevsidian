@@ -73,6 +73,16 @@ pub enum Block {
         /// Raw code (trailing newline trimmed).
         code: String,
     },
+    /// Consecutive code blocks marked `variant=NAME` (or `variant="Two words"`): one block
+    /// with a picker. The first is the base; the others show what they add, remove and change
+    /// compared with it. A variant is written as its whole code, or as a `diff` block (the
+    /// base's lines prefixed with ` `, `-` or `+`).
+    CodeVariants {
+        /// The base's language (also used to highlight `diff` variants).
+        lang: Option<String>,
+        /// The variants, base first.
+        variants: Vec<CodeVariant>,
+    },
     /// `> quote`, or a callout like `> [!NOTE]`.
     Quote {
         /// Callout kind, when the quote is a GFM/Obsidian callout.
@@ -107,6 +117,118 @@ pub enum Block {
     },
     /// Raw HTML block, displayed verbatim.
     Html(String),
+}
+
+/// One variant of a [`Block::CodeVariants`].
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CodeVariant {
+    /// Its name in the picker.
+    pub name: String,
+    /// Its own code (what the copy button copies).
+    pub code: String,
+    /// The lines shown, marked against the base (all [`LineKind::Same`] for the base).
+    ///
+    /// [`LineKind::Same`]: crate::diff::LineKind::Same
+    pub lines: Vec<crate::diff::DiffLine>,
+}
+
+/// The `variant=` name in a code block's info string: `variant=Timer` or
+/// `variant="With a timer"`.
+pub fn variant_name(info: &str) -> Option<String> {
+    let rest = &info[info.find("variant=")? + "variant=".len()..];
+    let name = if let Some(quoted) = rest.strip_prefix('"') {
+        quoted.split('"').next()?
+    } else {
+        rest.split_whitespace().next()?
+    };
+    (!name.trim().is_empty()).then(|| name.trim().to_owned())
+}
+
+/// Merges runs of consecutive `variant=` code blocks into [`Block::CodeVariants`], at every
+/// level. A lone variant stays a plain code block.
+fn group_variants(blocks: Vec<Block>) -> Vec<Block> {
+    use crate::diff::{DiffLine, LineKind, diff, parse};
+    let mut out: Vec<Block> = Vec::with_capacity(blocks.len());
+    // Name, language, info string and code of the variants found so far.
+    type Run = Vec<(String, Option<String>, String, String)>;
+    let mut run: Run = Vec::new();
+    let flush = |run: &mut Run, out: &mut Vec<Block>| match run.len() {
+        0 => {}
+        1 => {
+            let (_, lang, info, code) = run.remove(0);
+            out.push(Block::CodeBlock { lang, info, code });
+        }
+        _ => {
+            let (base_name, lang, _, base) = run.remove(0);
+            let mut variants = vec![CodeVariant {
+                name: base_name,
+                code: base.clone(),
+                lines: base
+                    .lines()
+                    .map(|text| DiffLine {
+                        kind: LineKind::Same,
+                        text: text.to_owned(),
+                    })
+                    .collect(),
+            }];
+            for (name, variant_lang, _, code) in run.drain(..) {
+                let lines = if variant_lang.as_deref() == Some("diff") {
+                    parse(&code)
+                } else {
+                    diff(&base, &code)
+                };
+                variants.push(CodeVariant {
+                    name,
+                    code: crate::diff::code(&lines),
+                    lines,
+                });
+            }
+            out.push(Block::CodeVariants { lang, variants });
+        }
+    };
+    for block in blocks {
+        match block {
+            Block::CodeBlock { lang, info, code } => {
+                if let Some(name) = variant_name(&info) {
+                    run.push((name, lang, info, code));
+                } else {
+                    flush(&mut run, &mut out);
+                    out.push(Block::CodeBlock { lang, info, code });
+                }
+            }
+            Block::Quote { callout, blocks } => {
+                flush(&mut run, &mut out);
+                out.push(Block::Quote {
+                    callout,
+                    blocks: group_variants(blocks),
+                });
+            }
+            Block::Footnote { label, blocks } => {
+                flush(&mut run, &mut out);
+                out.push(Block::Footnote {
+                    label,
+                    blocks: group_variants(blocks),
+                });
+            }
+            Block::List { start, items } => {
+                flush(&mut run, &mut out);
+                let items = items
+                    .into_iter()
+                    .map(|mut item| {
+                        item.blocks = group_variants(std::mem::take(&mut item.blocks));
+                        item
+                    })
+                    .collect();
+                out.push(Block::List { start, items });
+            }
+            other => {
+                flush(&mut run, &mut out);
+                out.push(other);
+            }
+        }
+    }
+    flush(&mut run, &mut out);
+    out
 }
 
 /// A list item.
@@ -814,7 +936,7 @@ impl MdDocument {
         }
         flush_loose(&mut stack, &mut inl);
         if let Some(Frame::Root(blocks)) = stack.into_iter().next() {
-            doc.blocks = blocks;
+            doc.blocks = group_variants(blocks);
         }
         doc
     }
@@ -831,6 +953,12 @@ impl MdDocument {
                     Block::CodeBlock { code, .. } | Block::Html(code) => {
                         out.push_str(code);
                         out.push('\n');
+                    }
+                    Block::CodeVariants { variants, .. } => {
+                        for variant in variants {
+                            out.push_str(&variant.code);
+                            out.push('\n');
+                        }
                     }
                     Block::Quote { blocks, .. } | Block::Footnote { blocks, .. } => {
                         walk(blocks, out);
@@ -883,6 +1011,39 @@ fn callout(kind: BlockQuoteKind) -> Callout {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn variant_blocks_group_into_one() {
+        let doc = MdDocument::parse(
+            "```rust variant=Base\nfn a() {}\n```\n\n\
+             ```rust variant=\"With b\"\nfn a() {}\nfn b() {}\n```\n\n\
+             ```diff variant=Patched\n-fn a() {}\n+fn c() {}\n```\n\n\
+             Text\n\n```rust variant=Alone\nfn x() {}\n```",
+        );
+        let Block::CodeVariants { lang, variants } = &doc.blocks[0] else {
+            panic!("expected variants: {:?}", doc.blocks[0]);
+        };
+        assert_eq!(lang.as_deref(), Some("rust"));
+        let names: Vec<_> = variants.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(names, ["Base", "With b", "Patched"]);
+        assert_eq!(variants[1].code, "fn a() {}\nfn b() {}");
+        assert_eq!(variants[2].code, "fn c() {}");
+        assert!(matches!(doc.blocks[1], Block::Paragraph(_)));
+        assert!(
+            matches!(&doc.blocks[2], Block::CodeBlock { info, .. } if info.contains("Alone")),
+            "a lone variant stays a code block"
+        );
+    }
+
+    #[test]
+    fn variant_names() {
+        assert_eq!(variant_name("rust variant=Timer"), Some("Timer".into()));
+        assert_eq!(
+            variant_name("rust variant=\"A timer\" x"),
+            Some("A timer".into())
+        );
+        assert_eq!(variant_name("rust"), None);
+    }
 
     #[test]
     fn rustdoc_references_link_to_docs() {
