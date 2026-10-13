@@ -311,6 +311,7 @@ fn on_link(
         LinkTarget::Tag(tag) => nav.toggle_tag(tag),
         LinkTarget::Footnote(label) => nav.anchor.set(Some(Anchor::Footnote(label.clone()))),
         LinkTarget::Url(url) => open_url(url),
+        LinkTarget::Docs(path) => open_url(&crate::docs::url(path)),
     }
 }
 

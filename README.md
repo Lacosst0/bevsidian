@@ -4,11 +4,12 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 
 ## Features
 
-- **Markdown reading view** rendered natively with Bevy UI: headings, emphasis, inline code, syntax-highlighted code blocks with a copy button, tables, task lists, nested lists, callouts (`> [!TIP]`), footnotes and horizontal rules.
+- **Markdown reading view** rendered natively with Bevy UI: headings, emphasis, inline code, syntax-highlighted code blocks with a copy button, tables (row hover; wide ones scroll sideways), task lists, nested lists, callouts (`> [!TIP]`), footnotes and horizontal rules.
 - **Selection like a web page**: drag across paragraphs, double-click a word, triple-click a block, Shift+click to extend, Shift+arrows, `Ctrl/Cmd+A`, `Ctrl/Cmd+C`.
 - **Obsidian linking**: `[[Note]]`, `[[Note#Heading]]`, `[[Note|alias]]`, `#tags` and front-matter `tags:`.
+- **Docs references**, like rustdoc's intra-doc links: `` [`Commands`] ``, `` [`Commands::spawn`] ``, `` [text][`bsn!`] ``, `[text](ecs::system::Query)` or `[text](docs:Time)` open Bevy's API docs on docs.rs. Names resolve through an index of Bevy's items ([`tools/docs_index.py`](tools/docs_index.py)); unknown ones open a docs.rs search.
 - **Navigation**: one sidebar with a note tree (folders, notes, and the open note's headings), full-text search with tag suggestions, and a links popover by the title (backlinks and outgoing links); back/forward history (`Alt+←/→`, mouse buttons) and a quick switcher (`Ctrl+O`).
-- **Graph view** (`Ctrl+G`): a force-directed graph of notes, drawn as their icons, rendered by a 2D camera into a texture shown in the UI. Hover highlights neighbours, click opens a note, drag moves nodes or pans, and the wheel zooms.
+- **Graph view** (`Ctrl+G`): a force-directed graph of notes, drawn as their icons, rendered by a 2D camera into a texture shown in the UI. Lines are solid when two notes link to each other, dashed when one links to the other and dotted when they share a tag. Hover highlights neighbours, click opens a note, drag moves nodes or pans, and the wheel zooms.
 - **Single-file web build**: one `index.html` with CSS, JS and the gzip-compressed WASM inlined. Host it on any static server or open it from disk.
 
 ## Workspace

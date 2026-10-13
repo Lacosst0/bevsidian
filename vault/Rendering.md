@@ -7,7 +7,7 @@ Bevy renders with `wgpu`, which targets Vulkan, Metal, DirectX 12, WebGL2 and We
 
 ## Cameras
 
-Nothing is drawn until a camera exists. Spawn `Camera2d` for 2D games and `Camera3d` for 3D:
+Nothing is drawn until a camera exists. Spawn [`Camera2d`] for 2D games and [`Camera3d`] for 3D:
 
 ```rust
 fn setup(mut commands: Commands) {
@@ -20,7 +20,7 @@ fn setup(mut commands: Commands) {
 
 ## Meshes and materials
 
-A visible 3D object is an entity with a `Mesh3d` and a `MeshMaterial3d`:
+A visible 3D object is an entity with a [`Mesh3d`] and a [`MeshMaterial3d`]:
 
 ```rust
 fn spawn_cube(
@@ -41,12 +41,14 @@ fn spawn_cube(
 
 ## UI
 
-Bevy UI is made of `Node` entities laid out with flexbox and CSS grid. Text uses `Text` with nested `TextSpan`s, and this very page is rendered that way. #ui
+Bevy UI is made of [`Node`] entities laid out with flexbox and CSS grid. Text uses [`Text`] with nested [`TextSpan`]s, and this very page is rendered that way. #ui
 
-- `Node`: size, padding, flex and grid layout
-- `Text` / `TextSpan`: styled text runs
-- `ImageNode`: images
-- `Button` + observers: interaction
+| Component | For | Path |
+|:--|:--|:--|
+| [`Node`] | size, padding, flex and grid layout | `bevy::ui::Node` |
+| [`Text`] / [`TextSpan`] | styled text runs | `bevy::ui::widget::Text` |
+| [`ImageNode`] | images | `bevy::ui::widget::ImageNode` |
+| [`Button`] + observers | interaction | `bevy::ui_widgets::Button` |
 
 ## Shaders
 

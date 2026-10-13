@@ -512,6 +512,8 @@ fn checkbox(checked: bool, options: &RenderOptions) -> Box<dyn Scene> {
     Box::new(bsn! { node border bg Children [ {tick} ] })
 }
 
+/// A table (shadcn/ui `Table`): a bordered grid whose rows light up under the pointer. Wide
+/// tables scroll sideways inside their border instead of overflowing the page.
 fn table(
     align: &[ColumnAlign],
     header: &[Vec<Inline>],
@@ -523,6 +525,8 @@ fn table(
         .len()
         .max(rows.iter().map(Vec::len).max().unwrap_or(0))
         .max(1);
+    // The header's background must not cover the frame's rounded corners.
+    let corner = Val::Px((theme.radius - 1.0).max(0.0));
     let mut cells: Scenes = Vec::new();
     let mut push_row = |row: &[Vec<Inline>], is_header: bool, row_index: usize| {
         for col in 0..columns {
@@ -539,10 +543,19 @@ fn table(
                 ColumnAlign::Right => JustifyContent::End,
                 _ => JustifyContent::Start,
             };
+            let mut radius = BorderRadius::ZERO;
+            if is_header && col == 0 {
+                radius.top_left = corner.into();
+            }
+            if is_header && col == columns - 1 {
+                radius.top_right = corner.into();
+            }
             let node = Node {
                 padding: UiRect::axes(Val::Px(16.0), Val::Px(if is_header { 8.0 } else { 10.0 })),
                 border: UiRect::top(Val::Px(if row_index == 0 { 0.0 } else { 1.0 })),
+                border_radius: radius,
                 justify_content: justify,
+                align_items: AlignItems::Center,
                 ..default()
             };
             let border = BorderColor::all(theme.border);
@@ -551,25 +564,98 @@ fn table(
             } else {
                 Color::NONE
             });
-            cells.push(Box::new(bsn! { node border bg Children [ @{text} ] }));
+            let cell = TableCell {
+                row: (!is_header).then_some(row_index),
+            };
+            cells.push(Box::new(bsn! { node border bg cell Children [ @{text} ] }));
         }
     };
     push_row(header, true, 0);
     for (i, row) in rows.iter().enumerate() {
         push_row(row, false, i + 1);
     }
-    let node = Node {
+    let grid = Node {
         display: Display::Grid,
         grid_template_columns: vec![RepeatedGridTrack::auto(columns as u16)],
+        // As wide as its content, down to the narrowest the columns can wrap to.
+        flex_shrink: 1.0,
+        ..default()
+    };
+    let frame = Node {
         border: UiRect::all(Val::Px(1.0)),
         border_radius: BorderRadius::all(Val::Px(theme.radius)),
-        overflow: Overflow::clip(),
+        overflow: Overflow::scroll_x(),
         align_self: AlignSelf::Start,
         max_width: Val::Percent(100.0),
+        min_width: Val::Px(0.0),
         ..default()
     };
     let border = BorderColor::all(theme.border);
-    Box::new(bsn! { node border Children [ {cells} ] })
+    let hover = MdTable {
+        row_hover: theme.table_row_hover,
+    };
+    Box::new(bsn! {
+        frame border
+        // Not a `ScrollArea`: that would swallow vertical wheel scrolling over the table.
+        ScrollPosition
+        on(scroll_code_sideways)
+        Children [ grid hover Children [ {cells} ] ]
+    })
+}
+
+/// A table's grid, with the colour of its hovered row.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub(crate) struct MdTable {
+    row_hover: Color,
+}
+
+/// A table cell and its body row (`None` in the header).
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub(crate) struct TableCell {
+    row: Option<usize>,
+}
+
+/// Lights up the body row under the pointer, like shadcn/ui's `hover:bg-muted/50` rows.
+pub(crate) fn hover_table_rows(
+    hover: Res<bevy::picking::hover::HoverMap>,
+    parents: Query<&ChildOf>,
+    cells: Query<&TableCell>,
+    tables: Query<(&MdTable, &Children)>,
+    mut backgrounds: Query<&mut BackgroundColor>,
+    mut lit: Local<Option<(Entity, usize)>>,
+) {
+    // The table and row of the cell under the pointer, if any.
+    let current = hover
+        .values()
+        .flat_map(|hits| hits.keys())
+        .find_map(|&hit| {
+            std::iter::once(hit)
+                .chain(parents.iter_ancestors(hit))
+                .find_map(|e| Some((e, cells.get(e).ok()?.row?)))
+                .and_then(|(cell, row)| Some((parents.get(cell).ok()?.parent(), row)))
+        });
+    if *lit == current {
+        return;
+    }
+    let mut paint = |(table, row): (Entity, usize), lit: bool| {
+        let Ok((style, children)) = tables.get(table) else {
+            return;
+        };
+        for &child in children {
+            if cells.get(child).is_ok_and(|c| c.row == Some(row))
+                && let Ok(mut background) = backgrounds.get_mut(child)
+            {
+                background.0 = if lit { style.row_hover } else { Color::NONE };
+            }
+        }
+    };
+    if let Some(previous) = *lit {
+        paint(previous, false);
+    }
+    if let Some(next) = current {
+        paint(next, true);
+    }
+    *lit = current;
 }
 
 /// A code block: a header with the language, `actions` and a copy button, over the code.
@@ -1023,6 +1109,11 @@ fn inline_style(inline: &Inline, base: &SpanStyle, options: &RenderOptions) -> S
         Some(LinkTarget::Footnote(_)) => {
             s.color = theme.link;
             s.size = base.size * 0.8;
+        }
+        // API references: a code chip (when written in backticks) in the link colour.
+        Some(LinkTarget::Docs(_)) => {
+            s.color = theme.link;
+            s.underline = !inline.style.code;
         }
         None => {}
     }

@@ -5,6 +5,9 @@
 //! [`GraphViewport`] node; pointer events on the node are mapped back into the world for
 //! hovering, clicking, dragging nodes, panning (with momentum) and zooming (wheel, pinch
 //! and buttons). A press only opens a note if the pointer did not move: drags never click.
+//!
+//! Lines say how two notes are connected ([`Connection`]): solid when they link to each
+//! other, dashed when one links to the other, dotted when they only share a tag.
 
 use bevy::{
     camera::{RenderTarget, visibility::RenderLayers},
@@ -21,9 +24,9 @@ use bevy::{
 
 use bevsidian_core::{
     nav::{Nav, View},
-    vault::{NoteId, Vault},
+    vault::{NoteId, Vault, VaultData},
 };
-use bevsidian_ui::{Size, Variant, color, icon_button, radius, shadow};
+use bevsidian_ui::{Size, Variant, caption, color, icon_button, radius, shadow};
 
 const LAYER: usize = 1;
 
@@ -95,7 +98,10 @@ struct GraphText {
 #[derive(Resource, Default)]
 pub struct GraphState {
     image: Handle<Image>,
+    /// Links, one per direction: the springs of the simulation.
     edges: Vec<(Entity, Entity)>,
+    /// The lines drawn, one per connected pair.
+    lines: Vec<(Entity, Entity, Connection)>,
     hovered: Option<Entity>,
     dragging: Option<Entity>,
     /// The current press, until the next one.
@@ -309,6 +315,10 @@ fn spawn_nodes(
         }
     }
     state.edges = edges;
+    state.lines = connections(&vault)
+        .into_iter()
+        .map(|(a, b, kind)| (note_entities[a], note_entities[b], kind))
+        .collect();
     state.anchor = None;
     if kept.is_empty() {
         state.alpha = 1.0;
@@ -588,13 +598,107 @@ fn style_nodes(
     }
 }
 
-/// Edge width on screen, in render-target pixels.
+/// How two notes are connected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Connection {
+    /// Each links to the other: a solid line.
+    Mutual,
+    /// One links to the other: a dashed line.
+    OneWay,
+    /// They share a tag but neither links to the other: a dotted line.
+    Tag,
+}
+
+/// Tags on more notes than this draw no lines: they would connect everything to everything.
+const MAX_TAG_NOTES: usize = 12;
+
+/// The connected pairs of notes (each pair once, lower id first) and how they connect.
+pub fn connections(vault: &VaultData) -> Vec<(NoteId, NoteId, Connection)> {
+    let mut lines = std::collections::BTreeMap::new();
+    for (a, note) in vault.notes.iter().enumerate() {
+        for &b in &note.outgoing {
+            let mutual = vault.notes[b].outgoing.contains(&a);
+            let kind = if mutual {
+                Connection::Mutual
+            } else {
+                Connection::OneWay
+            };
+            lines.insert((a.min(b), a.max(b)), kind);
+        }
+    }
+    for notes in vault.tags.values().filter(|n| n.len() <= MAX_TAG_NOTES) {
+        for (i, &a) in notes.iter().enumerate() {
+            for &b in &notes[i + 1..] {
+                if a != b {
+                    lines.entry((a.min(b), a.max(b))).or_insert(Connection::Tag);
+                }
+            }
+        }
+    }
+    lines
+        .into_iter()
+        .map(|((a, b), kind)| (a, b, kind))
+        .collect()
+}
+
+/// Line width on screen, in render-target pixels.
 const EDGE_WIDTH: f32 = 4.0;
+/// Dashes of one-way links and the gaps between them, in render-target pixels.
+const DASH: f32 = 12.0;
+const DASH_GAP: f32 = 8.0;
+/// Space between the dots of tag lines, in render-target pixels.
+const DOT_GAP: f32 = 6.0;
+
+/// Pieces `piece` long, `gap` apart, centred on `0..length` (start and end of each).
+fn pattern(length: f32, piece: f32, gap: f32) -> impl Iterator<Item = (f32, f32)> {
+    let count = ((length + gap) / (piece + gap)).floor().max(0.0) as usize;
+    let used = count as f32 * (piece + gap) - gap;
+    let start = (length - used) / 2.0;
+    (0..count).map(move |i| {
+        let from = start + i as f32 * (piece + gap);
+        (from, from + piece)
+    })
+}
+
+/// Vertices, colours and indices of the line mesh.
+#[derive(Default)]
+struct LineMesh {
+    positions: Vec<[f32; 3]>,
+    colors: Vec<[f32; 4]>,
+    indices: Vec<u32>,
+}
+
+impl LineMesh {
+    fn quad(&mut self, from: Vec2, to: Vec2, half: f32, color: [f32; 4]) {
+        let normal = (to - from).normalize_or_zero().perp() * half;
+        let base = self.positions.len() as u32;
+        for p in [from + normal, from - normal, to - normal, to + normal] {
+            self.positions.push([p.x, p.y, 0.0]);
+            self.colors.push(color);
+        }
+        self.indices
+            .extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+
+    /// A round dot (an octagon).
+    fn dot(&mut self, center: Vec2, radius: f32, color: [f32; 4]) {
+        let base = self.positions.len() as u32;
+        self.positions.push([center.x, center.y, 0.0]);
+        self.colors.push(color);
+        for i in 0..8 {
+            let p = center + Vec2::from_angle(i as f32 * std::f32::consts::FRAC_PI_4) * radius;
+            self.positions.push([p.x, p.y, 0.0]);
+            self.colors.push(color);
+            self.indices
+                .extend([base, base + 1 + i, base + 1 + (i + 1) % 8]);
+        }
+    }
+}
 
 fn draw_edges(
     nav: Res<Nav>,
     state: Res<GraphState>,
-    nodes: Query<&Transform, With<GraphNode>>,
+    nodes: Query<(&Transform, &GraphNode)>,
     camera: Query<&Projection, With<GraphCamera>>,
     edge_mesh: Query<&Mesh2d, With<EdgeMesh>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -605,13 +709,13 @@ fn draw_edges(
     let (Ok(mesh), Ok(projection)) = (edge_mesh.single(), camera.single()) else {
         return;
     };
-    let half = EDGE_WIDTH / 2.0 * ortho_scale(projection);
+    // World units per render-target pixel: lines and patterns keep their size on screen.
+    let px = ortho_scale(projection);
+    let half = EDGE_WIDTH / 2.0 * px;
     let focus = state.hovered.or(state.dragging);
-    let mut positions = Vec::with_capacity(state.edges.len() * 4);
-    let mut colors = Vec::with_capacity(state.edges.len() * 4);
-    let mut indices = Vec::with_capacity(state.edges.len() * 6);
-    for &(a, b) in &state.edges {
-        let (Ok(ta), Ok(tb)) = (nodes.get(a), nodes.get(b)) else {
+    let mut out = LineMesh::default();
+    for &(a, b, kind) in &state.lines {
+        let (Ok((ta, na)), Ok((tb, nb))) = (nodes.get(a), nodes.get(b)) else {
             continue;
         };
         let highlighted = focus.is_some_and(|f| f == a || f == b);
@@ -621,20 +725,37 @@ fn draw_edges(
             Color::srgb(0.13, 0.13, 0.13)
         } else {
             Color::srgb(0.26, 0.26, 0.26)
-        };
-        let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
-        let normal = (pb - pa).normalize_or_zero().perp() * half;
-        let base = positions.len() as u32;
-        for p in [pa + normal, pa - normal, pb - normal, pb + normal] {
-            positions.push([p.x, p.y, 0.0]);
-            colors.push(color.to_linear().to_f32_array());
         }
-        indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+        .to_linear()
+        .to_f32_array();
+        let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
+        // Patterns run between the discs' outlines, so both ends look the same.
+        let direction = (pb - pa).normalize_or_zero();
+        let from = pa + direction * na.radius;
+        let length = (pb - direction * nb.radius - from).dot(direction);
+        match kind {
+            Connection::Mutual => out.quad(pa, pb, half, color),
+            Connection::OneWay => {
+                for (start, end) in pattern(length, DASH * px, DASH_GAP * px) {
+                    out.quad(
+                        from + direction * start,
+                        from + direction * end,
+                        half,
+                        color,
+                    );
+                }
+            }
+            Connection::Tag => {
+                for (start, end) in pattern(length, EDGE_WIDTH * px, DOT_GAP * px) {
+                    out.dot(from + direction * (start + end) / 2.0, half, color);
+                }
+            }
+        }
     }
     if let Some(mut mesh) = meshes.get_mut(&mesh.0) {
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-        mesh.insert_indices(bevy::mesh::Indices::U32(indices));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, out.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, out.colors);
+        mesh.insert_indices(bevy::mesh::Indices::U32(out.indices));
     }
 }
 
@@ -1022,5 +1143,83 @@ pub fn zoom_controls() -> impl Scene {
             --
             @{button("maximize", 0.0, false)}
         ]
+    }
+}
+
+/// What the line styles mean, in the graph's corner.
+pub fn legend() -> impl Scene {
+    fn row(sample: Vec<Box<dyn Scene>>, text: &str) -> impl Scene + use<> {
+        bsn! {
+            Node { align_items: AlignItems::Center, column_gap: px(10) }
+            Children [
+                Node { width: px(24), height: px(6), align_items: AlignItems::Center, justify_content: JustifyContent::SpaceBetween }
+                Children [ {sample} ]
+                --
+                @{caption(text)}
+            ]
+        }
+    }
+    fn piece(width: f32, round: bool) -> Box<dyn Scene> {
+        let node = Node {
+            width: px(width),
+            height: px(if round { 4.0 } else { 2.0 }),
+            border_radius: BorderRadius::all(px(if round { 2.0 } else { 0.0 })),
+            ..default()
+        };
+        Box::new(bsn! { node BackgroundColor(color::MUTED_FOREGROUND) })
+    }
+    let shadow = shadow::popover();
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(16),
+            bottom: px(16),
+            flex_direction: FlexDirection::Column,
+            row_gap: px(6),
+            padding: UiRect::axes(px(12), px(10)),
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(radius::LG)),
+        }
+        BackgroundColor(color::CARD)
+        BorderColor::all(color::INPUT)
+        Pickable::IGNORE
+        shadow
+        Children [
+            @{row(vec![piece(24.0, false)], "Linked both ways")}
+            --
+            @{row((0..3).map(|_| piece(6.0, false)).collect(), "Linked one way")}
+            --
+            @{row((0..4).map(|_| piece(4.0, true)).collect(), "Shared tag")}
+        ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connections_follow_links_and_tags() {
+        let vault = VaultData::from_sources([
+            ("A.md", "# A\n\n[[B]] [[C]] #shared"),
+            ("B.md", "# B\n\n[[A]]"),
+            ("C.md", "# C"),
+            ("D.md", "# D\n\n#shared"),
+        ]);
+        assert_eq!(
+            connections(&vault),
+            vec![
+                (0, 1, Connection::Mutual),
+                (0, 2, Connection::OneWay),
+                (0, 3, Connection::Tag),
+            ]
+        );
+    }
+
+    #[test]
+    fn patterns_are_centred() {
+        let pieces: Vec<_> = pattern(50.0, 10.0, 5.0).collect();
+        assert_eq!(pieces, vec![(5.0, 15.0), (20.0, 30.0), (35.0, 45.0)]);
+        assert_eq!(pattern(5.0, 10.0, 5.0).count(), 0);
     }
 }

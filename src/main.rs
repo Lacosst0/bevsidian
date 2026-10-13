@@ -132,6 +132,13 @@ mod tests {
                     note.name
                 );
             }
+            for path in &note.doc.docs {
+                assert!(
+                    bevsidian_core::docs::page_of(path).is_some(),
+                    "{} references {path:?}, which is not in Bevy's docs index",
+                    note.name
+                );
+            }
             for block in &note.doc.blocks {
                 if let bevy_ui_commonmark::Block::CodeBlock { lang, info, code } = block
                     && (info.contains("preview=") || info.contains("example="))

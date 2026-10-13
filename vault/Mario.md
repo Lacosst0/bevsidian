@@ -8,7 +8,7 @@ A one-screen platformer in a few systems and observers. Every preview on this pa
 
 ## The level
 
-The sky, the ground and Mario are entities with a `Sprite` and a `Transform`. Gravity pulls every body with a `Velocity` down; colliding, walking and stomping are in the game's other systems.
+The sky, the ground and Mario are entities with a [`Sprite`] and a [`Transform`]. Gravity pulls every body with a `Velocity` down; colliding, walking and stomping are in the game's other systems.
 
 ```rust example=mario
 #[derive(Component)]
@@ -62,7 +62,7 @@ fn gravity(time: Res<Time>, mut bodies: Query<(&mut Transform, &mut Velocity), W
 
 ## Goombas
 
-A repeating `Timer` in a resource spawns a goomba every two seconds, up to three at a time. They walk until they hit a wall or a platform, then turn around.
+A repeating [`Timer`] in a resource spawns a goomba every two seconds, up to three at a time. They walk until they hit a wall or a platform, then turn around.
 
 ```rust example=mario
 #[derive(Resource)]
@@ -90,7 +90,7 @@ fn spawn_goombas(
 
 ## Platforms
 
-Picking turns clicks into `PointerClick` events on the entity under the pointer, with the hit position in world space. Click the sky to place a platform there:
+Picking turns clicks into [`PointerClick`] events on the entity under the pointer, with the hit position in world space. Click the sky to place a platform there:
 
 ```rust example=mario
 fn spawn_platform(
@@ -127,7 +127,7 @@ fn spawn_platform(
 
 ## Dragging Mario
 
-Drags come as `PointerDragStart`, `PointerDrag` and `PointerDragEnd`. While held, gravity leaves Mario alone; let go above a goomba to stomp it.
+Drags come as [`PointerDragStart`], [`PointerDrag`] and [`PointerDragEnd`]. While held, gravity leaves Mario alone; let go above a goomba to stomp it.
 
 ```rust example=mario
 /// Being dragged: gravity leaves it alone.

@@ -82,7 +82,11 @@ impl Plugin for CommonMarkPlugin {
             )
             .add_systems(
                 Update,
-                (scene::expire_copied_bubbles, scene::draw_code_highlights),
+                (
+                    scene::expire_copied_bubbles,
+                    scene::draw_code_highlights,
+                    scene::hover_table_rows,
+                ),
             );
     }
 }
