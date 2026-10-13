@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use bevsidian_ui::{ComponentValue, EntityCard, caption, inset, muted};
+use bevsidian_ui::{ComponentValue, EntityCard, inset, muted};
 
 use crate::{
     WorldPreview,
@@ -30,7 +30,6 @@ pub(crate) fn show_cards(
     for (host, preview) in &previews {
         commands.entity(host).despawn_children();
         spawn_cards(&mut commands, host, &preview.cards, &preview.placeholder);
-        spawn_log(&mut commands, host, &preview.log);
     }
 }
 
@@ -68,21 +67,4 @@ fn spawn_cards(commands: &mut Commands, parent: Entity, cards: &[Card], placehol
             })
             .insert(ChildOf(parent));
     }
-}
-
-/// What the example said, one line each, below the cards.
-fn spawn_log(commands: &mut Commands, parent: Entity, log: &[String]) {
-    if log.is_empty() {
-        return;
-    }
-    let lines: Vec<Box<dyn Scene>> = log
-        .iter()
-        .map(|line| Box::new(bsn! { @{caption(line)} }) as Box<dyn Scene>)
-        .collect();
-    commands
-        .spawn_scene(bsn! {
-            Node { width: Val::Percent(100.0), flex_direction: FlexDirection::Column, row_gap: px(2) }
-            Children [ {lines} ]
-        })
-        .insert(ChildOf(parent));
 }

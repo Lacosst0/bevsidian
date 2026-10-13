@@ -25,21 +25,6 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 | [`bevsidian_preview`](crates/bevsidian_preview) | Bevy-in-Bevy: live previews above code blocks. A preview runs an example program with the block's systems in a world of its own: as entity cards, one system at a time with Bevy's stepping (back, play/pause, forward, highlighting the lines that just ran), or as a playable 2D game. |
 | `bevsidian` (root) | The app: the shell (`src/shell`: sidebar, top bar), pages (`src/pages`: note, graph), overlays (`src/overlays`: settings, quick switcher, context menu, toast, selection toolbar, on-screen keyboard), responsive layout, the note editor, the FPS readout and the embedded vault. |
 
-## The Bevy 0.20 course
-
-The vault is a hands-on course. [`Bevy`](vault/Bevy.md) is the hub (drawn largest in the graph); each area has an index note and short notes with code you can run on the page: [`ECS`](vault/ECS), [`Assets`](vault/Assets), [`Rendering`](vault/Rendering), [`2D`](vault/2D), [`3D`](vault/3D), [`UI`](vault/UI), [`Input`](vault/Input), [`Audio`](vault/Audio), [`Physics`](vault/Physics), [`Networking`](vault/Networking), [`Tooling`](vault/Tooling) and one note per ecosystem crate in [`Libraries`](vault/Libraries).
-
-**Reading paths** (`vault/Paths/`) are notes with `path: true` whose links are the steps. A step line ending in `(optional)` or `(extra)` hangs off the previous core step in the graph with a dashed or dotted line; plain steps form the solid main route.
-
-**Every Rust block is compiled** against the Bevy version it is written for:
-
-```sh
-python3 tools/check_snippets.py            # all notes
-python3 tools/check_snippets.py Queries    # one note
-```
-
-It writes a scratch crate in `target/snippets` (one module per block; see the script's header for the `cont`, `ignore` and `fresh` flags and the `crates:`, `bevy:` and `check: skip` front-matter properties). Notes about crates that have no release for the current Bevy yet say `bevy: 0.19` and are checked against that version.
-
 ## Adding notes
 
 Put markdown files in [`vault/`](vault) (sub-folders are fine). They are embedded at compile time by `build.rs`. A note's name is its file name, so `vault/guides/Assets.md` is linked as `[[Assets]]`.
@@ -60,7 +45,7 @@ Code blocks can run **examples**: small Bevy programs in [`crates/bevsidian_prev
 
 An example shows its world either as **cards** of its entities and component values (stepped one system at a time with Bevy's stepping, highlighting the lines that ran), or as a **game**: its sprites, in real time, with pointer input turned into Bevy picking events (`PointerClick`, `PointerDrag`, …) in its world. See [`ECS`](vault/ECS.md) and [`Mario`](vault/Mario.md).
 
-To add one, write the program in a file there, list its functions with `startup!`, `update!` and `observer!` in an `Example`, and name it in `examples/mod.rs`. Keep the notes' code in sync with it. An `Example` can also have **actions** (buttons above the preview that do something to its world, shown when the block mentions the action's `name`), a **`Log`** resource (lines the systems "say", shown under the cards) and a **`tick`** that runs at the start of every frame (e.g. to swap message buffers). 2D games draw sprites (including texture atlases and rotation); `examples/stage.rs` has the shared stage.
+To add one, write the program in a file there, list its functions with `startup!`, `update!` and `observer!` in an `Example`, and name it in `examples/mod.rs`. Keep the notes' code in sync with it.
 
 `preview=NAME` shows a UI scene instead (see [`UI kit`](vault/UI%20kit.md)); those live in `examples/scenes.rs`.
 
@@ -91,7 +76,7 @@ On Linux, native builds need `libwayland-dev libxkbcommon-dev`.
 
 ## Hosting on GitHub Pages
 
-[`.github/workflows/pages.yml`](.github/workflows/pages.yml) publishes one page per branch to the `gh-pages` branch on every push: `main` at the site root, every other branch at `/<branch>/` (`/` in the name becomes `-`). [`pages-cleanup.yml`](.github/workflows/pages-cleanup.yml) removes a branch's page when the branch is deleted. To enable it, open **Settings → Pages** and set **Source** to **Deploy from a branch**, Branch `gh-pages` / `(root)` (the first workflow run creates the branch). For access-controlled ("private") Pages, the repository must belong to an organization on GitHub Enterprise Cloud; then set **Visibility** to **Private** on the same page.
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys `dist/index.html` to GitHub Pages on every push to `main`. To enable it, open **Settings → Pages** and set **Source** to **GitHub Actions**. For access-controlled ("private") Pages, the repository must belong to an organization on GitHub Enterprise Cloud; then set **Visibility** to **Private** on the same page.
 
 ## Fonts
 

@@ -24,7 +24,7 @@ use bevy::{
 
 use bevsidian_core::{
     nav::{Nav, View},
-    vault::{NoteId, NotePath, StepKind, Vault, VaultData},
+    vault::{NoteId, Vault, VaultData},
 };
 use bevsidian_ui::{Size, Tooltip, Variant, caption, color, icon_button, radius, shadow};
 
@@ -109,8 +109,6 @@ pub struct GraphState {
     lines: Vec<(Entity, Entity, Connection)>,
     /// The steps of the reading path being followed, in order (empty when none is).
     path: Vec<Entity>,
-    /// The lines of that path: core steps in a chain, optional and extra ones hanging off.
-    path_lines: Vec<(Entity, Entity, Connection)>,
     /// The camera frames the shown notes while they settle (after a path is chosen), until
     /// the user moves it.
     framing: bool,
@@ -272,13 +270,6 @@ fn spawn_nodes(
                 .count();
         // Better-linked notes are bigger.
         let radius = 16.0 + 4.0 * (degree as f32).sqrt();
-        // The hub (`hub: true`) is the centre everything radiates from: bigger still.
-        let hub = note
-            .doc
-            .properties
-            .iter()
-            .any(|(key, value)| key == "hub" && value == "true");
-        let radius = if hub { radius * 1.6 } else { radius };
         let icon_size = (radius * 0.9).round();
         let id = commands
             .spawn((
@@ -447,8 +438,10 @@ fn follow_path(
     let changed = last.is_some_and(|(shown, _)| shown != path);
     let rebuilt = last.is_some_and(|(_, revision)| revision != data.revision);
     *last = Some((path, data.revision));
-    let shown = path.and_then(|p| data.path(p));
-    let steps = shown.map(|p| p.steps.as_slice()).unwrap_or_default();
+    let steps = path
+        .and_then(|p| data.path(p))
+        .map(|p| p.steps.as_slice())
+        .unwrap_or_default();
     let mut ordered = vec![None; steps.len()];
     for (entity, mut node, mut visibility, children) in &mut nodes {
         let step = steps.iter().position(|&s| s == node.note);
@@ -471,19 +464,6 @@ fn follow_path(
             }
         }
     }
-    state.path_lines = shown
-        .map(NotePath::edges)
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|(from, to, kind)| {
-            let connection = match kind {
-                StepKind::Core => Connection::Mutual,
-                StepKind::Optional => Connection::OneWay,
-                StepKind::Extra => Connection::Tag,
-            };
-            Some((ordered[from]?, ordered[to]?, connection))
-        })
-        .collect();
     state.path = ordered.into_iter().flatten().collect();
     if changed || (rebuilt && !state.path.is_empty()) {
         // Lay the shown notes out again, and frame them as they settle.
@@ -537,7 +517,7 @@ fn simulate(
         }
     }
     // Springs along edges, and between the steps of a followed path.
-    let path_links = state.path_lines.iter().map(|&(a, b, _)| (a, b));
+    let path_links = state.path.windows(2).map(|pair| (pair[0], pair[1]));
     for (a, b) in state.edges.iter().copied().chain(path_links) {
         let (Some(i), Some(j)) = (index(a), index(b)) else {
             continue;
@@ -785,40 +765,6 @@ struct LineMesh {
 }
 
 impl LineMesh {
-    /// A line between two discs (centre, radius) in the style of `kind`; `scale` is the
-    /// half width and the world units per pixel.
-    fn line(
-        &mut self,
-        kind: Connection,
-        (pa, ra): (Vec2, f32),
-        (pb, rb): (Vec2, f32),
-        (half, px): (f32, f32),
-        color: [f32; 4],
-    ) {
-        // Patterns run between the discs' outlines, so both ends look the same.
-        let direction = (pb - pa).normalize_or_zero();
-        let from = pa + direction * ra;
-        let length = (pb - direction * rb - from).dot(direction);
-        match kind {
-            Connection::Mutual => self.quad(pa, pb, half, color),
-            Connection::OneWay => {
-                for (start, end) in pattern(length, DASH * px, DASH_GAP * px) {
-                    self.quad(
-                        from + direction * start,
-                        from + direction * end,
-                        half,
-                        color,
-                    );
-                }
-            }
-            Connection::Tag => {
-                for (start, end) in pattern(length, EDGE_WIDTH * px, DOT_GAP * px) {
-                    self.dot(from + direction * (start + end) / 2.0, half, color);
-                }
-            }
-        }
-    }
-
     fn quad(&mut self, from: Vec2, to: Vec2, half: f32, color: [f32; 4]) {
         let normal = (to - from).normalize_or_zero().perp() * half;
         let base = self.positions.len() as u32;
@@ -864,17 +810,18 @@ fn draw_edges(
     let half = EDGE_WIDTH / 2.0 * px;
     let focus = state.hovered.or(state.dragging);
     let mut out = LineMesh::default();
-    // Following a path: only its steps, joined as the path says.
-    let path_color = color::LINK.to_linear().to_f32_array();
-    for &(a, b, kind) in &state.path_lines {
-        if let (Ok((ta, na)), Ok((tb, nb))) = (nodes.get(a), nodes.get(b)) {
-            out.line(
-                kind,
-                (ta.translation.truncate(), na.radius),
-                (tb.translation.truncate(), nb.radius),
-                (half, px),
-                path_color,
-            );
+    // Following a path: only its steps, joined in order.
+    if !state.path.is_empty() {
+        let color = color::LINK.to_linear().to_f32_array();
+        for pair in state.path.windows(2) {
+            if let (Ok((ta, _)), Ok((tb, _))) = (nodes.get(pair[0]), nodes.get(pair[1])) {
+                out.quad(
+                    ta.translation.truncate(),
+                    tb.translation.truncate(),
+                    half,
+                    color,
+                );
+            }
         }
     }
     let lines = if state.path.is_empty() {
@@ -896,13 +843,29 @@ fn draw_edges(
         }
         .to_linear()
         .to_f32_array();
-        out.line(
-            kind,
-            (ta.translation.truncate(), na.radius),
-            (tb.translation.truncate(), nb.radius),
-            (half, px),
-            color,
-        );
+        let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
+        // Patterns run between the discs' outlines, so both ends look the same.
+        let direction = (pb - pa).normalize_or_zero();
+        let from = pa + direction * na.radius;
+        let length = (pb - direction * nb.radius - from).dot(direction);
+        match kind {
+            Connection::Mutual => out.quad(pa, pb, half, color),
+            Connection::OneWay => {
+                for (start, end) in pattern(length, DASH * px, DASH_GAP * px) {
+                    out.quad(
+                        from + direction * start,
+                        from + direction * end,
+                        half,
+                        color,
+                    );
+                }
+            }
+            Connection::Tag => {
+                for (start, end) in pattern(length, EDGE_WIDTH * px, DOT_GAP * px) {
+                    out.dot(from + direction * (start + end) / 2.0, half, color);
+                }
+            }
+        }
     }
     if let Some(mut mesh) = meshes.get_mut(&mesh.0) {
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, out.positions);
@@ -1308,30 +1271,26 @@ pub fn zoom_controls() -> impl Scene {
     }
 }
 
-/// A row of the legend: of the line styles of links, or of the steps of a followed path.
+/// The legend, hidden while a path is shown (its line is the path itself).
 #[derive(Component, Clone, Copy, Debug, Default)]
-struct LegendRow {
-    path: bool,
-}
+struct GraphLegend;
 
-fn show_legend(state: Res<GraphState>, mut rows: Query<(&LegendRow, &mut Node)>) {
-    let following = !state.path.is_empty();
-    for (row, mut node) in &mut rows {
-        let display = if row.path == following {
-            Display::Flex
-        } else {
-            Display::None
-        };
-        node.display = display;
+fn show_legend(state: Res<GraphState>, mut legends: Query<&mut Visibility, With<GraphLegend>>) {
+    let visibility = if state.path.is_empty() {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    for mut legend in &mut legends {
+        legend.set_if_neq(visibility);
     }
 }
 
 /// What the line styles mean, in the graph's corner.
 pub fn legend() -> impl Scene {
-    fn row(sample: Vec<Box<dyn Scene>>, text: &str, path: bool) -> impl Scene + use<> {
+    fn row(sample: Vec<Box<dyn Scene>>, text: &str) -> impl Scene + use<> {
         bsn! {
             Node { align_items: AlignItems::Center, column_gap: px(10) }
-            LegendRow { path: path }
             Children [
                 Node { width: px(24), height: px(6), align_items: AlignItems::Center, justify_content: JustifyContent::SpaceBetween }
                 Children [ {sample} ]
@@ -1364,19 +1323,14 @@ pub fn legend() -> impl Scene {
         BackgroundColor(color::CARD)
         BorderColor::all(color::INPUT)
         Pickable::IGNORE
+        GraphLegend
         shadow
         Children [
-            @{row(vec![piece(24.0, false)], "Linked both ways", false)}
+            @{row(vec![piece(24.0, false)], "Linked both ways")}
             --
-            @{row((0..3).map(|_| piece(6.0, false)).collect(), "Linked one way", false)}
+            @{row((0..3).map(|_| piece(6.0, false)).collect(), "Linked one way")}
             --
-            @{row((0..4).map(|_| piece(4.0, true)).collect(), "Shared tag", false)}
-            --
-            @{row(vec![piece(24.0, false)], "Core step", true)}
-            --
-            @{row((0..3).map(|_| piece(6.0, false)).collect(), "Optional step", true)}
-            --
-            @{row((0..4).map(|_| piece(4.0, true)).collect(), "Extra step", true)}
+            @{row((0..4).map(|_| piece(4.0, true)).collect(), "Shared tag")}
         ]
     }
 }

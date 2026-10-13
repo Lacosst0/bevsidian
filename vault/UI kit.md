@@ -1,5 +1,4 @@
 ---
-check: skip
 icon: component
 ---
 # UI kit

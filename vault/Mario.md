@@ -1,7 +1,6 @@
 ---
 icon: gamepad-2
 tags: [example]
-check: skip
 ---
 # Mario
 

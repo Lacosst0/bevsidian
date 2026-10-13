@@ -77,7 +77,6 @@ pub(crate) fn draw_games(
         &mut ZIndex,
     )>,
     images: Res<Assets<Image>>,
-    layouts: Res<Assets<TextureAtlasLayout>>,
     mut commands: Commands,
 ) {
     for (host, mut runtime, view, computed, children) in &mut games {
@@ -94,7 +93,7 @@ pub(crate) fn draw_games(
         let world = &mut runtime.bypass_change_detection().world;
         let mut sprites = world.query::<(Entity, &Sprite, &Transform, Option<&Anchor>)>();
         for (entity, sprite, transform, anchor) in sprites.iter(world) {
-            let size = sprite_size(sprite, &images, &layouts) * transform.scale.truncate().abs();
+            let size = sprite_size(sprite, &images) * transform.scale.truncate().abs();
             let center =
                 transform.translation.truncate() - anchor.map_or(Vec2::ZERO, |a| a.0) * size;
             let top_left = Vec2::new(
@@ -103,20 +102,13 @@ pub(crate) fn draw_games(
             ) * scale;
             let width = Val::Px(size.x * scale);
             let height = Val::Px(size.y * scale);
-            // Screen y points down, so a counter-clockwise turn is a negative angle.
-            let angle = transform.rotation.to_euler(EulerRot::ZYX).0;
-            let translation = UiTransform {
-                translation: Val2::px(top_left.x, top_left.y),
-                rotation: Rot2::radians(-angle),
-                ..default()
-            };
+            let translation = UiTransform::from_translation(Val2::px(top_left.x, top_left.y));
             let image = ImageNode {
                 image: sprite.image.clone(),
                 color: sprite.color,
                 flip_x: sprite.flip_x ^ (transform.scale.x < 0.0),
                 flip_y: sprite.flip_y ^ (transform.scale.y < 0.0),
                 rect: sprite.rect,
-                texture_atlas: sprite.texture_atlas.clone(),
                 image_mode: match sprite.image_mode {
                     SpriteImageMode::Tiled {
                         tile_x,
@@ -173,24 +165,14 @@ fn same_image(a: &ImageNode, b: &ImageNode) -> bool {
         && a.flip_x == b.flip_x
         && a.flip_y == b.flip_y
         && a.rect == b.rect
-        && a.texture_atlas == b.texture_atlas
         && a.image_mode == b.image_mode
 }
 
 /// A sprite's size in world units, before scaling.
-fn sprite_size(
-    sprite: &Sprite,
-    images: &Assets<Image>,
-    layouts: &Assets<TextureAtlasLayout>,
-) -> Vec2 {
+fn sprite_size(sprite: &Sprite, images: &Assets<Image>) -> Vec2 {
     sprite
         .custom_size
         .or_else(|| sprite.rect.map(|rect| rect.size()))
-        .or_else(|| {
-            let atlas = sprite.texture_atlas.as_ref()?;
-            let cell = layouts.get(&atlas.layout)?.textures.get(atlas.index)?;
-            Some(cell.size().as_vec2())
-        })
         .or_else(|| images.get(&sprite.image).map(Image::size_f32))
         .unwrap_or_default()
 }
