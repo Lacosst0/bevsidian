@@ -110,7 +110,7 @@ def write_crate(target, bevy, crates, modules):
         f"{c} = {v}" if v.startswith("{") else f'{c} = "{v}"' for c, v in sorted(crates.items())
     )
     features = (
-        '["free_camera", "pan_camera", "pan_orbit_camera", "dev", "bevy_feathers"]'
+        '["free_camera", "pan_camera", "pan_orbit_camera", "dev", "bevy_feathers", "bevy_remote"]'
         if bevy == BEVY
         else '["dev"]'
     )
