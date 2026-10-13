@@ -12,6 +12,7 @@ pub fn find(name: &str) -> Option<fn() -> Box<dyn Scene>> {
         "kit-badges" => || Box::new(kit::badges()),
         "kit-form" => || Box::new(kit::settings_card()),
         "kit-entity" => || Box::new(kit::entity_card()),
+        "flex" => || Box::new(layout::flex()),
         _ => return None,
     })
 }
@@ -131,5 +132,78 @@ mod kit {
             .map(ComponentValue::parse)
             .to_vec();
         bsn! { @EntityCard { @title: "Entity 7", @components: components } }
+    }
+}
+
+/// `UI layout.md`
+mod layout {
+    use bevsidian_ui::prelude::*;
+    use bevy::prelude::*;
+    use bevy_radioactive::view::{signal, view};
+
+    fn named<T>(options: Vec<(T, &str)>) -> Vec<(T, String)> {
+        options
+            .into_iter()
+            .map(|(v, n)| (v, n.to_owned()))
+            .collect()
+    }
+
+    /// Three boxes in a container whose flex settings you change.
+    pub fn flex() -> impl Scene {
+        let direction = signal(|| FlexDirection::Row);
+        let justify = signal(|| JustifyContent::Start);
+        let align = signal(|| AlignItems::Start);
+        let directions = named(vec![
+            (FlexDirection::Row, "row"),
+            (FlexDirection::Column, "column"),
+        ]);
+        let justifies = named(vec![
+            (JustifyContent::Start, "start"),
+            (JustifyContent::Center, "center"),
+            (JustifyContent::End, "end"),
+            (JustifyContent::SpaceBetween, "between"),
+        ]);
+        let aligns = named(vec![
+            (AlignItems::Start, "start"),
+            (AlignItems::Center, "center"),
+            (AlignItems::End, "end"),
+            (AlignItems::Stretch, "stretch"),
+        ]);
+        let square = |width: f32, height: f32, color: Color| {
+            bsn! {
+                Node { width: px(width), height: px(height) }
+                BackgroundColor(color)
+            }
+        };
+        view! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
+            Children [
+                @{field("flex-direction", None, segmented(directions, direction.clone()))}
+                --
+                @{field("justify-content", None, segmented(justifies, justify.clone()))}
+                --
+                @{field("align-items", None, segmented(aligns, align.clone()))}
+                --
+                Node {
+                    height: px(150),
+                    padding: UiRect::all(px(8)),
+                    column_gap: px(8),
+                    row_gap: px(8),
+                    flex_direction: $direction,
+                    justify_content: $justify,
+                    align_items: $align,
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(6)),
+                }
+                BorderColor::all(Color::srgb(0.3, 0.3, 0.33))
+                Children [
+                    @{square(40.0, 30.0, Color::srgb(0.95, 0.45, 0.4))}
+                    --
+                    @{square(50.0, 50.0, Color::srgb(0.98, 0.75, 0.3))}
+                    --
+                    @{square(30.0, 40.0, Color::srgb(0.35, 0.75, 0.9))}
+                ]
+            ]
+        }
     }
 }
