@@ -492,10 +492,18 @@ fn track_section(
     nav.section.set_if_neq(section);
 }
 
+/// Where a heading or footnote lands when scrolled to: this far (logical px) below the top of
+/// the reading pane, above the section line so it becomes the current section.
+const ANCHOR_MARGIN: f32 = 24.0;
+
+/// Scrolls the reading pane so the anchor's target sits at its top, even if it was already
+/// on screen.
 fn scroll_to_anchor(
     nav: Res<Nav>,
     headings: Query<(Entity, &MdHeading)>,
     footnotes: Query<(Entity, &MdFootnote)>,
+    targets: Query<(&ComputedNode, &UiGlobalTransform)>,
+    mut panes: Query<(&ComputedNode, &UiGlobalTransform, &mut ScrollPosition), With<NotePane>>,
     mut commands: Commands,
     mut wait: Local<u8>,
 ) {
@@ -518,7 +526,18 @@ fn scroll_to_anchor(
     if let Some(entity) = target
         && *wait > 2
     {
-        commands.trigger(ScrollIntoView { entity });
+        if let (Ok((pane, pane_at, mut scroll)), Ok((node, at))) =
+            (panes.single_mut(), targets.get(entity))
+        {
+            let scale = pane.inverse_scale_factor;
+            let pane_top = pane_at.translation.y - pane.size.y / 2.0;
+            let target_top = at.translation.y - node.size.y / 2.0;
+            let end = ((pane.content_size().y - pane.size.y) * scale).max(0.0);
+            let y = scroll.y + (target_top - pane_top) * scale - ANCHOR_MARGIN;
+            scroll.y = y.clamp(0.0, end);
+        } else {
+            commands.trigger(ScrollIntoView { entity });
+        }
         nav.anchor.set(None);
     } else if *wait > 30 {
         nav.anchor.set(None);
