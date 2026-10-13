@@ -15,7 +15,7 @@ use bevy::{
     sprite::Anchor,
     ui::UiGlobalTransform,
 };
-use bevy_ui_touchscroll::OwnsDrags;
+use bevy_ui_touchscroll::{OwnsDrags, TouchScroll};
 
 use crate::{WorldPreview, runtime::PreviewRuntime};
 
@@ -283,8 +283,13 @@ fn click(
     click: On<PointerClick>,
     views: Views,
     drawn: Query<&Drawn>,
+    touch: Res<TouchScroll>,
     mut runtimes: Query<&mut PreviewRuntime>,
 ) {
+    // A touch that scrolled the page over a game is not a click in it.
+    if touch.gesture_scrolled() {
+        return;
+    }
     let Some(spot) = spot(
         click.entity,
         click.original_event_target(),

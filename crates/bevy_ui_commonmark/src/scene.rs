@@ -3,7 +3,7 @@
 use bevy::{
     clipboard::Clipboard,
     input::mouse::MouseScrollPixelsPerLine,
-    picking::events::{PointerClick, PointerScroll},
+    picking::events::PointerScroll,
     prelude::*,
     text::{FontSource, FontStyle, FontWeight, LineHeight},
 };
@@ -802,7 +802,8 @@ fn code_block(
                 }
                 bevy::ui_widgets::Button
                 bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
-                on(move |click: On<PointerClick>,
+                // `Activate` (not a raw click): a touch that scrolls the page does not copy.
+                on(move |click: On<bevy::ui_widgets::Activate>,
                          mut clipboard: ResMut<Clipboard>,
                          time: Res<Time<Real>>,
                          bubbles: Query<(Entity, &ChildOf), With<CopiedBubble>>,

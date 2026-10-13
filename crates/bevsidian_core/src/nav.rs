@@ -319,11 +319,10 @@ fn on_link(
     link: On<MdLinkActivated>,
     nav: Res<Nav>,
     vault: Res<Vault>,
-    time: Res<Time<Real>>,
-    mut touch: ResMut<bevy_ui_touchscroll::TouchScroll>,
+    touch: Res<bevy_ui_touchscroll::TouchScroll>,
 ) {
-    // The tap only stopped a fling.
-    if touch.take_caught(time.elapsed_secs_f64()) {
+    // The touch scrolled or stopped a fling: not a tap.
+    if touch.gesture_scrolled() {
         return;
     }
     match &link.target {

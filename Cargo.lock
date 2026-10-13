@@ -484,6 +484,7 @@ dependencies = [
  "bevsidian_core",
  "bevy",
  "bevy_radioactive",
+ "bevy_ui_touchscroll",
 ]
 
 [[package]]

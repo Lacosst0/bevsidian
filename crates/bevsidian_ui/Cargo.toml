@@ -21,6 +21,7 @@ bevy = { workspace = true, features = [
     "bevy_scene",
     "bevy_log",
 ] }
+bevy_ui_touchscroll.workspace = true
 bevy_radioactive.workspace = true
 bevsidian_core.workspace = true
 

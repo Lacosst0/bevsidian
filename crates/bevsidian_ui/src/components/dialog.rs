@@ -2,6 +2,7 @@
 //! footer.
 
 use bevy::{picking::events::PointerClick, prelude::*, ui_widgets::Activate};
+use bevy_ui_touchscroll::TouchScroll;
 
 use crate::{
     components::{
@@ -11,8 +12,8 @@ use crate::{
     tokens::{color, radius, shadow},
 };
 
-/// A full-screen dimmed backdrop; a click on it (not on what it holds) calls `close`. Patch
-/// `Node` to place its content.
+/// A full-screen dimmed backdrop; a tap on it (not on what it holds, and not a touch that
+/// scrolled) calls `close`. Patch `Node` to place its content.
 pub fn scrim<F>(close: F) -> impl Scene
 where
     F: Fn() + Clone + Send + Sync + 'static,
@@ -20,8 +21,9 @@ where
     bsn! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0) }
         BackgroundColor(color::SCRIM)
-        on(move |click: On<PointerClick>| {
-            if click.entity == click.original_event_target() {
+        on(move |click: On<PointerClick>, touch: Option<Res<TouchScroll>>| {
+            let scrolled = touch.is_some_and(|touch| touch.gesture_scrolled());
+            if click.entity == click.original_event_target() && !scrolled {
                 close();
             }
         })

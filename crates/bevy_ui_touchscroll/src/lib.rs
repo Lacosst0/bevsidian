@@ -4,8 +4,10 @@
 //!   (mouse drags are left alone, e.g. for text selection).
 //! - On release, the page flings with Android's physics: Flutter's `VelocityTracker`
 //!   estimates the release velocity, and `ClampingScrollSimulation`'s curve decelerates it.
-//!   A finger landing on a fling stops it, and that touch does not also tap
-//!   ([`TouchScroll::take_caught`]).
+//!   A finger landing on a fling stops it.
+//! - A touch that scrolls (it moved past [`TOUCH_SLOP`] over a scroll area) or stops a fling
+//!   is not a tap: buttons it pressed are released without activating, and other click
+//!   handlers check [`TouchScroll::gesture_scrolled`].
 //! - Wheel, keyboard and "scroll into view" jumps are eased ([`SmoothScroll`]), and the wheel
 //!   distance is scaled by [`ScrollSpeed`].
 
@@ -25,10 +27,10 @@ impl Plugin for TouchScrollPlugin {
             .add_observer(touch_drag_start)
             .add_observer(touch_drag)
             .add_observer(touch_drag_end)
-            .add_observer(catch_fling)
+            .add_observer(on_press)
             .add_observer(add_smooth_scroll)
             .add_observer(boost_wheel)
-            .add_systems(Update, touch_momentum)
+            .add_systems(Update, (touch_momentum, release_scrolled_buttons))
             .add_systems(
                 PostUpdate,
                 smooth_scroll.before(bevy::ui::UiSystems::Layout),
@@ -59,8 +61,8 @@ pub struct TouchScroll {
     fling: Option<Fling>,
     /// Recent finger positions, for the release velocity.
     tracker: VelocityTracker,
-    /// When a touch last stopped a fling (that touch must not also tap a link).
-    caught: Option<f64>,
+    /// The current (or just ended) press scrolled or stopped a fling: it is not a tap.
+    scrolled: bool,
     /// Recent frame lengths, for even fling steps.
     frames: FrameClock,
     /// Time on the fling's curve shown this frame.
@@ -68,9 +70,11 @@ pub struct TouchScroll {
 }
 
 impl TouchScroll {
-    /// Whether the touch that just ended only stopped a fling, so its tap should be ignored.
-    pub fn take_caught(&mut self, now: f64) -> bool {
-        self.caught.take().is_some_and(|t| now - t < 1.0)
+    /// Whether the current press (or the one that just ended) scrolled or stopped a fling.
+    /// Its release is then not a tap: a click it ends should do nothing. Buttons it pressed
+    /// are released without activating; other click handlers check this.
+    pub fn gesture_scrolled(&self) -> bool {
+        self.scrolled
     }
 
     /// Whether a finger is scrolling or a fling is coasting (frames are needed).
@@ -325,20 +329,34 @@ fn touch_drag_start(
     scroll.tracker.reset();
 }
 
-/// A finger landing on a fling stops it, like on Android; that touch must not also tap.
-fn catch_fling(
-    press: On<bevy::picking::events::PointerPress>,
-    time: Res<Time<Real>>,
-    mut scroll: ResMut<TouchScroll>,
-) {
-    if !press.pointer.id.is_touch() || press.entity != press.original_event_target() {
+/// Distance (logical px) a finger moves before its drag scrolls: shorter moves are a shaky
+/// tap (Android's touch slop).
+pub const TOUCH_SLOP: f32 = 8.0;
+
+/// A new press starts a gesture that has not scrolled. A finger landing on a fling stops it,
+/// like on Android; that touch is not a tap either.
+fn on_press(press: On<bevy::picking::events::PointerPress>, mut scroll: ResMut<TouchScroll>) {
+    if press.entity != press.original_event_target() {
         return;
     }
-    if scroll.coasting.take().is_some() {
+    scroll.scrolled = false;
+    if press.pointer.id.is_touch() && scroll.coasting.take().is_some() {
         scroll.fling = None;
-        scroll.caught = Some(time.elapsed_secs_f64());
-    } else {
-        scroll.caught = None;
+        scroll.scrolled = true;
+    }
+}
+
+/// Buttons pressed by a touch that turned into a scroll let go without activating (Bevy's
+/// buttons only activate on a click while pressed).
+fn release_scrolled_buttons(
+    scroll: Res<TouchScroll>,
+    pressed: Query<Entity, With<bevy::ui::Pressed>>,
+    mut commands: Commands,
+) {
+    if scroll.scrolled {
+        for button in &pressed {
+            commands.entity(button).remove::<bevy::ui::Pressed>();
+        }
     }
 }
 
@@ -350,12 +368,17 @@ fn touch_drag(
     mut scroll: ResMut<TouchScroll>,
     mut areas: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
 ) {
+    // The finger must move past the slop before the drag scrolls (and stops being a tap).
     if let Some((entity, pointer)) = scroll.pending
         && pointer == drag.pointer.id
+        && drag.distance.length() >= TOUCH_SLOP
     {
         scroll.pending = None;
         scroll.active =
             scroll_target(entity, drag.distance, &parents, &areas).map(|e| (e, pointer));
+        if scroll.active.is_some() {
+            scroll.scrolled = true;
+        }
     }
     let Some((target, pointer)) = scroll.active else {
         return;
@@ -559,6 +582,24 @@ fn smooth_scroll(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_scrolling_touch_releases_its_buttons() {
+        let mut world = World::new();
+        world.insert_resource(TouchScroll::default());
+        let button = world.spawn(bevy::ui::Pressed).id();
+        world.run_system_cached(release_scrolled_buttons).unwrap();
+        assert!(
+            world.get::<bevy::ui::Pressed>(button).is_some(),
+            "a tap keeps it"
+        );
+        world.resource_mut::<TouchScroll>().scrolled = true;
+        world.run_system_cached(release_scrolled_buttons).unwrap();
+        assert!(
+            world.get::<bevy::ui::Pressed>(button).is_none(),
+            "a scroll lets go"
+        );
+    }
 
     #[test]
     fn fling_clock_steps_in_whole_frames() {
