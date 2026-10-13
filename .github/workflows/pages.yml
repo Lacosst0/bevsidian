@@ -6,8 +6,9 @@ name: Pages
 # Builds are committed to the `gh-pages` branch; `pages-cleanup.yml` removes a branch's folder
 # when the branch is deleted.
 #
-# One-time setup: Settings → Pages → Build and deployment → Source: "Deploy from a branch",
-# Branch: `gh-pages` / (root). The first run creates the branch.
+# The `gh-pages` branch holds every page; the `deploy` job publishes its content through
+# GitHub Actions (Settings → Pages → Source: "GitHub Actions"). The environment `github-pages`
+# must allow deployments from the branches you publish (Settings → Environments).
 # For access-controlled ("private") Pages, the repository must belong to an organization on
 # GitHub Enterprise Cloud; then choose "Private" under Settings → Pages → Visibility.
 on:
@@ -17,6 +18,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   # Per branch: a newer push cancels the older build. The gh-pages push below rebases and retries
@@ -103,3 +106,21 @@ jobs:
             git pull --rebase origin gh-pages
           done
           exit 1
+      - name: Collect the site (everything on gh-pages)
+        run: |
+          mkdir -p "$RUNNER_TEMP/site"
+          git archive gh-pages | tar -x -C "$RUNNER_TEMP/site"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
