@@ -1,22 +1,27 @@
 name: Pages
 
-# Publishes the single-file web build to GitHub Pages on every push to `main`.
+# Publishes the single-file web build to GitHub Pages, one page per branch:
+#   main         -> https://<owner>.github.io/<repo>/
+#   other branch -> https://<owner>.github.io/<repo>/<branch>/   (`/` in the name becomes `-`)
+# Builds are committed to the `gh-pages` branch; `pages-cleanup.yml` removes a branch's folder
+# when the branch is deleted.
 #
-# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# One-time setup: Settings → Pages → Build and deployment → Source: "Deploy from a branch",
+# Branch: `gh-pages` / (root). The first run creates the branch.
 # For access-controlled ("private") Pages, the repository must belong to an organization on
 # GitHub Enterprise Cloud; then choose "Private" under Settings → Pages → Visibility.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  # Per branch: a newer push cancels the older build. The gh-pages push below rebases and retries
+  # on conflict, so builds of different branches still run in parallel.
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -66,22 +71,33 @@ jobs:
           echo "$tools/binaryen/bin" >> "$GITHUB_PATH"
       - name: Build single-file web bundle
         run: tools/build-web.sh
-      - name: Prepare site
+      - name: Publish to gh-pages
+        env:
+          BRANCH: ${{ github.ref_name }}
         run: |
-          mkdir -p site
-          cp dist/index.html site/index.html
-          touch site/.nojekyll
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          slug="${BRANCH//\//-}"
+          dir="$slug"
+          [ "$BRANCH" = main ] && dir="."
+          cp dist/index.html "$RUNNER_TEMP/index.html"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch --depth=1 origin gh-pages
+            git switch --force -C gh-pages FETCH_HEAD
+          else
+            git switch --orphan gh-pages
+            git rm -rf --quiet . || true
+          fi
+          touch .nojekyll
+          mkdir -p "$dir"
+          cp "$RUNNER_TEMP/index.html" "$dir/index.html"
+          git add -A
+          if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
+          git commit -m "Deploy $BRANCH ($GITHUB_SHA)"
+          # Other branches may push at the same time: rebase and retry.
+          for attempt in 1 2 3 4 5; do
+            git push origin gh-pages && exit 0
+            sleep $((attempt * 2))
+            git pull --rebase origin gh-pages
+          done
+          exit 1

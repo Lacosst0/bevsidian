@@ -75,7 +75,7 @@ On Linux, native builds need `libwayland-dev libxkbcommon-dev`.
 
 ## Hosting on GitHub Pages
 
-[`.github/workflows/pages.yml`](.github/workflows/pages.yml) deploys `dist/index.html` to GitHub Pages on every push to `main`. To enable it, open **Settings → Pages** and set **Source** to **GitHub Actions**. For access-controlled ("private") Pages, the repository must belong to an organization on GitHub Enterprise Cloud; then set **Visibility** to **Private** on the same page.
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) publishes one page per branch to the `gh-pages` branch on every push: `main` at the site root, every other branch at `/<branch>/` (`/` in the name becomes `-`). [`pages-cleanup.yml`](.github/workflows/pages-cleanup.yml) removes a branch's page when the branch is deleted. To enable it, open **Settings → Pages** and set **Source** to **Deploy from a branch**, Branch `gh-pages` / `(root)` (the first workflow run creates the branch). For access-controlled ("private") Pages, the repository must belong to an organization on GitHub Enterprise Cloud; then set **Visibility** to **Private** on the same page.
 
 ## Fonts
 
