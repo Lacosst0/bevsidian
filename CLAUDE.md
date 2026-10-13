@@ -19,6 +19,12 @@ An Obsidian-like documentation vault for Bevy, written in Bevy 0.20 (BSN scenes,
   linear blending; never copy CSS alphas.
 - Mockups and the design canvas: `design/`.
 
+## Code previews
+
+Notes run code with `example=NAME` (README, "Live code previews"). Examples live in
+`crates/bevsidian_preview/src/examples/`, one file each; a block runs the example's base
+systems plus the functions its code mentions. Keep a note's code in sync with its example.
+
 ## Checks
 
 `cargo fmt`, `cargo clippy --all-targets` (pedantic, keep it warning-free) and

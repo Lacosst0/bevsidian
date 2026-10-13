@@ -298,8 +298,24 @@ fn scroll_target(
         })
 }
 
-fn touch_drag_start(drag: On<PointerDragStart>, mut scroll: ResMut<TouchScroll>) {
+/// Drags that start on this entity or inside it are its own, not scrolls (e.g. a game view
+/// whose drags move things).
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct OwnsDrags;
+
+fn touch_drag_start(
+    drag: On<PointerDragStart>,
+    parents: Query<&ChildOf>,
+    owners: Query<(), With<OwnsDrags>>,
+    mut scroll: ResMut<TouchScroll>,
+) {
     if !drag.pointer.id.is_touch() || drag.entity != drag.original_event_target() {
+        return;
+    }
+    if std::iter::once(drag.entity)
+        .chain(parents.iter_ancestors(drag.entity))
+        .any(|entity| owners.contains(entity))
+    {
         return;
     }
     scroll.pending = Some((drag.entity, drag.pointer.id));

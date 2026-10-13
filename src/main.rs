@@ -134,7 +134,7 @@ mod tests {
             }
             for block in &note.doc.blocks {
                 if let bevy_ui_commonmark::Block::CodeBlock { lang, info, code } = block
-                    && info.contains("preview=")
+                    && (info.contains("preview=") || info.contains("example="))
                 {
                     let block = bevy_ui_commonmark::CodeBlockInfo {
                         lang: lang.as_deref(),
@@ -143,7 +143,7 @@ mod tests {
                     };
                     assert!(
                         bevsidian_preview::code_preview(&block).is_some(),
-                        "{} has an unknown preview: {info}",
+                        "{} has an unknown preview or example: {info}",
                         note.name
                     );
                 }

@@ -15,6 +15,7 @@ tags: [start-here]
 1. [[ECS]]: entities, components, systems and resources.
 2. [[Scenes and BSN]]: describe entity hierarchies with the `bsn!` macro.
 3. [[Rendering]]: cameras, meshes, materials and UI.
+4. [[Mario]]: a small game, playable in the page.
 
 ## How links work
 

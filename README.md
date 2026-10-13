@@ -21,7 +21,7 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 | [`bevsidian_core`](crates/bevsidian_core) | The note vault (links, backlinks, tags, search), navigation state (`Nav` signals, shortcuts, links) and the note icons. |
 | [`bevsidian_ui`](crates/bevsidian_ui) | The UI kit, modelled on [shadcn/ui](https://ui.shadcn.com): design tokens (colours, radii, spacing, shadows, layers, Geist type) and one file per component (buttons, tabs, segmented controls, badges, keys, rows and trees, inputs, switches, steppers, dialogs, menus, toasts, alerts, entity cards) as `bsn!`/`view!` scenes. Its [README](crates/bevsidian_ui/README.md) explains the conventions; the [`UI kit`](vault/UI%20kit.md) note previews the components live, and [`design/`](design) holds the mockups. |
 | [`bevsidian_graph`](crates/bevsidian_graph) | The graph view: force-directed notes with pan, pinch/wheel zoom and click-to-open. |
-| [`bevsidian_preview`](crates/bevsidian_preview) | Bevy-in-Bevy: live previews above code blocks. A preview runs the block's systems in a world of its own, one system at a time with Bevy's stepping (back, play/pause, forward), and highlights the lines that just ran. |
+| [`bevsidian_preview`](crates/bevsidian_preview) | Bevy-in-Bevy: live previews above code blocks. A preview runs an example program with the block's systems in a world of its own: as entity cards, one system at a time with Bevy's stepping (back, play/pause, forward, highlighting the lines that just ran), or as a playable 2D game. |
 | `bevsidian` (root) | The app: the shell (`src/shell`: sidebar, top bar), pages (`src/pages`: note, graph), overlays (`src/overlays`: settings, quick switcher, context menu, toast, selection toolbar, on-screen keyboard), responsive layout, the note editor, the FPS readout and the embedded vault. |
 
 ## Adding notes
@@ -40,7 +40,13 @@ The icon shows next to the title, in the sidebar and in the graph. Only the icon
 
 ## Live code previews
 
-Give a code block `preview=NAME` in its info string (` ```rust preview=regenerate `) to show a live preview above it. The code that runs for each name lives in [`crates/bevsidian_preview/src/demos.rs`](crates/bevsidian_preview/src/demos.rs); keep it in sync with the note.
+Code blocks can run **examples**: small Bevy programs in [`crates/bevsidian_preview/src/examples/`](crates/bevsidian_preview/src/examples), each set up once and shared by any number of blocks. Give a block `example=NAME` in its info string (` ```rust example=mario `): the preview above it runs the example in a Bevy world of its own, with the example's base systems plus the functions the block's code mentions. A note can show a game piece by piece, each block running the part it shows. `fps=N` sets how fast a stepped preview plays.
+
+An example shows its world either as **cards** of its entities and component values (stepped one system at a time with Bevy's stepping, highlighting the lines that ran), or as a **game**: its sprites, in real time, with pointer input turned into Bevy picking events (`PointerClick`, `PointerDrag`, …) in its world. See [`ECS`](vault/ECS.md) and [`Mario`](vault/Mario.md).
+
+To add one, write the program in a file there, list its functions with `startup!`, `update!` and `observer!` in an `Example`, and name it in `examples/mod.rs`. Keep the notes' code in sync with it.
+
+`preview=NAME` shows a UI scene instead (see [`UI kit`](vault/UI%20kit.md)); those live in `examples/scenes.rs`.
 
 ## Running
 

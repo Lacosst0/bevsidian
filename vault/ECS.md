@@ -9,7 +9,7 @@ Bevy is built on an **Entity Component System** (ECS). Data lives in *components
 
 An entity is just an ID. You give it meaning by inserting components. The preview above the code runs it in a real Bevy world and shows the entity it spawns:
 
-```rust preview=spawn-player
+```rust example=ecs
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -32,7 +32,7 @@ Systems are plain Rust functions whose parameters describe the data they need. B
 
 Step through it one system at a time (Bevy's built-in *stepping*), or press play: `spawn_player` runs once at startup, then `regenerate` heals the player every frame.
 
-```rust preview=regenerate
+```rust example=ecs fps=10
 fn regenerate(time: Res<Time>, mut query: Query<&mut Health, With<Player>>) {
     for mut health in &mut query {
         health.0 = (health.0 + 1).min(100);
@@ -61,7 +61,7 @@ fn main() {
 
 *Observers* react to events immediately instead of polling every frame. They are also how [[Scenes and BSN|scenes]] attach behaviour to entities with `on(...)`. Here a system triggers `Damage` each frame, and the observer runs right away:
 
-```rust preview=damage
+```rust example=ecs fps=2
 #[derive(EntityEvent)]
 struct Damage {
     entity: Entity,
@@ -78,6 +78,15 @@ fn attack(players: Query<Entity, With<Player>>, mut commands: Commands) {
     for player in &players {
         commands.trigger(Damage { entity: player, amount: 10 });
     }
+}
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_systems(Startup, spawn_player)
+        .add_systems(Update, attack)
+        .add_observer(on_damage)
+        .run();
 }
 ```
 
