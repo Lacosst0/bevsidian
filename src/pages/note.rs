@@ -120,7 +120,9 @@ fn note_body(
     let note = &vault.notes[id];
     let icon = note.icon;
     let resolve = |link: &bevy_ui_commonmark::WikiLink| vault.resolve(link).is_some();
-    let badge = move |title_size: f32| -> Box<dyn Scene> { Box::new(note_icon(icon, title_size)) };
+    let badge = move |title_size: f32, line: f32| -> Box<dyn Scene> {
+        Box::new(note_icon(icon, title_size, line))
+    };
     let options = RenderOptions {
         theme: &theme,
         resolve: &resolve,
@@ -145,7 +147,8 @@ fn note_body(
             Box::new(bsn! {
                 row
                 Children [
-                    @{note_icon(icon, size)}
+                    // `label` keeps Bevy's default line height, 1.2 × the font size.
+                    @{note_icon(icon, size, size * 1.2)}
                     --
                     @{name} SelectableText Pickable::default() Node { flex_shrink: 1.0 }
                 ]

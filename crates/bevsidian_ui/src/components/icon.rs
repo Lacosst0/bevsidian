@@ -77,17 +77,16 @@ pub fn icon_tile(icon: char, size: f32, style: TileStyle) -> impl Scene {
 }
 
 /// The big icon before a note's title: the note's icon on a bordered card-coloured square,
-/// sized for a title of `title_size` px and centred on its first line.
-pub fn note_icon(icon: char, title_size: f32) -> impl Scene {
+/// sized for a title of `title_size` px and centred on its first line (`line` px high).
+pub fn note_icon(icon: char, title_size: f32, line: f32) -> impl Scene {
     let tile = (title_size * 1.35).round().max(32.0);
-    let line = title_size * 1.2;
     let node = Node {
         width: px(tile),
         height: px(tile),
         flex_shrink: 0.0,
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
-        margin: UiRect::top(px(((line - tile) / 2.0).round().min(0.0))),
+        margin: UiRect::top(px(((line - tile) / 2.0).round())),
         border: UiRect::all(px(1)),
         border_radius: BorderRadius::all(px(radius::XXL)),
         ..default()

@@ -58,8 +58,8 @@ pub struct RenderOptions<'a> {
     /// Whether a wikilink target exists (unresolved links are dimmed).
     pub resolve: &'a dyn Fn(&WikiLink) -> bool,
     /// Shown before the document title (its first top-level level-1 heading), e.g. a note
-    /// icon, top-aligned with it. Called with the heading's font size.
-    pub title_badge: Option<&'a dyn Fn(f32) -> Box<dyn Scene>>,
+    /// icon, top-aligned with it. Called with the heading's font size and line height (px).
+    pub title_badge: Option<&'a dyn Fn(f32, f32) -> Box<dyn Scene>>,
     /// Shown above a code block when it returns one, e.g. a live preview of the code. The
     /// two share one frame under an [`MdCodeGroup`]; the preview's actions go in the code
     /// block's header, and the code's lines can be highlighted through the
@@ -135,7 +135,10 @@ pub fn markdown_scene(doc: &MdDocument, options: &RenderOptions) -> impl Scene +
                 inlines,
                 slug,
                 options,
-                Some(badge(theme.heading_size(1))),
+                Some(badge(
+                    theme.heading_size(1),
+                    theme.heading_size(1) * theme.line_height,
+                )),
             ),
             _ => render_block(block, options, 0),
         })
