@@ -1315,8 +1315,9 @@ struct LegendRow {
 }
 
 fn show_legend(state: Res<GraphState>, mut rows: Query<(&LegendRow, &mut Node)>) {
+    let following = !state.path.is_empty();
     for (row, mut node) in &mut rows {
-        let display = if row.path != state.path.is_empty() {
+        let display = if row.path == following {
             Display::Flex
         } else {
             Display::None

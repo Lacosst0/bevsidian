@@ -28,4 +28,5 @@ systems plus the functions its code mentions. Keep a note's code in sync with it
 ## Checks
 
 `cargo fmt`, `cargo clippy --all-targets` (pedantic, keep it warning-free) and
-`cargo test --workspace`.
+`cargo test --workspace`. After editing notes also run `python3 tools/check_snippets.py`: every Rust block
+in `vault/` must compile against Bevy (see README). The workspace test checks links, icons and docs references.
