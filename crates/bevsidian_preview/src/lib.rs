@@ -19,14 +19,13 @@ use bevy::{
         NodeId, ScheduleBuildSettings, ScheduleLabel, SingleThreadedExecutor, Stepping, SystemKey,
     },
     prelude::*,
-    text::FontWeight,
     ui_widgets::Activate,
 };
-use bevy_ui_commonmark::{CodeBlockInfo, CodeHighlight, MdCodeGroup};
+use bevy_ui_commonmark::{CodeBlockInfo, CodeHighlight, CodePreview, MdCodeGroup};
 
 use bevsidian_ui::{
-    Size, Variant, button, color, glyph, icon_font, inset, label, muted, progress, size, tile,
-    ui_font,
+    ComponentValue, EntityCard, Size, Variant, button, color, glyph, inset, muted, tinted_icon,
+    vertical_separator,
 };
 use demos::{Demo, WorldDemo};
 
@@ -36,20 +35,25 @@ pub fn plugin(app: &mut App) {
 }
 
 /// The preview shown above a code block whose info string names a demo (`preview=NAME`).
-pub fn code_preview(block: &CodeBlockInfo) -> Option<Box<dyn Scene>> {
+pub fn code_preview(block: &CodeBlockInfo) -> Option<CodePreview> {
     let name = block
         .info
         .split_whitespace()
         .find_map(|word| word.strip_prefix("preview="))?;
     Some(match demos::find(name)? {
-        Demo::Scene(scene) => Box::new(scene_frame(scene())),
-        Demo::World(demo) => Box::new(world_frame(
-            WorldPreview {
+        Demo::Scene(scene) => CodePreview {
+            body: Box::new(scene_frame(scene())),
+            actions: None,
+        },
+        Demo::World(demo) => CodePreview {
+            body: Box::new(world_frame(WorldPreview {
                 name: name.to_owned(),
                 code: block.code.to_owned(),
-            },
-            demo.stepping,
-        )),
+            })),
+            actions: demo
+                .stepping
+                .then(|| Box::new(controls()) as Box<dyn Scene>),
+        },
     })
 }
 
@@ -93,9 +97,8 @@ pub struct PreviewRuntime {
 
 struct Card {
     title: String,
+    /// Components as `Debug` text, e.g. `Health(50)`, sorted.
     rows: Vec<String>,
-    /// A 0–1 bar (shown for `Health`).
-    bar: Option<f32>,
 }
 
 impl PreviewRuntime {
@@ -253,7 +256,6 @@ impl PreviewRuntime {
         let mut cards = Vec::new();
         for entity in self.world.iter_entities() {
             let mut rows = Vec::new();
-            let mut bar = None;
             for registration in registry.iter() {
                 let Some(reflect) = registration.data::<ReflectComponent>() else {
                     continue;
@@ -270,39 +272,17 @@ impl PreviewRuntime {
                     rows.push(format!("Transform ({:.0}, {:.0}, {:.0})", t.x, t.y, t.z));
                     continue;
                 }
-                let text = format!("{value:?}").replace(table.path(), name);
-                if name == "Health" {
-                    bar = text
-                        .trim_start_matches("Health(")
-                        .trim_end_matches(')')
-                        .parse::<f32>()
-                        .ok()
-                        .map(|hp| (hp / 100.0).clamp(0.0, 1.0));
-                }
-                rows.push(text);
+                rows.push(format!("{value:?}").replace(table.path(), name));
             }
             if !rows.is_empty() {
                 rows.sort();
                 cards.push(Card {
                     title: format!("Entity {}", entity.id().index()),
                     rows,
-                    bar,
                 });
             }
         }
         self.cards = cards;
-    }
-
-    fn status(&self) -> String {
-        if !self.demo.stepping {
-            let count = self.cards.len();
-            let plural = if count == 1 { "entity" } else { "entities" };
-            return format!("{count} {plural} after one frame");
-        }
-        match self.last {
-            None => "Not started: step or play".to_owned(),
-            Some(index) => format!("Frame {} · ran {}", self.frame, self.demo.systems[index]),
-        }
     }
 }
 
@@ -373,7 +353,6 @@ fn play_previews(time: Res<Time<Real>>, mut previews: Query<&mut PreviewRuntime>
 enum PreviewPart {
     #[default]
     Cards,
-    Status,
     PlayIcon,
     /// A control's icon that never changes.
     Icon,
@@ -387,77 +366,73 @@ enum Control {
     Reset,
 }
 
+/// A UI scene, with its root's layout box outlined (e.g. the width a patch sets).
 fn scene_frame(scene: Box<dyn Scene>) -> impl Scene {
-    // Shows the scene root's layout box, e.g. the width a patch sets.
-    let outline = Outline::new(Val::Px(1.0), Val::ZERO, color::PRIMARY.with_alpha(0.6));
+    let outline = Outline::new(px(1), Val::ZERO, color::LINK.with_alpha(0.6));
     bsn! {
         @{inset()}
-        Children [
-            Node { padding: UiRect::axes(Val::Px(4.0), Val::Px(2.0)), min_height: Val::Px(40.0) }
-            Children [ @{scene} outline ]
-        ]
+        Node { align_items: AlignItems::Stretch }
+        Children [ @{scene} outline ]
     }
 }
 
-fn world_frame(preview: WorldPreview, stepping: bool) -> impl Scene {
-    let status = Text::new("");
-    let controls: Vec<Box<dyn Scene>> = if stepping {
-        [
-            (Control::Back, "step-back"),
-            (Control::Play, "play"),
-            (Control::Forward, "step-forward"),
-            (Control::Reset, "rotate-ccw"),
-        ]
-        .into_iter()
-        .map(|(control, icon)| Box::new(control_button(control, icon)) as Box<dyn Scene>)
-        .collect()
-    } else {
-        Vec::new()
-    };
+/// The entity cards of a world preview.
+fn world_frame(preview: WorldPreview) -> impl Scene {
     bsn! {
         @{inset()}
         preview
+        Node { flex_direction: FlexDirection::Row, flex_wrap: FlexWrap::Wrap, column_gap: px(12), row_gap: px(12) }
+        PreviewPart::Cards
+    }
+}
+
+/// Step back, play / pause, step and restart, in the code block's header.
+fn controls() -> impl Scene {
+    bsn! {
+        Node { align_items: AlignItems::Center, column_gap: px(2) }
         Children [
-            status @{ui_font(size::XS, FontWeight::MEDIUM)} TextColor(color::MUTED_FOREGROUND) PreviewPart::Status
+            @{control_button(Control::Back, "step-back")}
             --
-            // Tall enough for a card, so the controls stay put when the first one appears.
-            Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(8.0), row_gap: Val::Px(8.0), min_height: Val::Px(104.0) }
-            PreviewPart::Cards
+            @{control_button(Control::Play, "play")}
             --
-            Node { column_gap: Val::Px(6.0) }
-            Children [ {controls} ]
+            @{control_button(Control::Forward, "step-forward")}
+            --
+            @{control_button(Control::Reset, "rotate-ccw")}
+            --
+            @{vertical_separator()}
         ]
     }
 }
 
 fn control_button(control: Control, icon: &str) -> impl Scene + use<> {
-    let glyph = Text::new(glyph(icon));
     let part = if control == Control::Play {
         PreviewPart::PlayIcon
     } else {
         PreviewPart::Icon
     };
     bsn! {
-        @{button(Variant::Secondary, Size::IconSm)}
-        Node { width: Val::Px(36.0) }
+        @{button(Variant::Ghost, Size::IconXs)}
         on(move |activate: On<Activate>,
                  time: Res<Time<Real>>,
                  parents: Query<&ChildOf>,
+                 groups: Query<(), With<MdCodeGroup>>,
+                 children: Query<&Children>,
                  mut previews: Query<&mut PreviewRuntime>| {
-            let host = parents
-                .iter_ancestors(activate.entity)
+            // The controls and the preview share the code group.
+            let group = parents.iter_ancestors(activate.entity).find(|&e| groups.contains(e));
+            let host = group
+                .into_iter()
+                .flat_map(|g| children.iter_descendants(g))
                 .find(|&e| previews.contains(e));
             if let Some(mut preview) = host.and_then(|e| previews.get_mut(e).ok()) {
                 preview.control(control, time.elapsed_secs_f64());
             }
         })
-        Children [
-            glyph @{icon_font(16.0)} TextColor(color::FOREGROUND) Pickable::IGNORE part
-        ]
+        Children [ @{tinted_icon(icon, 14.0, Variant::Ghost.tint())} part ]
     }
 }
 
-/// Updates cards, status, the play icon and the code highlight after a preview changes.
+/// Updates the cards, the play icon and the code highlight after a preview changes.
 fn show_previews(
     previews: Query<(Entity, &PreviewRuntime), Changed<PreviewRuntime>>,
     parents: Query<&ChildOf>,
@@ -469,36 +444,25 @@ fn show_previews(
     mut commands: Commands,
 ) {
     for (host, preview) in &previews {
-        for entity in children.iter_descendants(host) {
-            match parts.get(entity) {
-                Ok(PreviewPart::Cards) => {
-                    commands.entity(entity).despawn_children();
-                    spawn_cards(&mut commands, entity, &preview.cards);
-                }
-                Ok(PreviewPart::Status) => {
-                    if let Ok(mut text) = texts.get_mut(entity) {
-                        text.0 = preview.status();
-                    }
-                }
-                Ok(PreviewPart::PlayIcon) => {
-                    if let Ok(mut text) = texts.get_mut(entity) {
-                        text.0 = glyph(if preview.playing { "pause" } else { "play" });
-                    }
-                }
-                Ok(PreviewPart::Icon) | Err(_) => {}
-            }
-        }
-        if !preview.demo.stepping {
-            continue;
-        }
-        let lines = preview
-            .last
-            .map(|index| preview.lines[index].clone())
-            .unwrap_or_default();
         let group = parents.iter_ancestors(host).find(|&e| groups.contains(e));
+        if let Ok(PreviewPart::Cards) = parts.get(host) {
+            commands.entity(host).despawn_children();
+            spawn_cards(&mut commands, host, &preview.cards);
+        }
         for entity in group.into_iter().flat_map(|g| children.iter_descendants(g)) {
-            if let Ok(mut highlight) = highlights.get_mut(entity) {
-                highlight.set_if_neq(CodeHighlight(lines.clone()));
+            if let (Ok(PreviewPart::PlayIcon), Ok(mut text)) =
+                (parts.get(entity), texts.get_mut(entity))
+            {
+                text.0 = glyph(if preview.playing { "pause" } else { "play" });
+            }
+            if preview.demo.stepping
+                && let Ok(mut highlight) = highlights.get_mut(entity)
+            {
+                let lines = preview
+                    .last
+                    .map(|index| preview.lines[index].clone())
+                    .unwrap_or_default();
+                highlight.set_if_neq(CodeHighlight(lines));
             }
         }
     }
@@ -507,23 +471,19 @@ fn show_previews(
 fn spawn_cards(commands: &mut Commands, parent: Entity, cards: &[Card]) {
     if cards.is_empty() {
         commands
-            .spawn_scene(muted("No entities yet"))
+            .spawn_scene(muted("No entities"))
             .insert(ChildOf(parent));
         return;
     }
     for card in cards {
-        let rows: Vec<Box<dyn Scene>> = card
+        let title = card.title.clone();
+        let components: Vec<ComponentValue> = card
             .rows
             .iter()
-            .map(|row| {
-                Box::new(label(row, 13.0, FontWeight::MEDIUM, color::FOREGROUND)) as Box<dyn Scene>
-            })
+            .map(|row| ComponentValue::parse(row))
             .collect();
-        let bar = card
-            .bar
-            .map(|fill| bsn! { @{progress(fill)} Node { margin: UiRect::top(Val::Px(3.0)) } });
         commands
-            .spawn_scene(bsn! { @{tile(&card.title)} Children [ {rows} -- {bar} ] })
+            .spawn_scene(bsn! { @EntityCard { @title: title, @components: components } })
             .insert(ChildOf(parent));
     }
 }

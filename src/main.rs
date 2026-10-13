@@ -6,10 +6,12 @@
 
 mod editor;
 mod layout;
-mod menu;
+mod overlays;
+mod pages;
 mod perf;
-mod settings;
-mod ui;
+mod persist;
+mod shell;
+mod theme;
 
 use std::time::Duration;
 
@@ -38,17 +40,6 @@ fn stepping_quiet() -> bevy::log::LogPlugin {
     }
 }
 
-/// The notes' theme, sharing the UI kit's text, link and tag colours.
-fn note_theme() -> bevy_ui_commonmark::MdTheme {
-    bevy_ui_commonmark::MdTheme {
-        text: color::FOREGROUND,
-        muted: color::MUTED_FOREGROUND,
-        link: color::PRIMARY,
-        tag_bg: color::PRIMARY_SOFT,
-        ..bevy_ui_commonmark::MdTheme::dark()
-    }
-}
-
 fn main() {
     let notes = editor::load_edits(NOTES);
     let vault = Vault::new(VaultData::from_sources(
@@ -69,7 +60,7 @@ fn main() {
         }))
         .add_plugins((FeathersPlugins, ViewPlugin, CommonMarkPlugin))
         .insert_resource(ClearColor(color::BACKGROUND))
-        .insert_resource(note_theme())
+        .insert_resource(theme::note_theme())
         // Render on input and while something animates (see `layout::keep_awake`).
         .insert_resource(WinitSettings {
             focused_mode: layout::IDLE,
@@ -81,14 +72,14 @@ fn main() {
         .add_systems(PreStartup, load_fonts)
         .add_plugins((
             bevsidian_core::nav::plugin,
-            ui::plugin,
+            bevsidian_ui::plugin,
             bevsidian_graph::plugin,
             bevsidian_preview::plugin,
-            bevsidian_ui::plugin,
+            shell::plugin,
+            overlays::plugin,
             layout::plugin,
-            menu::plugin,
             perf::plugin,
-            settings::plugin,
+            persist::plugin,
             editor::plugin,
         ))
         .run();
@@ -98,13 +89,13 @@ fn main() {
 fn load_fonts(mut fonts: ResMut<Assets<Font>>, mut commands: Commands) {
     let handles = [
         fonts.add(Font::from_bytes(
-            include_bytes!("../assets/fonts/Inter.ttf").to_vec(),
+            include_bytes!("../assets/fonts/Geist.ttf").to_vec(),
         )),
         fonts.add(Font::from_bytes(
-            include_bytes!("../assets/fonts/Inter-Italic.ttf").to_vec(),
+            include_bytes!("../assets/fonts/Geist-Italic.ttf").to_vec(),
         )),
         fonts.add(Font::from_bytes(
-            include_bytes!("../assets/fonts/JetBrainsMono.ttf").to_vec(),
+            include_bytes!("../assets/fonts/GeistMono.ttf").to_vec(),
         )),
         // Note icons (a Lucide subset, see `tools/icons.py`).
         fonts.add(Font::from_bytes(

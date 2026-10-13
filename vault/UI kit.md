@@ -3,16 +3,16 @@ icon: component
 ---
 # UI kit
 
-Bevsidian's interface is built from a small component library, `bevsidian_ui`, modelled on [shadcn/ui](https://ui.shadcn.com). Every component is a plain function returning a BSN scene (`bsn!`, or `view!` when it reacts to signals), so you use it with `@{...}` and patch it like any other scene. The previews below are the real components. #ui #bsn
+Bevsidian's interface is built from a small component library, `bevsidian_ui`, modelled on [shadcn/ui](https://ui.shadcn.com): its dark *neutral* palette, sizes and states, with one violet accent kept for links. Every component is a plain function returning a BSN scene (`bsn!`, or `view!` when it reads signals), so you use it with `@{...}` and patch it like any other scene. The previews below are the real components. #ui #bsn
 
 ## Buttons
 
-Four variants (`Primary`, `Secondary`, `Outline`, `Ghost`) and six sizes, three of them square for icons. Hover and selection colours come from one `Surface` component, so a button only declares *which* state it is in.
+Four variants (`Primary`, `Secondary`, `Outline`, `Ghost`) and eight sizes, four of them square for icons. Hover, selected and disabled colours come from one `Surface` component, so a button only says *which* state it is in, for example `Disabled(true)`.
 
 ```rust preview=kit-buttons
-fn buttons() -> impl Scene {
+pub fn buttons() -> impl Scene {
     bsn! {
-        Node { flex_wrap: FlexWrap::Wrap, column_gap: px(8), row_gap: px(8) }
+        Node { flex_wrap: FlexWrap::Wrap, column_gap: px(8), row_gap: px(8), align_items: AlignItems::Center }
         Children [
             @{text_button(Variant::Primary, Size::Md, "Primary")}
             --
@@ -23,28 +23,33 @@ fn buttons() -> impl Scene {
             @{text_button(Variant::Ghost, Size::Md, "Ghost")}
             --
             @{icon_button(Variant::Outline, Size::Icon, "search")}
+            --
+            @{icon_text_button(Variant::Secondary, Size::Sm, "copy", "Copy")}
+            --
+            @{text_button(Variant::Outline, Size::Sm, "Disabled")}
+            Disabled(true)
         ]
     }
 }
 ```
 
-## Toggle group
+## Tabs
 
-The Note / Graph switch in the top bar. The selected item is bound to a signal with `Selected($...)`; click to try it:
+The Note / Graph switch in the top bar. The selected tab is bound to a signal with `Selected($...)`; click to try it:
 
-```rust preview=kit-toggle-group
-fn view_switch() -> impl Scene {
-    let tab = signal(|| 0);
-    let (note, graph) = (tab.clone(), tab.clone());
+```rust preview=kit-tabs
+pub fn view_tabs() -> impl Scene {
+    let current = signal(|| 0);
+    let (note, graph) = (current.clone(), current.clone());
     view! {
-        @{toggle_group()}
+        @{tab_list()}
         Children [
-            @{toggle("Note")}
-            Selected($tab == 0)
+            @{tab("Note")}
+            Selected($current == 0)
             on(move |_: On<Activate>| note.set(0))
             --
-            @{toggle("Graph")}
-            Selected($tab == 1)
+            @{tab("Graph")}
+            Selected($current == 1)
             on(move |_: On<Activate>| graph.set(1))
         ]
     }
@@ -53,17 +58,24 @@ fn view_switch() -> impl Scene {
 
 ## Badges and keys
 
+Tags are outline badges; a selected one (the active filter) fills in.
+
 ```rust preview=kit-badges
-fn badges() -> impl Scene {
-    bsn! {
-        Node { flex_direction: FlexDirection::Column, row_gap: px(10) }
+pub fn badges() -> impl Scene {
+    let active = signal(|| true);
+    let toggle = active.clone();
+    view! {
+        Node { flex_direction: FlexDirection::Column, row_gap: px(12) }
         Children [
-            Node { column_gap: px(6) }
+            Node { column_gap: px(6), align_items: AlignItems::Center }
             Children [
-                @{badge()} Children [ @{label("#ecs", 12.0, FontWeight::MEDIUM, color::PRIMARY)} ]
+                @{badge(BadgeVariant::Outline, "#ecs")}
                 --
-                @{badge_button()} Selected(true)
-                Children [ @{label("#beginner", 12.0, FontWeight::MEDIUM, color::PRIMARY)} ]
+                @{badge(BadgeVariant::Secondary, "3")}
+                --
+                @{badge_button("#beginner")}
+                Selected($active)
+                on(move |_: On<Activate>| toggle.update(|on| *on = !*on))
             ]
             --
             @{shortcuts(&[("Ctrl O", "switch"), ("Esc", "close")])}
@@ -74,49 +86,59 @@ fn badges() -> impl Scene {
 
 ## Forms
 
-`field` lays out a label and a control; `stepper` and `switch` are reactive:
+`field` lays out a label, an optional description and a control. `stepper` disables its buttons at the ends of its range, and `segmented` selects nothing when the value matches no option:
 
 ```rust preview=kit-form
-fn settings_card() -> impl Scene {
-    let (fps, size) = (signal(|| true), signal(|| 16));
-    let (smaller, larger, text) = (size.clone(), size.clone(), size.clone());
-    let text_size = stepper(
-        move || format!("{} px", text.get()),
-        move || smaller.update(|s| *s -= 1),
-        move || larger.update(|s| *s += 1),
-    );
+pub fn settings_card() -> impl Scene {
+    let (size, speed, fps) = (signal(|| 16), signal(|| 1), signal(|| true));
+    let speeds = vec![(1, "1×".to_owned()), (2, "2×".to_owned()), (3, "3×".to_owned())];
     bsn! {
         @{card()}
-        Node { width: px(300) }
+        Node { width: px(380), max_width: Val::Percent(100.0) }
         Children [
-            @{title("Settings")}
+            @{field("Text size", None, stepper(size, 13..=24, 1, |v| format!("{v} px")))}
             --
-            @{field("Text size", text_size)}
+            @{field("Scroll speed", Some("Wheel and trackpad"), segmented(speeds, speed))}
             --
-            @{field("Show FPS", switch(fps))}
-            --
-            @{separator()}
-            --
-            @{text_button(Variant::Primary, Size::Sm, "Done")}
-            Node { align_self: AlignSelf::End }
+            @{field("Show FPS", None, switch(fps))}
         ]
     }
 }
 ```
 
+## ECS identity
+
+Entities, components and systems always look the same: the shape says the kind (a filled tile for things that exist, an outlined tile for things that run, a bare icon for data), the icon says which one. `EntityCard` is a `SceneComponent` with props:
+
+```rust preview=kit-entity
+pub fn entity_card() -> impl Scene {
+    let components = ["Health(50)", "Player", "Transform (0, 0, 0)"]
+        .map(ComponentValue::parse)
+        .to_vec();
+    bsn! { @EntityCard { @title: "Entity 7", @components: components } }
+}
+```
+
+| Kind | Icon | Mount |
+|:--|:--|:--|
+| Entity, scene | `box`, `layers` | filled tile |
+| System, observer | `square-function`, `eye` | outlined tile |
+| Component | `puzzle`, or its own (`heart`, `move`, `video`) | bare icon, value on the right |
+| Marker component | `flag` | bare icon, no value |
+| Resource, event, query | `database`, `zap`, `filter` | bare icon |
+
 ## Also in the kit
 
 | Component | shadcn/ui counterpart | Used for |
 |:--|:--|:--|
-| `item` | Item, Command item | file list, outline and link rows, switcher results, menus |
-| `section_label` | Sidebar group label | "FILES", "BACKLINKS" |
+| `item`, `sub_item` | Sidebar menu button | notes, headings, links and tags in the sidebar |
+| `disclosure`, `tree_children` | Collapsible, Sidebar menu sub | the note tree |
+| `text_input` | Input | sidebar search, quick switcher |
 | `dialog`, `scrim` | Dialog | settings, quick switcher |
-| `popover` | Popover, Dropdown menu | context menu, selection toolbar |
-| `card`, `inset`, `tile` | Card | live previews and their entity cards |
-| `progress` | Progress | health bars in previews |
-| `toast` | Sonner | "Copied!" |
-| `empty`, `note_box` | Empty, Alert | empty lists, help text |
+| `popover`, `menu_item` | Context menu | right-click menu, selection toolbar |
+| `toast` | Sonner | "Copied to clipboard" |
+| `alert` | Alert | callouts, help text |
 
-Colours, radii, shadows and layers are design tokens in `bevsidian_ui::theme`, named like shadcn's: `background`, `card`, `secondary`, `foreground`, `muted-foreground`, `primary`, `border`.
+Colours, radii, spacing, shadows and layers are design tokens in `bevsidian_ui::tokens`, named like shadcn's: `background`, `card`, `accent`, `border`, `input`, `foreground`, `muted-foreground`, `primary`. When a new component is needed, start from the matching shadcn/ui component.
 
 See also [[Scenes and BSN]] for how `@{...}` inheritance and patches work.

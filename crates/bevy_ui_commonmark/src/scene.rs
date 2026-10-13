@@ -60,10 +60,22 @@ pub struct RenderOptions<'a> {
     /// Shown before the document title (its first top-level level-1 heading), e.g. a note
     /// icon, top-aligned with it. Called with the heading's font size.
     pub title_badge: Option<&'a dyn Fn(f32) -> Box<dyn Scene>>,
-    /// Shown above a code block when it returns a scene, e.g. a live preview of the code.
-    /// The two are grouped under an [`MdCodeGroup`], and the code's lines can be highlighted
-    /// through the [`CodeHighlight`] in the group.
-    pub code_preview: Option<&'a dyn Fn(&CodeBlockInfo) -> Option<Box<dyn Scene>>>,
+    /// Shown above a code block when it returns one, e.g. a live preview of the code. The
+    /// two share one frame under an [`MdCodeGroup`]; the preview's actions go in the code
+    /// block's header, and the code's lines can be highlighted through the
+    /// [`CodeHighlight`] in the group.
+    pub code_preview: Option<&'a dyn Fn(&CodeBlockInfo) -> Option<CodePreview>>,
+    /// Draws a named icon (`"copy"`, `"info"`, …) at a size and colour. Without it the copy
+    /// button draws its own symbol and callouts have no icon.
+    pub icon: Option<&'a dyn Fn(&str, f32, Color) -> Box<dyn Scene>>,
+}
+
+/// What [`RenderOptions::code_preview`] shows for a code block.
+pub struct CodePreview {
+    /// Shown above the code.
+    pub body: Box<dyn Scene>,
+    /// Buttons in the code block's header, before the copy button.
+    pub actions: Option<Box<dyn Scene>>,
 }
 
 /// A code block, as passed to [`RenderOptions::code_preview`].
@@ -161,7 +173,7 @@ fn heading_block(
         font: theme.body.clone(),
         size,
         weight: if level <= 2 {
-            FontWeight::BOLD
+            theme.heading_weight
         } else {
             FontWeight::SEMIBOLD
         },
@@ -174,15 +186,19 @@ fn heading_block(
     };
     let node = Node {
         flex_direction: FlexDirection::Column,
-        margin: UiRect::top(Val::Px(if level <= 2 { 12.0 } else { 6.0 })),
+        margin: UiRect::top(Val::Px(if level <= 2 {
+            theme.heading_space
+        } else {
+            theme.heading_space * 0.5
+        })),
         ..default()
     };
     let text = text_block(inlines, &base, options);
-    let rule = (level == 1).then(|| {
+    let rule = (level == theme.heading_rule).then(|| {
         let line = Node {
             height: Val::Px(1.0),
             width: Val::Percent(100.0),
-            margin: UiRect::top(Val::Px(6.0)),
+            margin: UiRect::top(Val::Px(8.0)),
             ..default()
         };
         let bg = BackgroundColor(theme.border);
@@ -225,44 +241,51 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
             Box::new(text_block(inlines, &base, options))
         }
         Block::CodeBlock { lang, info, code } => {
-            let block = code_block(lang.as_deref(), code, theme);
             let info = CodeBlockInfo {
                 lang: lang.as_deref(),
                 info,
                 code,
             };
             match options.code_preview.and_then(|preview| preview(&info)) {
-                Some(preview) => Box::new(bsn! {
-                    Node { flex_direction: FlexDirection::Column, row_gap: Val::Px(6.0), min_width: Val::Px(0.0) }
-                    MdCodeGroup
-                    Children [ @{preview} -- @{block} ]
-                }),
-                None => block,
+                Some(CodePreview { body, actions }) => {
+                    let block = code_block(lang.as_deref(), code, options, actions, true);
+                    let frame = Node {
+                        flex_direction: FlexDirection::Column,
+                        min_width: Val::Px(0.0),
+                        border: UiRect::all(Val::Px(1.0)),
+                        border_radius: BorderRadius::all(Val::Px(theme.radius + 2.0)),
+                        overflow: Overflow::clip(),
+                        ..default()
+                    };
+                    let border = BorderColor::all(theme.border);
+                    Box::new(bsn! {
+                        frame border
+                        MdCodeGroup
+                        Children [ @{body} -- @{block} ]
+                    })
+                }
+                None => code_block(lang.as_deref(), code, options, None, false),
             }
         }
-        Block::Quote { callout, blocks } => {
-            let accent = callout.map_or(theme.border, |c| theme.callout_color(c));
-            let mut children = Vec::new();
-            if let Some(callout) = callout {
-                children.push(callout_title(*callout, theme));
-            }
-            children.extend(render_blocks(blocks, options, depth));
+        Block::Quote {
+            callout: Some(callout),
+            blocks,
+        } => callout_block(*callout, blocks, options, depth),
+        Block::Quote {
+            callout: None,
+            blocks,
+        } => {
+            let children = render_blocks(blocks, options, depth);
             let node = Node {
                 flex_direction: FlexDirection::Column,
                 row_gap: Val::Px(theme.block_gap * 0.6),
-                padding: UiRect::new(Val::Px(16.0), Val::Px(12.0), Val::Px(10.0), Val::Px(10.0)),
-                border: UiRect::left(Val::Px(3.0)),
+                padding: UiRect::new(Val::Px(16.0), Val::Px(0.0), Val::Px(2.0), Val::Px(2.0)),
+                border: UiRect::left(Val::Px(2.0)),
                 min_width: Val::Px(0.0),
-                border_radius: BorderRadius::all(Val::Px(4.0)),
                 ..default()
             };
-            let bg = BackgroundColor(if callout.is_some() {
-                accent.with_alpha(0.1)
-            } else {
-                Color::NONE
-            });
-            let border = BorderColor::all(accent);
-            Box::new(bsn! { node bg border Children [ {children} ] })
+            let border = BorderColor::all(theme.border);
+            Box::new(bsn! { node border Children [ {children} ] })
         }
         Block::List { start, items } => list(*start, items, options, depth),
         Block::Table {
@@ -302,19 +325,74 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
                 ]
             })
         }
-        Block::Html(html) => code_block(Some("html"), html, theme),
+        Block::Html(html) => code_block(Some("html"), html, options, None, false),
     }
 }
 
-fn callout_title(callout: Callout, theme: &MdTheme) -> Box<dyn Scene> {
-    let style = SpanStyle {
-        weight: FontWeight::BOLD,
-        color: theme.callout_color(callout),
+/// A callout (`> [!TIP]`): its icon, then its title over its content, in a bordered box.
+/// The accent colours the icon and title, and the border unless it is the text colour.
+fn callout_block(
+    callout: Callout,
+    blocks: &[Block],
+    options: &RenderOptions,
+    depth: usize,
+) -> Box<dyn Scene> {
+    let theme = options.theme;
+    let accent = theme.callout_color(callout);
+    let title_style = SpanStyle {
+        weight: FontWeight::MEDIUM,
+        color: accent,
         ..SpanStyle::body(theme)
+    }
+    .scene();
+    let title = Text::new(callout.title());
+    let content = render_blocks(blocks, options, depth);
+    let icon: Scenes = options
+        .icon
+        .map(|icon| {
+            let line = theme.base_size * theme.line_height;
+            let icon = icon(callout.icon(), 16.0, accent);
+            let top = ((line - 16.0) / 2.0).max(0.0);
+            Box::new(bsn! { @{icon} Node { margin: UiRect::top(Val::Px(top)), flex_shrink: 0.0 } })
+                as Box<dyn Scene>
+        })
+        .into_iter()
+        .collect();
+    let node = Node {
+        column_gap: Val::Px(12.0),
+        padding: UiRect::axes(Val::Px(16.0), Val::Px(14.0)),
+        border: UiRect::all(Val::Px(1.0)),
+        border_radius: BorderRadius::all(Val::Px(theme.radius)),
+        min_width: Val::Px(0.0),
+        ..default()
     };
-    let style = style.scene();
-    let text = Text::new(callout.title());
-    Box::new(bsn! { text @{style} SelectableText })
+    let border = BorderColor::all(if accent == theme.heading || accent == theme.text {
+        theme.border
+    } else {
+        accent.with_alpha(0.1)
+    });
+    let bg = BackgroundColor(theme.surface);
+    let column = Node {
+        flex_direction: FlexDirection::Column,
+        row_gap: Val::Px(theme.block_gap * 0.4),
+        flex_grow: 1.0,
+        flex_shrink: 1.0,
+        min_width: Val::Px(0.0),
+        ..default()
+    };
+    Box::new(bsn! {
+        node bg border
+        Children [
+            {icon}
+            --
+            column
+            Children [
+                title @{title_style} SelectableText
+                --
+                {content}
+            ]
+        ]
+    })
 }
 
 fn list(
@@ -427,8 +505,8 @@ fn table(
             let inlines = row.get(col).unwrap_or(&empty);
             let mut style = SpanStyle::body(theme);
             if is_header {
-                style.weight = FontWeight::SEMIBOLD;
-                style.color = theme.heading;
+                style.weight = FontWeight::MEDIUM;
+                style.color = theme.table_header;
             }
             let text = text_block(inlines, &style, options);
             let justify = match align.get(col).copied().unwrap_or_default() {
@@ -437,13 +515,8 @@ fn table(
                 _ => JustifyContent::Start,
             };
             let node = Node {
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                border: UiRect::new(
-                    Val::Px(if col == 0 { 0.0 } else { 1.0 }),
-                    Val::Px(0.0),
-                    Val::Px(if row_index == 0 { 0.0 } else { 1.0 }),
-                    Val::Px(0.0),
-                ),
+                padding: UiRect::axes(Val::Px(16.0), Val::Px(if is_header { 8.0 } else { 10.0 })),
+                border: UiRect::top(Val::Px(if row_index == 0 { 0.0 } else { 1.0 })),
                 justify_content: justify,
                 ..default()
             };
@@ -464,7 +537,7 @@ fn table(
         display: Display::Grid,
         grid_template_columns: vec![RepeatedGridTrack::auto(columns as u16)],
         border: UiRect::all(Val::Px(1.0)),
-        border_radius: BorderRadius::all(Val::Px(6.0)),
+        border_radius: BorderRadius::all(Val::Px(theme.radius)),
         overflow: Overflow::clip(),
         align_self: AlignSelf::Start,
         max_width: Val::Percent(100.0),
@@ -474,7 +547,16 @@ fn table(
     Box::new(bsn! { node border Children [ {cells} ] })
 }
 
-fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene> {
+/// A code block: a header with the language, `actions` and a copy button, over the code.
+/// `framed` blocks sit inside a frame shared with a preview and draw only a top border.
+fn code_block(
+    lang: Option<&str>,
+    code: &str,
+    options: &RenderOptions,
+    actions: Option<Box<dyn Scene>>,
+    framed: bool,
+) -> Box<dyn Scene> {
+    let theme = options.theme;
     let style = SpanStyle {
         font: theme.mono.clone(),
         size: theme.base_size * 0.875,
@@ -502,7 +584,7 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
         .collect();
     let style_scene = style.scene();
     let line_height = CodeLineHeight(style.size * style.line_height);
-    let highlight_color = theme.tag_bg;
+    let highlight_color = theme.highlight;
     let root = Text::default();
     // Code keeps its line breaks and scrolls sideways instead of wrapping.
     let no_wrap = TextLayout {
@@ -514,7 +596,7 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
             overflow: Overflow::scroll_x(),
             width: Val::Percent(100.0),
             min_width: Val::Px(0.0),
-            padding: UiRect::bottom(Val::Px(4.0)),
+            padding: UiRect::axes(Val::Px(16.0), Val::Px(12.0)),
         }
         // Not a `ScrollArea`: that would swallow vertical wheel scrolling over the block.
         ScrollPosition
@@ -531,6 +613,7 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
 
     let copy_source = code.to_owned();
     let label_style = SpanStyle {
+        font: theme.mono.clone(),
         size: theme.base_size * 0.75,
         color: theme.muted,
         ..SpanStyle::body(theme)
@@ -540,34 +623,51 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
     let node = Node {
         flex_direction: FlexDirection::Column,
         min_width: Val::Px(0.0),
-        overflow: Overflow::clip_x(),
-        padding: UiRect::new(Val::Px(14.0), Val::Px(14.0), Val::Px(8.0), Val::Px(12.0)),
-        border_radius: BorderRadius::all(Val::Px(6.0)),
-        row_gap: Val::Px(4.0),
+        overflow: Overflow::clip(),
+        border: if framed {
+            UiRect::top(Val::Px(1.0))
+        } else {
+            UiRect::all(Val::Px(1.0))
+        },
+        border_radius: BorderRadius::all(Val::Px(if framed { 0.0 } else { theme.radius })),
         ..default()
     };
-    let bg = BackgroundColor(theme.code_bg);
-    let icon = copy_icon(theme);
+    let border = BorderColor::all(theme.border);
+    let bg = BackgroundColor(theme.code_block_bg);
+    let header_bg = BackgroundColor(theme.surface);
+    let header_border = BorderColor::all(theme.border);
+    let icon: Box<dyn Scene> = match options.icon {
+        Some(icon) => icon("copy", 14.0, theme.muted),
+        None => Box::new(copy_icon(theme)),
+    };
+    let actions: Scenes = actions.into_iter().collect();
     let bubble_bg = theme.border;
     let bubble_text = theme.text;
     let bubble_font = label_style.font.clone();
     Box::new(bsn! {
-        node bg SelectionGroup
+        node bg border SelectionGroup
         Children [
             Node {
-                justify_content: JustifyContent::SpaceBetween,
+                height: Val::Px(44.0),
+                padding: UiRect::new(Val::Px(14.0), Val::Px(8.0), Val::Px(0.0), Val::Px(0.0)),
+                column_gap: Val::Px(4.0),
                 align_items: AlignItems::Center,
+                border: UiRect::bottom(Val::Px(1.0)),
             }
+            header_bg
+            header_border
             Children [
-                lang_label @{label_scene}
+                lang_label @{label_scene} Node { flex_grow: 1.0 }
+                --
+                {actions}
                 --
                 MdCopyButton
                 Node {
                     width: Val::Px(28.0),
                     height: Val::Px(28.0),
-                    margin: UiRect::new(Val::Px(0.0), Val::Px(-6.0), Val::Px(-4.0), Val::Px(-4.0)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
+                    border_radius: BorderRadius::all(Val::Px(6.0)),
                 }
                 bevy::ui_widgets::Button
                 bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
@@ -592,7 +692,7 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
                         CopiedBubble { until },
                         Node {
                             position_type: PositionType::Absolute,
-                            right: Val::Px(32.0),
+                            right: Val::Px(34.0),
                             padding: UiRect::axes(Val::Px(8.0), Val::Px(3.0)),
                             border_radius: BorderRadius::all(Val::Px(4.0)),
                             ..default()
@@ -698,7 +798,7 @@ pub(crate) fn expire_copied_bubbles(
 /// Two overlapping outlined sheets: the usual "copy" symbol, drawn with UI nodes.
 fn copy_icon(theme: &MdTheme) -> impl Scene + use<> {
     let color = BorderColor::all(theme.muted);
-    let front_bg = BackgroundColor(theme.code_bg);
+    let front_bg = BackgroundColor(theme.surface);
     let sheet = |left: f32, top: f32| Node {
         position_type: PositionType::Absolute,
         left: Val::Px(left),

@@ -69,9 +69,10 @@ pub fn find(name: &str) -> Option<Demo> {
         }),
         "menu" => Demo::Scene(|| Box::new(bsn::menu())),
         "kit-buttons" => Demo::Scene(|| Box::new(kit::buttons())),
-        "kit-toggle-group" => Demo::Scene(|| Box::new(kit::view_switch())),
+        "kit-tabs" => Demo::Scene(|| Box::new(kit::view_tabs())),
         "kit-badges" => Demo::Scene(|| Box::new(kit::badges())),
         "kit-form" => Demo::Scene(|| Box::new(kit::settings_card())),
+        "kit-entity" => Demo::Scene(|| Box::new(kit::entity_card())),
         "wide-menu" => Demo::Scene(|| Box::new(bsn::wide_menu())),
         _ => return None,
     })
@@ -160,7 +161,7 @@ mod kit {
 
     pub fn buttons() -> impl Scene {
         bsn! {
-            Node { flex_wrap: FlexWrap::Wrap, column_gap: px(8), row_gap: px(8) }
+            Node { flex_wrap: FlexWrap::Wrap, column_gap: px(8), row_gap: px(8), align_items: AlignItems::Center }
             Children [
                 @{text_button(Variant::Primary, Size::Md, "Primary")}
                 --
@@ -171,37 +172,47 @@ mod kit {
                 @{text_button(Variant::Ghost, Size::Md, "Ghost")}
                 --
                 @{icon_button(Variant::Outline, Size::Icon, "search")}
+                --
+                @{icon_text_button(Variant::Secondary, Size::Sm, "copy", "Copy")}
+                --
+                @{text_button(Variant::Outline, Size::Sm, "Disabled")}
+                Disabled(true)
             ]
         }
     }
 
-    pub fn view_switch() -> impl Scene {
-        let tab = signal(|| 0);
-        let (note, graph) = (tab.clone(), tab.clone());
+    pub fn view_tabs() -> impl Scene {
+        let current = signal(|| 0);
+        let (note, graph) = (current.clone(), current.clone());
         view! {
-            @{toggle_group()}
+            @{tab_list()}
             Children [
-                @{toggle("Note")}
-                Selected($tab == 0)
+                @{tab("Note")}
+                Selected($current == 0)
                 on(move |_: On<Activate>| note.set(0))
                 --
-                @{toggle("Graph")}
-                Selected($tab == 1)
+                @{tab("Graph")}
+                Selected($current == 1)
                 on(move |_: On<Activate>| graph.set(1))
             ]
         }
     }
 
     pub fn badges() -> impl Scene {
-        bsn! {
-            Node { flex_direction: FlexDirection::Column, row_gap: px(10) }
+        let active = signal(|| true);
+        let toggle = active.clone();
+        view! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(12) }
             Children [
-                Node { column_gap: px(6) }
+                Node { column_gap: px(6), align_items: AlignItems::Center }
                 Children [
-                    @{badge()} Children [ @{label("#ecs", 12.0, FontWeight::MEDIUM, color::PRIMARY)} ]
+                    @{badge(BadgeVariant::Outline, "#ecs")}
                     --
-                    @{badge_button()} Selected(true)
-                    Children [ @{label("#beginner", 12.0, FontWeight::MEDIUM, color::PRIMARY)} ]
+                    @{badge(BadgeVariant::Secondary, "3")}
+                    --
+                    @{badge_button("#beginner")}
+                    Selected($active)
+                    on(move |_: On<Activate>| toggle.update(|on| *on = !*on))
                 ]
                 --
                 @{shortcuts(&[("Ctrl O", "switch"), ("Esc", "close")])}
@@ -210,28 +221,29 @@ mod kit {
     }
 
     pub fn settings_card() -> impl Scene {
-        let (fps, size) = (signal(|| true), signal(|| 16));
-        let (smaller, larger, text) = (size.clone(), size.clone(), size.clone());
-        let text_size = stepper(
-            move || format!("{} px", text.get()),
-            move || smaller.update(|s| *s -= 1),
-            move || larger.update(|s| *s += 1),
-        );
+        let (size, speed, fps) = (signal(|| 16), signal(|| 1), signal(|| true));
+        let speeds = vec![
+            (1, "1×".to_owned()),
+            (2, "2×".to_owned()),
+            (3, "3×".to_owned()),
+        ];
         bsn! {
             @{card()}
-            Node { width: px(300) }
+            Node { width: px(380), max_width: Val::Percent(100.0) }
             Children [
-                @{title("Settings")}
+                @{field("Text size", None, stepper(size, 13..=24, 1, |v| format!("{v} px")))}
                 --
-                @{field("Text size", text_size)}
+                @{field("Scroll speed", Some("Wheel and trackpad"), segmented(speeds, speed))}
                 --
-                @{field("Show FPS", switch(fps))}
-                --
-                @{separator()}
-                --
-                @{text_button(Variant::Primary, Size::Sm, "Done")}
-                Node { align_self: AlignSelf::End }
+                @{field("Show FPS", None, switch(fps))}
             ]
         }
+    }
+
+    pub fn entity_card() -> impl Scene {
+        let components = ["Health(50)", "Player", "Transform (0, 0, 0)"]
+            .map(ComponentValue::parse)
+            .to_vec();
+        bsn! { @EntityCard { @title: "Entity 7", @components: components } }
     }
 }

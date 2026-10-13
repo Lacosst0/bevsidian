@@ -144,9 +144,9 @@ fn open_editor(
             // Glyphs come from the highlight layer.
             TextColor(Color::NONE),
             TextCursorStyle {
-                color: color::PRIMARY,
-                selection_color: color::PRIMARY.with_alpha(0.32),
-                unfocused_selection_color: color::PRIMARY.with_alpha(0.18),
+                color: color::FOREGROUND,
+                selection_color: color::LINK_RING,
+                unfocused_selection_color: color::SELECTED,
                 selected_text_color: None,
                 selection_radius: 2.0,
             },
@@ -367,7 +367,7 @@ fn token_color(token: MdToken, theme: &MdTheme) -> Color {
     match token {
         MdToken::Text => color::FOREGROUND,
         MdToken::Marker => color::SUBTLE_FOREGROUND,
-        MdToken::Heading => color::PRIMARY,
+        MdToken::Heading => color::LINK,
         MdToken::Strong => Color::WHITE,
         MdToken::Emphasis => Color::srgb(0.78, 0.86, 0.95),
         MdToken::Strike | MdToken::Url => color::MUTED_FOREGROUND,
@@ -479,7 +479,7 @@ fn storage_key(path: &str) -> String {
 
 fn persist(path: &str, source: &str) {
     #[cfg(target_arch = "wasm32")]
-    crate::settings::write(&storage_key(path), source);
+    crate::persist::write(&storage_key(path), source);
     #[cfg(not(target_arch = "wasm32"))]
     {
         // Running from the repository: write the note back to its file.
@@ -498,7 +498,7 @@ pub fn load_edits(notes: &[(&'static str, &'static str)]) -> Vec<(String, String
         .iter()
         .map(|&(path, source)| {
             #[cfg(target_arch = "wasm32")]
-            if let Some(edited) = crate::settings::read(&storage_key(path)) {
+            if let Some(edited) = crate::persist::read(&storage_key(path)) {
                 return (path.to_owned(), edited);
             }
             (path.to_owned(), source.to_owned())

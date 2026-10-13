@@ -142,6 +142,17 @@ impl Callout {
             Callout::Caution => "Caution",
         }
     }
+
+    /// Name of its icon (Lucide names), for [`RenderOptions::icon`](crate::RenderOptions::icon).
+    pub fn icon(self) -> &'static str {
+        match self {
+            Callout::Note => "info",
+            Callout::Tip => "lightbulb",
+            Callout::Important => "message-square",
+            Callout::Warning => "triangle-alert",
+            Callout::Caution => "circle-x",
+        }
+    }
 }
 
 /// Table column alignment.

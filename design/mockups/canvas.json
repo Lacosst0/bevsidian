@@ -1,0 +1,25 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-13T12:00:00Z"},
+  "title": "Bevsidian shadcn redesign",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 1560, "title": "Desktop · ECS note", "expand": "fill", "is_interactive": true},
+    "Graph.dc.html": {"x": 1520, "y": 0, "w": 1440, "h": 900, "title": "Desktop · Graph view", "expand": "fill"},
+    "Settings.dc.html": {"x": 0, "y": 1980, "w": 640, "h": 640, "title": "Settings dialog", "is_interactive": true},
+    "Command.dc.html": {"x": 720, "y": 1980, "w": 640, "h": 560, "title": "Quick switcher (Command)", "is_interactive": true},
+    "Overlays.dc.html": {"x": 1440, "y": 1980, "w": 880, "h": 560, "title": "Context menu, selection toolbar, toast"},
+    "Mobile.dc.html": {"x": 0, "y": 3040, "w": 390, "h": 844, "title": "Phone · Welcome note"},
+    "MobileSheet.dc.html": {"x": 470, "y": 3040, "w": 390, "h": 844, "title": "Phone · Sidebar sheet"},
+    "Kit.dc.html": {"x": 0, "y": 4304, "w": 1440, "h": 2300, "title": "UI kit · tokens and components"}
+  },
+  "order": ["Main.dc.html", "Graph.dc.html", "Settings.dc.html", "Command.dc.html", "Overlays.dc.html", "Mobile.dc.html", "MobileSheet.dc.html", "Kit.dc.html"],
+  "notes": {
+    "rowDesktop": {"x": 0, "y": -300, "text": "Desktop", "kind": "title1", "maxW": 2960},
+    "rowOverlays": {"x": 0, "y": 1680, "text": "Dialogs and overlays", "kind": "title1", "maxW": 2320},
+    "rowPhone": {"x": 0, "y": 2740, "text": "Phone", "kind": "title1", "maxW": 1440},
+    "rowKit": {"x": 0, "y": 4004, "text": "UI kit", "kind": "title1", "maxW": 1440}
+  },
+  "designSystems": []
+}

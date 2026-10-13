@@ -20,7 +20,7 @@ tags: [start-here]
 
 - `[[Note name]]` links to another note, for example [[ECS]] or [[Rendering#Cameras|cameras]].
 - A `#tag` such as #beginner groups notes; click one to filter the file list.
-- Every note lists its **backlinks** in the right sidebar, and the **Graph** view shows how notes connect.
+- Every note lists its **backlinks** in the sidebar, under Links, and the **Graph** view shows how notes connect.
 
 ## Keyboard shortcuts
 

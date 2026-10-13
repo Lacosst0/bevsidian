@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings dialog</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#0a0a0a}
+a{color:#a78bfa}a:hover{color:#c4b5fd}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 640px; height: 640px; box-sizing: border-box; position: relative; background: #0a0a0a; color: #fafafa; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; font-size: 14px; line-height: 20px; display: flex; align-items: center; justify-content: center; overflow: hidden">
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0,0,0,0.6)"></div>
+  <section role="dialog" aria-modal="true" aria-labelledby="settings-title" style="position: relative; width: 480px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: #171717; padding: 24px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 16px 48px rgba(0,0,0,0.5)">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <h2 id="settings-title" style="flex: 1; margin: 0; font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em">Settings</h2>
+      <button aria-label="Close" style="width: 28px; height: 28px; margin: 0 -8px 0 0; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: #a1a1a1; cursor: pointer; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px">
+      <div style="font-size: 12px; font-weight: 500; color: #a1a1a1">Reading</div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+        <div>
+          <div style="font-weight: 500">Text size</div>
+          <div style="font-size: 13px; color: #a1a1a1">Note body text, in pixels.</div>
+        </div>
+        <div role="radiogroup" aria-label="Text size" style="display: inline-flex; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; overflow: hidden">
+          <sc-for list="{{sizes}}" as="opt" hint-placeholder-count="4">
+            <button role="radio" aria-checked="{{opt.checked}}" onClick="{{opt.pick}}" style="min-width: 40px; height: 32px; padding: 0 8px; border: 0; border-left: {{opt.divider}}; background: {{opt.bg}}; color: {{opt.fg}}; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer">{{opt.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+        <div>
+          <div style="font-weight: 500">Scroll speed</div>
+          <div style="font-size: 13px; color: #a1a1a1">Mouse wheel and trackpad.</div>
+        </div>
+        <div role="radiogroup" aria-label="Scroll speed" style="display: inline-flex; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; overflow: hidden">
+          <sc-for list="{{speeds}}" as="opt" hint-placeholder-count="4">
+            <button role="radio" aria-checked="{{opt.checked}}" onClick="{{opt.pick}}" style="min-width: 40px; height: 32px; padding: 0 8px; border: 0; border-left: {{opt.divider}}; background: {{opt.bg}}; color: {{opt.fg}}; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer">{{opt.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div aria-hidden="true" style="height: 1px; background: rgba(255,255,255,0.1)"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px">
+      <div style="font-size: 12px; font-weight: 500; color: #a1a1a1">Performance</div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+        <div>
+          <div id="fps-label" style="font-weight: 500">Show FPS</div>
+          <div style="font-size: 13px; color: #a1a1a1">Frame time overlay in the corner.</div>
+        </div>
+        <button role="switch" aria-checked="{{fps}}" aria-labelledby="fps-label" onClick="{{toggleFps}}" style="width: 32px; height: 18px; border: 0; border-radius: 999px; background: {{switchBg}}; padding: 2px; display: inline-flex; justify-content: {{switchJustify}}; cursor: pointer"><span style="width: 14px; height: 14px; border-radius: 999px; background: {{thumbBg}}"></span></button>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+        <div>
+          <div style="font-weight: 500">Frame rate limit</div>
+          <div style="font-size: 13px; color: #a1a1a1">Cap rendering to save battery.</div>
+        </div>
+        <button aria-haspopup="listbox" aria-label="Frame rate limit: No limit" style="width: 140px; height: 32px; display: inline-flex; align-items: center; justify-content: space-between; padding: 0 8px 0 12px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.045); color: #fafafa; font-size: 13px; cursor: pointer">No limit<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a1a1a1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+        <div>
+          <div style="font-weight: 500">VSync</div>
+          <div style="font-size: 13px; color: #a1a1a1">Detected from the display.</div>
+        </div>
+        <span style="font-size: 13px; color: #a1a1a1">Measuring…</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; padding-top: 4px">
+      <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #a1a1a1">
+        <kbd style="font-family: inherit; font-size: 11px; line-height: 16px; padding: 1px 5px; border-radius: 4px; background: #262626; color: #a1a1a1">Ctrl</kbd>
+        <kbd style="font-family: inherit; font-size: 11px; line-height: 16px; padding: 1px 5px; border-radius: 4px; background: #262626; color: #a1a1a1">,</kbd>
+        <span style="margin-left: 2px">opens settings</span>
+      </span>
+      <div style="flex: 1"></div>
+      <button style="height: 36px; padding: 0 16px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.045); color: #fafafa; font-size: 14px; font-weight: 500; cursor: pointer">Help</button>
+      <button style="height: 36px; padding: 0 16px; border: 0; border-radius: 6px; background: #fafafa; color: #171717; font-size: 14px; font-weight: 500; cursor: pointer">Done</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":640,"height":640}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { size: 16, speed: '1×', fps: false };
+  }
+  options(values, current, key) {
+    return values.map((v, i) => {
+      const on = v === current;
+      return {
+        label: typeof v === 'number' ? String(v) : v,
+        checked: on ? 'true' : 'false',
+        bg: on ? '#fafafa' : 'transparent',
+        fg: on ? '#171717' : '#e5e5e5',
+        divider: i === 0 ? '0' : '1px solid rgba(255,255,255,0.15)',
+        pick: () => this.setState({ [key]: v })
+      };
+    });
+  }
+  renderVals() {
+    const fps = this.state.fps;
+    return {
+      sizes: this.options([14, 16, 18, 20], this.state.size, 'size'),
+      speeds: this.options(['0.5×', '1×', '1.5×', '2×'], this.state.speed, 'speed'),
+      fps: fps ? 'true' : 'false',
+      switchBg: fps ? '#fafafa' : 'rgba(255,255,255,0.15)',
+      thumbBg: fps ? '#0a0a0a' : '#fafafa',
+      switchJustify: fps ? 'flex-end' : 'flex-start',
+      toggleFps: () => this.setState({ fps: !this.state.fps })
+    };
+  }
+}
+</script>
+</body>
+</html>

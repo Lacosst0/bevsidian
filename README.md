@@ -7,8 +7,8 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 - **Markdown reading view** rendered natively with Bevy UI: headings, emphasis, inline code, syntax-highlighted code blocks with a copy button, tables, task lists, nested lists, callouts (`> [!TIP]`), footnotes and horizontal rules.
 - **Selection like a web page**: drag across paragraphs, double-click a word, triple-click a block, Shift+click to extend, Shift+arrows, `Ctrl/Cmd+A`, `Ctrl/Cmd+C`.
 - **Obsidian linking**: `[[Note]]`, `[[Note#Heading]]`, `[[Note|alias]]`, `#tags` and front-matter `tags:`.
-- **Navigation**: file list with full-text search, tag filters, back/forward history (`Alt+←/→`, mouse buttons), quick switcher (`Ctrl+O`), outline, backlinks and outgoing links.
-- **Graph view** (`Ctrl+G`): a force-directed graph of notes and tags, rendered by a 2D camera into a texture shown in the UI. Hover highlights neighbours, click opens a note, drag moves nodes or pans, and the wheel zooms.
+- **Navigation**: one sidebar with a note tree (folders, notes, and the open note's headings), full-text search, backlinks and outgoing links, and tag filters; back/forward history (`Alt+←/→`, mouse buttons) and a quick switcher (`Ctrl+O`).
+- **Graph view** (`Ctrl+G`): a force-directed graph of notes, drawn as their icons, rendered by a 2D camera into a texture shown in the UI. Hover highlights neighbours, click opens a note, drag moves nodes or pans, and the wheel zooms.
 - **Single-file web build**: one `index.html` with CSS, JS and the gzip-compressed WASM inlined. Host it on any static server or open it from disk.
 
 ## Workspace
@@ -19,10 +19,10 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 | [`bevy_ui_commonmark`](crates/bevy_ui_commonmark) | CommonMark + GFM + Obsidian wikilinks/tags parser, and a builder that turns documents into BSN scenes of selectable text. |
 | [`bevy_ui_touchscroll`](crates/bevy_ui_touchscroll) | Native-feeling touch scrolling for `ScrollArea`s: 1:1 drags, Android/Flutter fling physics, tap-to-stop, and eased wheel scrolling. |
 | [`bevsidian_core`](crates/bevsidian_core) | The note vault (links, backlinks, tags, search), navigation state (`Nav` signals, shortcuts, links) and the note icons. |
-| [`bevsidian_ui`](crates/bevsidian_ui) | The UI kit: design tokens (colours, radii, shadows, layers, fonts) and [shadcn/ui](https://ui.shadcn.com)-style components (buttons, toggle groups, badges, keys, cards, items, dialogs, popovers, switches, steppers…) as plain `bsn!`/`view!` scene functions. The [`UI kit`](vault/UI%20kit.md) note previews them live. |
-| [`bevsidian_graph`](crates/bevsidian_graph) | The graph view: force-directed notes and tags with pan, pinch/wheel zoom and click-to-open. |
+| [`bevsidian_ui`](crates/bevsidian_ui) | The UI kit, modelled on [shadcn/ui](https://ui.shadcn.com): design tokens (colours, radii, spacing, shadows, layers, Geist type) and one file per component (buttons, tabs, segmented controls, badges, keys, rows and trees, inputs, switches, steppers, dialogs, menus, toasts, alerts, entity cards) as `bsn!`/`view!` scenes. Its [README](crates/bevsidian_ui/README.md) explains the conventions; the [`UI kit`](vault/UI%20kit.md) note previews the components live, and [`design/`](design) holds the mockups. |
+| [`bevsidian_graph`](crates/bevsidian_graph) | The graph view: force-directed notes with pan, pinch/wheel zoom and click-to-open. |
 | [`bevsidian_preview`](crates/bevsidian_preview) | Bevy-in-Bevy: live previews above code blocks. A preview runs the block's systems in a world of its own, one system at a time with Bevy's stepping (back, play/pause, forward), and highlights the lines that just ran. |
-| `bevsidian` (root) | The app: UI shell, responsive layout, context menu, settings, FPS readout, and the embedded vault. |
+| `bevsidian` (root) | The app: the shell (`src/shell`: sidebar, top bar), pages (`src/pages`: note, graph), overlays (`src/overlays`: settings, quick switcher, context menu, toast, selection toolbar, on-screen keyboard), responsive layout, the note editor, the FPS readout and the embedded vault. |
 
 ## Adding notes
 
@@ -36,7 +36,7 @@ icon: rocket
 ---
 ```
 
-The icon shows next to the title, in the file list and in the graph. Only the icons listed in [`tools/icons.py`](tools/icons.py) are bundled (to keep the download small); add a name there and run `python3 tools/icons.py` to bundle another.
+The icon shows next to the title, in the sidebar and in the graph. Only the icons listed in [`tools/icons.py`](tools/icons.py) are bundled (to keep the download small); add a name there and run `python3 tools/icons.py` to bundle another.
 
 ## Live code previews
 
@@ -73,4 +73,4 @@ On Linux, native builds need `libwayland-dev libxkbcommon-dev`.
 
 ## Fonts
 
-Inter and JetBrains Mono are bundled under the SIL Open Font License (see `assets/fonts/`).
+Geist and Geist Mono are bundled under the SIL Open Font License (see `assets/fonts/`).

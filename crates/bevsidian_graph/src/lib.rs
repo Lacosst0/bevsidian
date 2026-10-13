@@ -1,6 +1,6 @@
 //! Obsidian-style graph view.
 //!
-//! Notes, drawn as their icons, are simulated as a force-directed graph in a 2D world on its own render
+//! Notes, drawn as their icons in bordered discs, are simulated as a force-directed graph in a 2D world on its own render
 //! layer. A dedicated camera renders that world into an image that the UI shows in the
 //! [`GraphViewport`] node; pointer events on the node are mapped back into the world for
 //! hovering, clicking, dragging nodes, panning (with momentum) and zooming (wheel, pinch
@@ -23,7 +23,7 @@ use bevsidian_core::{
     nav::{Nav, View},
     vault::{NoteId, Vault},
 };
-use bevsidian_ui::{Size, Variant, color, icon_button};
+use bevsidian_ui::{Size, Variant, color, icon_button, radius, shadow};
 
 const LAYER: usize = 1;
 
@@ -77,6 +77,14 @@ struct GraphLabel;
 #[derive(Component)]
 struct GraphIcon;
 
+/// The disc behind a node's icon.
+#[derive(Component)]
+struct GraphFill;
+
+/// The outline around a node's disc.
+#[derive(Component)]
+struct GraphRing;
+
 /// Text drawn in the graph world, re-rasterized as the camera zooms so it stays sharp.
 #[derive(Component)]
 struct GraphText {
@@ -102,9 +110,19 @@ pub struct GraphState {
     alpha: f32,
     /// The node last dragged: while the graph settles, nodes far from it barely move.
     anchor: Option<Entity>,
-    /// Shared node meshes and material.
+    /// Shared node mesh and materials.
     circle: Handle<Mesh>,
-    mask: Handle<ColorMaterial>,
+    paint: NodePaint,
+}
+
+/// Materials of a node's disc and outline, per state.
+#[derive(Default)]
+struct NodePaint {
+    fill: Handle<ColorMaterial>,
+    ring: Handle<ColorMaterial>,
+    ring_hovered: Handle<ColorMaterial>,
+    current_fill: Handle<ColorMaterial>,
+    current_ring: Handle<ColorMaterial>,
 }
 
 impl GraphState {
@@ -173,8 +191,14 @@ fn setup(
         Msaa::Sample4,
     ));
 
-    // A disc of background colour behind each icon, so edges stop at its outline.
-    state.mask = materials.add(color::BACKGROUND);
+    // An opaque disc behind each icon, so edges stop at its outline.
+    state.paint = NodePaint {
+        fill: materials.add(color::CARD),
+        ring: materials.add(RING_COLOR),
+        ring_hovered: materials.add(color::MUTED_FOREGROUND),
+        current_fill: materials.add(color::LINK),
+        current_ring: materials.add(color::LINK_RING),
+    };
     state.circle = meshes.add(Circle::new(1.0));
 }
 
@@ -200,7 +224,11 @@ fn spawn_nodes(
     state.hovered = None;
     state.dragging = None;
     state.press = None;
-    let (mask, circle) = (state.mask.clone(), state.circle.clone());
+    let (fill, ring, circle) = (
+        state.paint.fill.clone(),
+        state.paint.ring.clone(),
+        state.circle.clone(),
+    );
     let font = |family: &'static str, size: f32, weight: FontWeight| TextFont {
         font: bevy::text::FontSource::families(family),
         font_size: size.into(),
@@ -215,8 +243,8 @@ fn spawn_nodes(
         let angle = i as f32 / note_count.max(1) as f32 * std::f32::consts::TAU;
         let degree = note.outgoing.len() + note.backlinks.len();
         // Better-linked notes are bigger.
-        let radius = 14.0 + 4.0 * (degree as f32).sqrt();
-        let icon_size = radius * 2.0;
+        let radius = 16.0 + 4.0 * (degree as f32).sqrt();
+        let icon_size = (radius * 0.9).round();
         let id = commands
             .spawn((
                 GraphNode {
@@ -236,9 +264,18 @@ fn spawn_nodes(
             ))
             .with_children(|node| {
                 node.spawn((
+                    GraphRing,
                     Mesh2d(circle.clone()),
-                    MeshMaterial2d(mask.clone()),
-                    Transform::from_xyz(0.0, 0.0, -0.1).with_scale(Vec3::splat(radius * 0.8)),
+                    MeshMaterial2d(ring.clone()),
+                    Transform::from_xyz(0.0, 0.0, -0.2).with_scale(Vec3::splat(radius)),
+                    RenderLayers::layer(LAYER),
+                ));
+                node.spawn((
+                    GraphFill,
+                    Mesh2d(circle.clone()),
+                    MeshMaterial2d(fill.clone()),
+                    Transform::from_xyz(0.0, 0.0, -0.1)
+                        .with_scale(Vec3::splat(radius - RING_WIDTH)),
                     RenderLayers::layer(LAYER),
                 ));
                 node.spawn((
@@ -256,7 +293,7 @@ fn spawn_nodes(
                     GraphLabel,
                     GraphText { size: LABEL_SIZE },
                     Text2d::new(note.name.clone()),
-                    font("Inter, sans-serif", LABEL_SIZE, FontWeight::MEDIUM),
+                    font("Geist, sans-serif", LABEL_SIZE, FontWeight::NORMAL),
                     TextColor(color::MUTED_FOREGROUND),
                     Transform::from_xyz(0.0, -radius - 12.0, 0.0),
                     RenderLayers::layer(LAYER),
@@ -282,9 +319,15 @@ fn spawn_nodes(
 }
 
 /// Icon colours.
-const NOTE_COLOR: Color = Color::srgb(0.62, 0.62, 0.66);
-const HOVERED_COLOR: Color = Color::srgb(0.95, 0.95, 1.0);
-const DIM_COLOR: Color = Color::srgb(0.3, 0.3, 0.33);
+const NOTE_COLOR: Color = color::BODY;
+const HOVERED_COLOR: Color = color::FOREGROUND;
+const DIM_COLOR: Color = Color::srgb(0.3, 0.3, 0.3);
+/// The outline of a disc: the border token over the page, made opaque.
+const RING_COLOR: Color = Color::srgb(0.2, 0.2, 0.2);
+/// Width of the outline, in world units.
+const RING_WIDTH: f32 = 1.5;
+/// How far the halo of the current note reaches past its disc.
+const HALO: f32 = 5.0;
 
 /// Shows the render target in a freshly spawned viewport node and wires pointer input.
 fn attach_viewport(
@@ -479,34 +522,67 @@ fn style_nodes(
     mut nodes: Query<(Entity, &mut GraphNode, &Children)>,
     mut icons: Query<&mut TextColor, (With<GraphIcon>, Without<GraphLabel>)>,
     mut labels: Query<&mut TextColor, (With<GraphLabel>, Without<GraphIcon>)>,
+    mut fills: Query<&mut MeshMaterial2d<ColorMaterial>, (With<GraphFill>, Without<GraphRing>)>,
+    mut rings: Query<
+        (&mut MeshMaterial2d<ColorMaterial>, &mut Transform),
+        (With<GraphRing>, Without<GraphFill>),
+    >,
 ) {
     let current = nav.current.get_untracked();
     let focus = state.hovered.or(state.dragging);
     let focus_neighbors = focus.map(|f| neighbors(&state, f)).unwrap_or_default();
+    let paint = &state.paint;
     for (entity, mut node, children) in &mut nodes {
         if node.neighbors.is_empty() {
             node.neighbors = neighbors(&state, entity);
         }
         let lit = focus.is_none_or(|f| f == entity || focus_neighbors.contains(&entity));
-        let icon = if Some(entity) == focus {
+        let is_current = node.note == current;
+        let icon = if is_current {
+            color::BACKGROUND
+        } else if Some(entity) == focus {
             HOVERED_COLOR
         } else if !lit {
             DIM_COLOR
-        } else if node.note == current {
-            color::PRIMARY
         } else {
             NOTE_COLOR
         };
-        let label = if lit {
+        let label = if is_current || Some(entity) == focus {
             color::FOREGROUND
+        } else if lit {
+            color::MUTED_FOREGROUND
         } else {
             color::SUBTLE_FOREGROUND
         };
-        for child in children {
-            if let Ok(mut color) = icons.get_mut(*child) {
+        let (ring, ring_radius) = if is_current {
+            (&paint.current_ring, node.radius + HALO)
+        } else if Some(entity) == focus {
+            (&paint.ring_hovered, node.radius)
+        } else {
+            (&paint.ring, node.radius)
+        };
+        let fill = if is_current {
+            &paint.current_fill
+        } else {
+            &paint.fill
+        };
+        for &child in children {
+            if let Ok(mut color) = icons.get_mut(child) {
                 color.set_if_neq(TextColor(icon));
-            } else if let Ok(mut color) = labels.get_mut(*child) {
+            } else if let Ok(mut color) = labels.get_mut(child) {
                 color.set_if_neq(TextColor(label));
+            } else if let Ok(mut material) = fills.get_mut(child) {
+                if material.0 != *fill {
+                    material.0 = fill.clone();
+                }
+            } else if let Ok((mut material, mut transform)) = rings.get_mut(child) {
+                if material.0 != *ring {
+                    material.0 = ring.clone();
+                }
+                let scale = Vec3::splat(ring_radius);
+                if transform.scale != scale {
+                    transform.scale = scale;
+                }
             }
         }
     }
@@ -540,11 +616,11 @@ fn draw_edges(
         };
         let highlighted = focus.is_some_and(|f| f == a || f == b);
         let color = if highlighted {
-            color::PRIMARY
+            color::LINK
         } else if focus.is_some() {
-            Color::srgb(0.2, 0.2, 0.22)
+            Color::srgb(0.13, 0.13, 0.13)
         } else {
-            Color::srgb(0.42, 0.42, 0.47)
+            Color::srgb(0.26, 0.26, 0.26)
         };
         let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
         let normal = (pb - pa).normalize_or_zero().perp() * half;
@@ -894,11 +970,17 @@ fn fit_all(
     (bounds.center(), scale.clamp(MIN_SCALE, MAX_SCALE))
 }
 
-/// Zoom buttons over the graph (the only way to zoom on touch screens).
-pub fn zoom_controls(_nav: Nav) -> impl Scene {
-    fn button(icon: &'static str, factor: f32) -> impl Scene {
+/// Zoom buttons over the graph (the only way to zoom on touch screens): one bordered group of
+/// zoom in, zoom out and fit.
+pub fn zoom_controls() -> impl Scene {
+    fn button(icon: &'static str, factor: f32, first: bool) -> impl Scene {
         bsn! {
-            @{icon_button(Variant::Outline, Size::IconLg, icon)}
+            @{icon_button(Variant::Ghost, Size::Icon, icon)}
+            Node {
+                border: UiRect::top(px(if first { 0.0 } else { 1.0 })),
+                border_radius: BorderRadius::ZERO,
+            }
+            BorderColor::all(color::BORDER)
             on(move |_: On<bevy::ui_widgets::Activate>,
                      camera: Query<(&Transform, &Projection), With<GraphCamera>>,
                      nodes: Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
@@ -919,20 +1001,26 @@ pub fn zoom_controls(_nav: Nav) -> impl Scene {
             })
         }
     }
+    let shadow = shadow::popover();
     bsn! {
         Node {
             position_type: PositionType::Absolute,
-            right: Val::Px(14.0),
-            bottom: Val::Px(14.0),
+            right: px(16),
+            bottom: px(16),
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(8.0),
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(radius::LG)),
+            overflow: Overflow::clip(),
         }
+        BackgroundColor(color::CARD)
+        BorderColor::all(color::INPUT)
+        shadow
         Children [
-            @{button("plus", 0.8)}
+            @{button("plus", 0.8, true)}
             --
-            @{button("minus", 1.25)}
+            @{button("minus", 1.25, false)}
             --
-            @{button("maximize", 0.0)}
+            @{button("maximize", 0.0, false)}
         ]
     }
 }

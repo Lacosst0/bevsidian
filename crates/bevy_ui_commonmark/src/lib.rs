@@ -17,6 +17,7 @@
 //!         resolve: &|_| true,
 //!         title_badge: None,
 //!         code_preview: None,
+//!         icon: None,
 //!     };
 //!     commands.spawn(Camera2d);
 //!     commands.spawn_scene(markdown_scene(&doc, &options));
@@ -39,8 +40,8 @@ pub mod theme;
 pub use document::*;
 pub use md_highlight::{MdToken, highlight_markdown};
 pub use scene::{
-    CodeBlockInfo, CodeHighlight, CopiedBubble, MdBlock, MdCodeGroup, MdCopyButton, MdFootnote,
-    MdHeading, MdLink, MdRoot, RenderOptions, markdown_scene,
+    CodeBlockInfo, CodeHighlight, CodePreview, CopiedBubble, MdBlock, MdCodeGroup, MdCopyButton,
+    MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions, markdown_scene,
 };
 pub use theme::MdTheme;
 

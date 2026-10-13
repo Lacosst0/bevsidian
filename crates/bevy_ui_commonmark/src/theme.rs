@@ -1,6 +1,9 @@
 //! Visual theme for rendered markdown.
 
-use bevy::{prelude::*, text::FontSource};
+use bevy::{
+    prelude::*,
+    text::{FontSource, FontWeight},
+};
 
 use crate::document::Callout;
 
@@ -22,6 +25,12 @@ pub struct MdTheme {
     pub block_gap: f32,
     /// Multiplier for heading sizes relative to the default scale (smaller on phones).
     pub heading_scale: f32,
+    /// Weight of level 1 and 2 headings (deeper ones are semibold).
+    pub heading_weight: FontWeight,
+    /// Space above a level 1 or 2 heading, on top of the block gap.
+    pub heading_space: f32,
+    /// Headings of this level get a rule underneath (0 for none).
+    pub heading_rule: u8,
     /// Body text.
     pub text: Color,
     /// Secondary text (list markers, captions).
@@ -40,12 +49,24 @@ pub struct MdTheme {
     pub tag_bg: Color,
     /// Inline and block code text.
     pub code: Color,
-    /// Inline and block code background.
+    /// Inline code background.
     pub code_bg: Color,
+    /// Code block background.
+    pub code_block_bg: Color,
+    /// Behind highlighted code lines.
+    pub highlight: Color,
     /// Block quote bar and table borders.
     pub border: Color,
     /// Table header background.
     pub table_header_bg: Color,
+    /// Table header text.
+    pub table_header: Color,
+    /// Callout and code-header background.
+    pub surface: Color,
+    /// Corner radius of callouts, tables and code blocks.
+    pub radius: f32,
+    /// Callout accents: note, tip, important, warning, caution.
+    pub callouts: [Color; 5],
     /// Syntax highlighting: keywords.
     pub syntax_keyword: Color,
     /// Syntax highlighting: strings.
@@ -74,6 +95,9 @@ impl MdTheme {
             line_height: 1.6,
             block_gap: 14.0,
             heading_scale: 1.0,
+            heading_weight: FontWeight::BOLD,
+            heading_space: 12.0,
+            heading_rule: 1,
             text: Color::srgb_u8(0xda, 0xda, 0xda),
             muted: Color::srgb_u8(0x99, 0x99, 0x99),
             heading: Color::srgb_u8(0xf2, 0xf2, 0xf2),
@@ -84,8 +108,20 @@ impl MdTheme {
             tag_bg: Color::srgba_u8(0x8b, 0x6c, 0xef, 0x2e),
             code: Color::srgb_u8(0xe6, 0x9d, 0x7b),
             code_bg: Color::srgb_u8(0x26, 0x26, 0x2b),
+            code_block_bg: Color::srgb_u8(0x26, 0x26, 0x2b),
+            highlight: Color::srgba_u8(0x8b, 0x6c, 0xef, 0x2e),
             border: Color::srgb_u8(0x3a, 0x3a, 0x42),
             table_header_bg: Color::srgb_u8(0x24, 0x24, 0x2a),
+            table_header: Color::srgb_u8(0xf2, 0xf2, 0xf2),
+            surface: Color::srgb_u8(0x1e, 0x1e, 0x22),
+            radius: 6.0,
+            callouts: [
+                Color::srgb_u8(0x44, 0x8a, 0xff),
+                Color::srgb_u8(0x00, 0xbf, 0xa5),
+                Color::srgb_u8(0xa8, 0x8b, 0xfa),
+                Color::srgb_u8(0xff, 0x91, 0x00),
+                Color::srgb_u8(0xff, 0x52, 0x52),
+            ],
             syntax_keyword: Color::srgb_u8(0xc6, 0x78, 0xdd),
             syntax_string: Color::srgb_u8(0x98, 0xc3, 0x79),
             syntax_comment: Color::srgb_u8(0x7f, 0x84, 0x8e),
@@ -107,8 +143,11 @@ impl MdTheme {
             tag_bg: Color::srgba_u8(0x8b, 0x6c, 0xef, 0x24),
             code: Color::srgb_u8(0xb5, 0x4a, 0x1f),
             code_bg: Color::srgb_u8(0xf0, 0xf0, 0xf3),
+            code_block_bg: Color::srgb_u8(0xf0, 0xf0, 0xf3),
             border: Color::srgb_u8(0xd8, 0xd8, 0xde),
             table_header_bg: Color::srgb_u8(0xf3, 0xf3, 0xf6),
+            table_header: Color::srgb_u8(0x10, 0x10, 0x14),
+            surface: Color::srgb_u8(0xf6, 0xf6, 0xf8),
             syntax_keyword: Color::srgb_u8(0xa6, 0x26, 0xa4),
             syntax_string: Color::srgb_u8(0x50, 0xa1, 0x4f),
             syntax_comment: Color::srgb_u8(0xa0, 0xa1, 0xa7),
@@ -142,12 +181,12 @@ impl MdTheme {
 
     /// Accent colour of a callout.
     pub fn callout_color(&self, callout: Callout) -> Color {
-        match callout {
-            Callout::Note => Color::srgb_u8(0x44, 0x8a, 0xff),
-            Callout::Tip => Color::srgb_u8(0x00, 0xbf, 0xa5),
-            Callout::Important => Color::srgb_u8(0xa8, 0x8b, 0xfa),
-            Callout::Warning => Color::srgb_u8(0xff, 0x91, 0x00),
-            Callout::Caution => Color::srgb_u8(0xff, 0x52, 0x52),
-        }
+        self.callouts[match callout {
+            Callout::Note => 0,
+            Callout::Tip => 1,
+            Callout::Important => 2,
+            Callout::Warning => 3,
+            Callout::Caution => 4,
+        }]
     }
 }

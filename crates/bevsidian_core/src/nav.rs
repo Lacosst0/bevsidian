@@ -4,7 +4,6 @@ use bevy::{
     input::{ButtonState, keyboard::KeyboardInput},
     input_focus::InputFocus,
     prelude::*,
-    text::EditableText,
     ui_widgets::{ScrollArea, ScrollIntoView},
 };
 use bevy_radioactive::view::{Signal, signal};
@@ -18,7 +17,7 @@ pub fn plugin(app: &mut App) {
         Update,
         (
             shortcuts,
-            bind_search_inputs,
+            reset_switcher_index,
             reset_scroll_on_navigation,
             scroll_to_anchor,
         ),
@@ -52,10 +51,10 @@ pub struct Nav {
     pub switcher_index: Signal<usize>,
     /// Window width class.
     pub mode: Signal<LayoutMode>,
-    /// Files drawer open (phones).
-    pub left_open: Signal<bool>,
-    /// Outline/backlinks drawer open (tablets and phones).
-    pub right_open: Signal<bool>,
+    /// The sidebar drawer is open (phones).
+    pub drawer: Signal<bool>,
+    /// The inline sidebar is collapsed (tablets and desktops).
+    pub sidebar_collapsed: Signal<bool>,
     /// The last input was a touch.
     pub touch: Signal<bool>,
     /// Some text is selected.
@@ -80,6 +79,9 @@ pub struct Nav {
     /// The current note is open in the editor.
     pub editing: Signal<bool>,
 }
+
+/// How many notes the quick switcher lists.
+pub const SWITCHER_RESULTS: usize = 12;
 
 /// Choices for [`Nav::max_fps`], in the order the setting cycles through them.
 pub const MAX_FPS_CHOICES: [u32; 6] = [30, 60, 90, 120, 144, 0];
@@ -115,8 +117,8 @@ impl Nav {
             switcher_query: signal(String::new),
             switcher_index: signal(|| 0),
             mode: signal(LayoutMode::default),
-            left_open: signal(|| false),
-            right_open: signal(|| false),
+            drawer: signal(|| false),
+            sidebar_collapsed: signal(|| false),
             touch: signal(|| false),
             has_selection: signal(|| false),
             keyboard: signal(|| false),
@@ -140,7 +142,7 @@ impl Nav {
             self.current.set(id);
         }
         self.view.set_if_neq(View::Note);
-        self.close_drawers();
+        self.close_drawer();
         self.anchor
             .set(heading.map(|h| Anchor::Heading(bevy_ui_commonmark::slugify(&h))));
     }
@@ -151,7 +153,7 @@ impl Nav {
             self.forward.update(|f| f.push(current));
             self.current.set(prev);
             self.view.set_if_neq(View::Note);
-            self.close_drawers();
+            self.close_drawer();
         }
     }
 
@@ -161,24 +163,22 @@ impl Nav {
             self.back.update(|b| b.push(current));
             self.current.set(next);
             self.view.set_if_neq(View::Note);
-            self.close_drawers();
+            self.close_drawer();
         }
     }
 
-    pub fn close_drawers(&self) {
-        self.left_open.set_if_neq(false);
-        self.right_open.set_if_neq(false);
+    pub fn close_drawer(&self) {
+        self.drawer.set_if_neq(false);
     }
 
-    /// Opens one drawer, closing the other.
-    pub fn toggle_drawer(&self, left: bool) {
-        let (this, other) = if left {
-            (&self.left_open, &self.right_open)
+    /// Shows or hides the sidebar: the drawer on phones, the inline column elsewhere.
+    pub fn toggle_sidebar(&self) {
+        if self.mode.get_untracked().drawer() {
+            self.drawer.update(|open| *open = !*open);
         } else {
-            (&self.right_open, &self.left_open)
-        };
-        other.set_if_neq(false);
-        this.set(!this.get_untracked());
+            self.sidebar_collapsed
+                .update(|collapsed| *collapsed = !*collapsed);
+        }
     }
 
     /// Changes the reading text size by `delta` px.
@@ -251,10 +251,9 @@ impl Nav {
         };
         let filtering = next.is_some();
         self.tag.set(next);
-        // On phones the file list lives in a drawer: show the filtered list.
-        if filtering && self.mode.get_untracked().left_drawer() {
-            self.right_open.set_if_neq(false);
-            self.left_open.set_if_neq(true);
+        // On phones the note list lives in a drawer: show the filtered list.
+        if filtering && self.mode.get_untracked().drawer() {
+            self.drawer.set_if_neq(true);
         }
     }
 
@@ -310,30 +309,12 @@ pub fn open_url(url: &str) {
     }
 }
 
-/// Marks a text input whose value is mirrored into a [`Nav`] string signal.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SearchInput {
-    #[default]
-    Sidebar,
-    Switcher,
-}
-
-fn bind_search_inputs(
-    inputs: Query<(&EditableText, &SearchInput), Changed<EditableText>>,
-    nav: Res<Nav>,
-) {
-    for (text, kind) in &inputs {
-        let value = text.value().to_string();
-        match kind {
-            SearchInput::Sidebar => {
-                nav.query.set_if_neq(value);
-            }
-            SearchInput::Switcher => {
-                if nav.switcher_query.set_if_neq(value) {
-                    nav.switcher_index.set(0);
-                }
-            }
-        }
+/// Typing in the quick switcher starts again from its first result.
+fn reset_switcher_index(nav: Res<Nav>, mut last: Local<String>) {
+    let query = nav.switcher_query.get_untracked();
+    if *last != query {
+        *last = query;
+        nav.switcher_index.set_if_neq(0);
     }
 }
 
@@ -375,8 +356,8 @@ fn shortcuts(
                     focus.clear();
                 } else if nav.settings.get_untracked() {
                     nav.settings.set(false);
-                } else if nav.left_open.get_untracked() || nav.right_open.get_untracked() {
-                    nav.close_drawers();
+                } else if nav.drawer.get_untracked() {
+                    nav.close_drawer();
                 } else {
                     selection.clear();
                 }
@@ -386,7 +367,7 @@ fn shortcuts(
                     .get_untracked()
                     .search(&nav.switcher_query.get_untracked(), None)
                     .len()
-                    .max(1);
+                    .clamp(1, SWITCHER_RESULTS);
                 let index = nav.switcher_index.get_untracked();
                 let next = if input.key_code == KeyCode::ArrowDown {
                     (index + 1) % count
@@ -399,7 +380,12 @@ fn shortcuts(
                 let results = vault
                     .get_untracked()
                     .search(&nav.switcher_query.get_untracked(), None);
-                if let Some(id) = results.get(nav.switcher_index.get_untracked()) {
+                // The index may point past a list that shrank as the query grew.
+                let index = nav
+                    .switcher_index
+                    .get_untracked()
+                    .min(results.len().min(SWITCHER_RESULTS).saturating_sub(1));
+                if let Some(id) = results.get(index) {
                     nav.open(*id, None);
                 }
                 nav.switcher.set(false);
@@ -475,12 +461,12 @@ fn scroll_to_anchor(
 /// Width class of the window.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum LayoutMode {
-    /// Both sidebars inline (≥ 1100 px).
+    /// Desktop (≥ 1100 px).
     #[default]
     Wide,
-    /// Files inline, outline/backlinks as a drawer (≥ 760 px).
+    /// Tablet (≥ 760 px): the sidebar is still inline.
     Medium,
-    /// Phone: both sidebars are drawers.
+    /// Phone: the sidebar is a drawer and controls are touch-sized.
     Compact,
 }
 
@@ -495,13 +481,8 @@ impl LayoutMode {
         }
     }
 
-    /// Whether the files sidebar is a drawer.
-    pub fn left_drawer(self) -> bool {
+    /// Whether the sidebar is a drawer.
+    pub fn drawer(self) -> bool {
         self == Self::Compact
-    }
-
-    /// Whether the outline/backlinks sidebar is a drawer.
-    pub fn right_drawer(self) -> bool {
-        self != Self::Wide
     }
 }
