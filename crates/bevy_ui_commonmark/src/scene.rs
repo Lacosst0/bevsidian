@@ -261,10 +261,13 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
                         ..default()
                     };
                     let border = BorderColor::all(theme.border);
+                    // Children are clipped to a rectangle: round the preview's top corners
+                    // too, or its background hides the frame's.
+                    let top = BorderRadius::top(Val::Px(theme.radius + 1.0));
                     Box::new(bsn! {
                         frame border
                         MdCodeGroup
-                        Children [ @{body} -- @{block} ]
+                        Children [ @{body} Node { border_radius: top } -- @{block} ]
                     })
                 }
                 None => code_block(lang.as_deref(), code, options, None, false),
@@ -656,8 +659,19 @@ fn code_block(
         } else {
             UiRect::all(Val::Px(1.0))
         },
-        border_radius: BorderRadius::all(Val::Px(if framed { 0.0 } else { theme.radius })),
+        // In a frame (rounded `radius + 2`, 1 px border) only the bottom corners show.
+        border_radius: if framed {
+            BorderRadius::bottom(Val::Px(theme.radius + 1.0))
+        } else {
+            BorderRadius::all(Val::Px(theme.radius))
+        },
         ..default()
+    };
+    // The header's background would otherwise hide the block's rounded top corners.
+    let header_radius = if framed {
+        BorderRadius::ZERO
+    } else {
+        BorderRadius::top(Val::Px((theme.radius - 1.0).max(0.0)))
     };
     let border = BorderColor::all(theme.border);
     let bg = BackgroundColor(theme.code_block_bg);
@@ -680,6 +694,7 @@ fn code_block(
                 column_gap: Val::Px(4.0),
                 align_items: AlignItems::Center,
                 border: UiRect::bottom(Val::Px(1.0)),
+                border_radius: header_radius,
             }
             header_bg
             header_border
