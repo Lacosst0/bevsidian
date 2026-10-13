@@ -1,5 +1,8 @@
 //! `Pathfinding.md`: an agent that finds its way around walls with A*. Click to send it.
 
+// Map sizes are tiny constants: the casts cannot wrap.
+#![allow(clippy::cast_possible_wrap)]
+
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashMap, HashSet},

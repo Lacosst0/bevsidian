@@ -3,6 +3,9 @@
 //!
 //! The preview uses a tiny generator of its own (the note uses `rand`); the algorithm is the same.
 
+// Map sizes are tiny constants: the casts cannot wrap.
+#![allow(clippy::cast_possible_wrap)]
+
 use bevy::prelude::*;
 
 use super::stage::{self, spawn_sky};
