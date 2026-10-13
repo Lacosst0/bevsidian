@@ -12,7 +12,6 @@ mod dragging;
 mod ecs;
 mod events;
 mod hierarchy;
-mod mario;
 mod messages;
 mod movement;
 mod queries;
@@ -29,7 +28,7 @@ use crate::example::Example;
 
 /// Every example's name.
 #[cfg(test)]
-pub const NAMES: [&str; 16] = [
+pub const NAMES: [&str; 15] = [
     "animation",
     "bouncing",
     "change",
@@ -38,7 +37,6 @@ pub const NAMES: [&str; 16] = [
     "ecs",
     "events",
     "hierarchy",
-    "mario",
     "messages",
     "movement",
     "queries",
@@ -66,12 +64,11 @@ pub fn find(name: &str) -> Option<&'static Example> {
         "sprites" => &sprites::EXAMPLE,
         "tilemap" => &tilemap::EXAMPLE,
         "timers" => &timers::EXAMPLE,
-        "mario" => &mario::EXAMPLE,
         _ => return None,
     })
 }
 
 /// Assets the examples share with their previews.
 pub fn plugin(app: &mut App) {
-    app.add_plugins((mario::plugin, animation::plugin));
+    app.add_plugins(animation::plugin);
 }

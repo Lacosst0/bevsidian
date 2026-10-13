@@ -99,7 +99,6 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
 | Crate | Approach |
 |:--|:--|
 | [[bevy_lunex]] | layout system for responsive, retained UI |
-| [[bevy_cobweb_ui]] | UI scripted in a data format with a large widget set |
 | `bsn!` ([[Scenes and BSN]]) | Rust macro scenes built into Bevy 0.20 |
 | [[bevy_egui]] | immediate mode, best for tools |
 

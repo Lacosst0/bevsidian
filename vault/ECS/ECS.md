@@ -96,4 +96,4 @@ The solid path is [[Understanding ECS]]. Here is the map.
 
 ## Next
 
-[[Entities and components]]. Then try everything together in [[Mario]].
+[[Entities and components]]. Then try it all in [[Your first game]].

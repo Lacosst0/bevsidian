@@ -55,7 +55,7 @@ For numeric fields with drag-to-change, the Feathers widgets include a number in
 
 ## Libraries
 
-[[bevy_simple_text_input]] is a small, popular alternative; [[bevy_egui]] has full-featured text widgets for tools and debug menus.
+[[bevy_egui]] has full-featured text widgets for tools and debug menus.
 
 ## Next
 

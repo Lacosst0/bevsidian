@@ -97,7 +97,7 @@ fn overlaps(a_pos: Vec2, a_size: Vec2, b_pos: Vec2, b_size: Vec2) -> bool {
 }
 ```
 
-For circles compare distance with the sum of the radii. Bevy's `Aabb2d`, `BoundingCircle` and ray casts ([[Colors and math]]) give you the same with more shapes. [[Mario]] uses exactly this: land on solids, stomp enemies.
+For circles compare distance with the sum of the radii. Bevy's `Aabb2d`, `BoundingCircle` and ray casts ([[Colors and math]]) give you the same with more shapes.
 
 ## Keep it deterministic
 
@@ -131,4 +131,4 @@ Both give you components (`RigidBody`, `Collider`) and take over `Transform`.
 
 ## Next
 
-[[Networking]] to put players together, or look at [[Mario]] for physics-by-hand in a game.
+[[Networking]] to put players together, or follow [[A 2D game]].

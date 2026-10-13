@@ -15,8 +15,7 @@ From a blank window to a platformer-style game with art, animation, levels, phys
 7. [[Physics]]
 8. [[States]]: menu, playing, game over.
 9. [[Audio]]
-10. [[Mario]]
-11. [[Cameras]] (optional): follow the player.
+10. [[Cameras]] (optional): follow the player.
 12. [[Text 2D]] (optional)
 13. [[2D shapes and meshes]] (optional)
 14. [[Picking]] (optional)

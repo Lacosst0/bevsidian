@@ -13,7 +13,7 @@ The fastest road to something playable. Solid steps first; dashed ones are worth
 5. [[Sprites]]: pictures on screen.
 6. [[Commands]]: spawn and despawn.
 7. [[Keyboard and mouse]]: control it.
-8. [[Mario]]: everything in one small game.
+8. [[Physics]]: gravity and bouncing.
 9. [[Sprite animation]] (optional): bring it to life.
 10. [[Audio]] (optional): sound effects and music.
 11. [[Project setup]] (optional): faster builds.

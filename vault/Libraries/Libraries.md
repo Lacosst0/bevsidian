@@ -55,8 +55,6 @@ Each library note has: what it does, a status box, a **short example that was co
 | [[bevy_mod_debugdump]] | draw the schedule graph | ⏳ `0.16` |
 | [[bevy_hui]] | UI in HTML-like files | ✅ `0.8` |
 | [[bevy_lunex]] | retained layout engine, world-space UI | 🌿 git |
-| [[bevy_simple_text_input]] | text field | 🚫 use built-in `EditableText` |
-| [[bevy_cobweb_ui]] | scripted UI framework | 🚫 unmaintained |
 
 ## Assets and saving
 
@@ -99,7 +97,6 @@ Each library note has: what it does, a status box, a **short example that was co
 | [[bevy_water]] | animated water | ⏳ `0.18` (Bevy 0.18) |
 | [[bevy_rich_text3d]] | rich text as meshes | ✅ `0.8` |
 | [[bevy_panorbit_camera]] | orbit camera | 🚫 built into Bevy 0.20 |
-| [[bevy_atmosphere]] | procedural sky | 🚫 built into Bevy 0.20 |
 
 ## Gameplay
 

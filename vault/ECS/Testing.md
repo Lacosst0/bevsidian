@@ -80,4 +80,4 @@ fn time_advances() {
 
 ## Next
 
-You have the whole ECS. Put it to work in [[Mario]], or pick an area from [[Bevy]].
+You have the whole ECS. Put it to work in [[A 2D game]], or pick an area from [[Bevy]].

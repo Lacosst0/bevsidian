@@ -60,4 +60,4 @@ That is the whole model: a root [`Node`] filling the screen, children inside it.
 
 ## Libraries
 
-[[bevy_egui]] (immediate-mode tools, inspectors), [[bevy_lunex]] (layouts), [[bevy_cobweb_ui]], [[bevy_hui]] (UI from HTML-like files), [[bevy_simple_text_input]].
+[[bevy_egui]] (immediate-mode tools, inspectors), [[bevy_lunex]] (layouts), [[bevy_hui]] (UI from HTML-like files).
