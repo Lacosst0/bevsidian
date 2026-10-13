@@ -23,6 +23,7 @@ Everything around the game: seeing what it does, finding bugs, shipping it. #too
 | [[Release builds]] | make the game small and fast |
 | [[Profiling]] | find out what is slow |
 | [[Web build]] | run in a browser, on a phone |
+| [[Mobile builds]] | Android and iOS apps |
 
 The path [[Ship it]] puts these in order.
 

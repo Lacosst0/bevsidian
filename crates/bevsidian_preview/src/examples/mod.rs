@@ -4,8 +4,10 @@
 //! functions in an [`Example`], and name it below. Notes then run it from any number of code
 //! blocks with `example=NAME`; each block runs the functions its code mentions.
 
+mod ai;
 mod animation;
 mod bouncing;
+mod cave;
 mod change;
 mod commands;
 mod dragging;
@@ -14,6 +16,7 @@ mod events;
 mod hierarchy;
 mod messages;
 mod movement;
+mod pathfinding;
 mod queries;
 mod resources;
 pub mod scenes;
@@ -28,9 +31,11 @@ use crate::example::Example;
 
 /// Every example's name.
 #[cfg(test)]
-pub const NAMES: [&str; 15] = [
+pub const NAMES: [&str; 18] = [
+    "ai",
     "animation",
     "bouncing",
+    "cave",
     "change",
     "commands",
     "dragging",
@@ -39,6 +44,7 @@ pub const NAMES: [&str; 15] = [
     "hierarchy",
     "messages",
     "movement",
+    "pathfinding",
     "queries",
     "resources",
     "sprites",
@@ -49,8 +55,10 @@ pub const NAMES: [&str; 15] = [
 /// The example a code block names with `example=NAME`.
 pub fn find(name: &str) -> Option<&'static Example> {
     Some(match name {
+        "ai" => &ai::EXAMPLE,
         "animation" => &animation::EXAMPLE,
         "bouncing" => &bouncing::EXAMPLE,
+        "cave" => &cave::EXAMPLE,
         "change" => &change::EXAMPLE,
         "commands" => &commands::EXAMPLE,
         "dragging" => &dragging::EXAMPLE,
@@ -59,6 +67,7 @@ pub fn find(name: &str) -> Option<&'static Example> {
         "hierarchy" => &hierarchy::EXAMPLE,
         "messages" => &messages::EXAMPLE,
         "movement" => &movement::EXAMPLE,
+        "pathfinding" => &pathfinding::EXAMPLE,
         "queries" => &queries::EXAMPLE,
         "resources" => &resources::EXAMPLE,
         "sprites" => &sprites::EXAMPLE,

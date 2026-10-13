@@ -25,6 +25,7 @@ Everything you need to make a game with **Bevy 0.20**, one small step at a time.
 | **Input** | keyboard, mouse, gamepad, touch | [[Input]] |
 | **Audio** | music and sound effects | [[Audio]] |
 | **Physics** | movement, collisions, engines | [[Physics]] |
+| **Gameplay** | AI, pathfinding, generation, inventory | [[Gameplay]] |
 | **Networking** | multiplayer | [[Networking]] |
 | **Tooling** | debugging, web, shipping | [[Tooling]] |
 | **Libraries** | the best crates, one note each | [[Libraries]] |
@@ -37,6 +38,7 @@ A path is a list of notes to read in order. Click one, then use the **Previous /
 - [[Getting started]]: the core of Bevy, from data to pixels.
 - [[Understanding ECS]]: every ECS idea, with the advanced parts on the side.
 - [[Learn BSN]]: Bevy 0.20's scene notation.
+- [[Gameplay systems]]: AI, pathfinding, generation, inventory, game feel.
 - [[A 2D game]]: sprites, animation, input, sound.
 - [[A 3D game]]: meshes, lights, cameras.
 - [[Multiplayer]]: networking from the first idea.
