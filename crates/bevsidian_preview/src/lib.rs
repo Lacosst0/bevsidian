@@ -64,6 +64,9 @@ pub fn code_preview(block: &CodeBlockInfo) -> Option<CodePreview> {
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 struct DemoSchedule;
 
+/// How long (seconds) playback stays on a step that spawns or despawns entities.
+const HOLD: f64 = 1.0;
+
 /// Simulated time per frame: previews run the same way at any display rate.
 const FRAME: Duration = Duration::from_nanos(16_666_667);
 
@@ -93,8 +96,12 @@ pub struct PreviewRuntime {
     next_tick: f64,
     /// Entities and their components, for the cards.
     cards: Vec<Card>,
+    /// The cards after the first frame: laid out invisibly while there are none, so the
+    /// preview keeps its size.
+    placeholder: Vec<Card>,
 }
 
+#[derive(Clone)]
 struct Card {
     title: String,
     /// Components as `Debug` text, e.g. `Health(50)`, sorted.
@@ -130,8 +137,16 @@ impl PreviewRuntime {
             playing: false,
             next_tick: 0.0,
             cards: Vec::new(),
+            placeholder: Vec::new(),
         };
         runtime.reset();
+        if runtime.demo.stepping {
+            runtime.step_frame();
+            runtime.placeholder = std::mem::take(&mut runtime.cards);
+            runtime.reset();
+        } else {
+            runtime.placeholder = runtime.cards.clone();
+        }
         runtime
     }
 
@@ -217,6 +232,23 @@ impl PreviewRuntime {
         while self.next_index() != 0 {
             self.step();
         }
+    }
+
+    /// Runs the next system while playing and returns how long (in seconds) to show it:
+    /// a frame's share at the demo's rate, or longer when it ran a `Startup` system or
+    /// spawned or despawned entities, so those changes can be seen.
+    fn play_step(&mut self) -> f64 {
+        let titles = |cards: &[Card]| cards.iter().map(|c| c.title.clone()).collect::<Vec<_>>();
+        let before = titles(&self.cards);
+        self.step();
+        let startup = self
+            .last
+            .is_some_and(|index| self.demo.startup.contains(&self.demo.systems[index]));
+        if startup || titles(&self.cards) != before {
+            return HOLD;
+        }
+        let per_frame = self.demo.systems.len() - self.demo.startup.len();
+        1.0 / (f64::from(self.demo.fps) * per_frame.max(1) as f64)
     }
 
     /// Goes back one step: stepping only runs forward, so this replays from the start.
@@ -336,10 +368,9 @@ fn play_previews(time: Res<Time<Real>>, mut previews: Query<&mut PreviewRuntime>
     let now = time.elapsed_secs_f64();
     for mut preview in &mut previews {
         if preview.playing && now >= preview.next_tick {
-            preview.step_frame();
-            let period = 1.0 / f64::from(preview.demo.fps);
-            // Catch up at most one frame after a stall.
-            preview.next_tick = (preview.next_tick + period).max(now);
+            let hold = preview.play_step();
+            // Catch up at most one step after a stall.
+            preview.next_tick = (preview.next_tick + hold).max(now);
         }
     }
 }
@@ -446,7 +477,7 @@ fn show_previews(
         let group = parents.iter_ancestors(host).find(|&e| groups.contains(e));
         if let Ok(PreviewPart::Cards) = parts.get(host) {
             commands.entity(host).despawn_children();
-            spawn_cards(&mut commands, host, &preview.cards);
+            spawn_cards(&mut commands, host, &preview.cards, &preview.placeholder);
         }
         for entity in group.into_iter().flat_map(|g| children.iter_descendants(g)) {
             if let (Ok(PreviewPart::PlayIcon), Ok(mut text)) =
@@ -467,22 +498,38 @@ fn show_previews(
     }
 }
 
-fn spawn_cards(commands: &mut Commands, parent: Entity, cards: &[Card]) {
-    if cards.is_empty() {
-        commands
-            .spawn_scene(muted("No entities"))
-            .insert(ChildOf(parent));
-        return;
-    }
-    for card in cards {
+/// The entity cards, or "No entities" over the invisible `placeholder` cards (keeping the
+/// size the preview will have).
+fn spawn_cards(commands: &mut Commands, parent: Entity, cards: &[Card], placeholder: &[Card]) {
+    let empty = cards.is_empty();
+    for card in if empty { placeholder } else { cards } {
         let title = card.title.clone();
         let components: Vec<ComponentValue> = card
             .rows
             .iter()
             .map(|row| ComponentValue::parse(row))
             .collect();
+        let mut spawned =
+            commands.spawn_scene(bsn! { @EntityCard { @title: title, @components: components } });
+        spawned.insert(ChildOf(parent));
+        if empty {
+            spawned.insert(Visibility::Hidden);
+        }
+    }
+    if empty {
         commands
-            .spawn_scene(bsn! { @EntityCard { @title: title, @components: components } })
+            .spawn_scene(bsn! {
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0),
+                    right: px(0),
+                    top: px(0),
+                    bottom: px(0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                }
+                Children [ @{muted("No entities")} ]
+            })
             .insert(ChildOf(parent));
     }
 }
@@ -529,6 +576,31 @@ mod tests {
         preview.step_back();
         assert!(preview.cards[0].rows.contains(&"Health(51)".to_owned()));
         assert_eq!(preview.steps, 2);
+    }
+
+    #[test]
+    fn empty_previews_know_the_cards_to_come() {
+        let preview = PreviewRuntime::new(world_demo("regenerate"), "");
+        assert!(preview.cards.is_empty());
+        assert_eq!(preview.placeholder.len(), 1);
+        assert_eq!(preview.frame, 0, "the probe frame is undone");
+    }
+
+    #[test]
+    fn playing_holds_on_spawns() {
+        let mut preview = PreviewRuntime::new(world_demo("regenerate"), "");
+        assert!(
+            (preview.play_step() - HOLD).abs() < f64::EPSILON,
+            "spawn_player"
+        );
+        assert!(
+            (preview.play_step() - 0.1).abs() < 1e-9,
+            "regenerate at 10 fps"
+        );
+        assert!(
+            (preview.play_step() - 0.1).abs() < 1e-9,
+            "spawn_player is skipped"
+        );
     }
 
     #[test]
