@@ -39,6 +39,7 @@ pub mod layer {
     pub const KEYBOARD: i32 = 120;
     pub const MENU: i32 = 150;
     pub const TOAST: i32 = 160;
+    pub const TOOLTIP: i32 = 170;
     pub const STATS: i32 = 200;
 }
 

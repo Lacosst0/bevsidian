@@ -20,6 +20,7 @@ pub mod stepper;
 pub mod switch;
 pub mod tabs;
 pub mod toast;
+pub mod tooltip;
 pub mod tree;
 pub mod typography;
 
@@ -42,5 +43,6 @@ pub use stepper::stepper;
 pub use switch::switch;
 pub use tabs::{tab, tab_list};
 pub use toast::toast;
+pub use tooltip::Tooltip;
 pub use tree::{disclosure, tree_children};
 pub use typography::{caption, count, empty, group_label, label, muted, tinted, title};

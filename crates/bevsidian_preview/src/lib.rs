@@ -20,7 +20,7 @@ mod runtime;
 use bevy::{prelude::*, ui_widgets::Activate};
 use bevy_ui_commonmark::{CodeBlockInfo, CodeHighlight, CodePreview, MdCodeGroup};
 
-use bevsidian_ui::{Size, Variant, button, glyph, inset, tinted_icon, vertical_separator};
+use bevsidian_ui::{Size, Tooltip, Variant, button, glyph, inset, tinted_icon, vertical_separator};
 pub use runtime::PreviewRuntime;
 
 use example::{Kind, Options, View};
@@ -146,26 +146,34 @@ enum Control {
 fn controls(stepping: bool) -> impl Scene {
     let steps: Vec<Box<dyn Scene>> = if stepping {
         vec![
-            Box::new(control_button(Control::Back, "step-back")),
-            Box::new(control_button(Control::Play, "play")),
-            Box::new(control_button(Control::Forward, "step-forward")),
+            Box::new(control_button(Control::Back, "step-back", "Step back")),
+            Box::new(control_button(Control::Play, "play", "Play / pause")),
+            Box::new(control_button(
+                Control::Forward,
+                "step-forward",
+                "Step forward",
+            )),
         ]
     } else {
-        vec![Box::new(control_button(Control::Play, "play"))]
+        vec![Box::new(control_button(
+            Control::Play,
+            "play",
+            "Play / pause",
+        ))]
     };
     bsn! {
         Node { align_items: AlignItems::Center, column_gap: px(2) }
         Children [
             {steps}
             --
-            @{control_button(Control::Reset, "rotate-ccw")}
+            @{control_button(Control::Reset, "rotate-ccw", "Restart")}
             --
             @{vertical_separator()}
         ]
     }
 }
 
-fn control_button(control: Control, icon: &str) -> impl Scene + use<> {
+fn control_button(control: Control, icon: &str, tip: &'static str) -> impl Scene + use<> {
     let part = if control == Control::Play {
         ControlPart::PlayIcon
     } else {
@@ -173,6 +181,7 @@ fn control_button(control: Control, icon: &str) -> impl Scene + use<> {
     };
     bsn! {
         @{button(Variant::Ghost, Size::IconXs)}
+        Tooltip::new(tip)
         on(move |activate: On<Activate>,
                  time: Res<Time<Real>>,
                  parents: Query<&ChildOf>,

@@ -38,6 +38,7 @@ pub fn links_button(nav: Nav, vault: Vault, compact: bool) -> impl Scene {
         @{button(Variant::Ghost, size)}
         Node { padding: UiRect::horizontal(px(if compact { 0.0 } else { 8.0 })), flex_shrink: 0.0 }
         LinksAnchor
+        Tooltip::new("Links")
         Selected($open)
         on(move |_: On<Activate>| toggle.update(|shown| *shown = !*shown))
         Children [

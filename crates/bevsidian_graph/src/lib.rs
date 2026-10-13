@@ -26,7 +26,7 @@ use bevsidian_core::{
     nav::{Nav, View},
     vault::{NoteId, Vault, VaultData},
 };
-use bevsidian_ui::{Size, Variant, caption, color, icon_button, radius, shadow};
+use bevsidian_ui::{Size, Tooltip, Variant, caption, color, icon_button, radius, shadow};
 
 const LAYER: usize = 1;
 
@@ -1217,9 +1217,10 @@ fn fit_all(
 /// Zoom buttons over the graph (the only way to zoom on touch screens): one bordered group of
 /// zoom in, zoom out and fit.
 pub fn zoom_controls() -> impl Scene {
-    fn button(icon: &'static str, factor: f32, first: bool) -> impl Scene {
+    fn button(icon: &'static str, tip: &'static str, factor: f32, first: bool) -> impl Scene {
         bsn! {
             @{icon_button(Variant::Ghost, Size::Icon, icon)}
+            Tooltip::new(tip)
             Node {
                 border: UiRect::top(px(if first { 0.0 } else { 1.0 })),
                 border_radius: BorderRadius::ZERO,
@@ -1261,11 +1262,11 @@ pub fn zoom_controls() -> impl Scene {
         BorderColor::all(color::INPUT)
         shadow
         Children [
-            @{button("plus", 0.8, true)}
+            @{button("plus", "Zoom in", 0.8, true)}
             --
-            @{button("minus", 1.25, false)}
+            @{button("minus", "Zoom out", 1.25, false)}
             --
-            @{button("maximize", 0.0, false)}
+            @{button("maximize", "Fit to screen", 0.0, false)}
         ]
     }
 }

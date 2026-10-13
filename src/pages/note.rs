@@ -197,6 +197,7 @@ fn back_to_top(nav: Nav) -> impl Scene {
             if $scrolled {
                 let shadow = shadow.clone();
                 @{icon_button(Variant::Outline, Size::IconLg, "arrow-up")}
+                Tooltip::new("Back to top")
                 Surface { idle: color::CARD, hover: color::ACCENT, selected: color::ACCENT }
                 Node { border_radius: BorderRadius::all(px(radius::FULL)) }
                 shadow

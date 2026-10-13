@@ -76,6 +76,18 @@ impl Vault {
     }
 }
 
+/// Characters of context before and after a search term in an [`Excerpt`].
+const EXCERPT_BEFORE: usize = 16;
+const EXCERPT_AFTER: usize = 60;
+
+/// A search result's context: the matched term with some text around it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Excerpt {
+    pub before: String,
+    pub term: String,
+    pub after: String,
+}
+
 /// A reading path through the vault: a note with `path: true` in its front matter, whose
 /// links are the path's steps, in order (e.g. a numbered list of `[[links]]`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -254,30 +266,57 @@ impl VaultData {
         hits.into_iter().map(|(_, id)| id).collect()
     }
 
-    /// A short excerpt of the note around the first search term.
-    pub fn excerpt(&self, id: NoteId, query: &str) -> Option<String> {
+    /// A short excerpt of the note around the first search term: a few words before it, the
+    /// term as written in the note, and what follows.
+    pub fn excerpt(&self, id: NoteId, query: &str) -> Option<Excerpt> {
         let term = query.split_whitespace().next()?.to_lowercase();
         let text = self.notes[id].doc.plain_text();
+        // Lowercasing can change byte lengths: only map positions back when it did not.
         let lower = text.to_lowercase();
+        if lower.len() != text.len() {
+            return None;
+        }
         let at = lower.find(&term)?;
-        let start = text[..at]
+        let end_of_term = at + term.len();
+        // Up to a few words before the term (it stays visible in a narrow list), from a word's
+        // start.
+        let mut start = text[..at]
             .char_indices()
             .rev()
-            .nth(30)
+            .nth(EXCERPT_BEFORE)
             .map_or(0, |(i, _)| i);
-        let end = text[at..]
+        if start > 0 {
+            start = text[start..at]
+                .find(char::is_whitespace)
+                .map_or(at, |space| start + space + 1);
+        }
+        let end = text[end_of_term..]
             .char_indices()
-            .nth(term.chars().count() + 50)
-            .map_or(text.len(), |(i, _)| at + i);
-        let snippet = text[start..end]
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ");
-        Some(format!(
-            "{}{snippet}{}",
-            if start > 0 { "…" } else { "" },
-            if end < text.len() { "…" } else { "" }
-        ))
+            .nth(EXCERPT_AFTER)
+            .map_or(text.len(), |(i, _)| end_of_term + i);
+        let squash = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+        // Keep the spaces around the term (squashing drops them).
+        let space_before = text[..at].ends_with(char::is_whitespace);
+        let space_after = text[end_of_term..].starts_with(char::is_whitespace);
+        let mut before = squash(&text[start..at]);
+        if space_before && !before.is_empty() {
+            before.push(' ');
+        }
+        if start > 0 {
+            before.insert(0, '…');
+        }
+        let mut after = squash(&text[end_of_term..end]);
+        if space_after && !after.is_empty() {
+            after.insert(0, ' ');
+        }
+        if end < text.len() {
+            after.push('…');
+        }
+        Some(Excerpt {
+            before,
+            term: text[at..end_of_term].to_owned(),
+            after,
+        })
     }
 }
 
@@ -341,10 +380,8 @@ mod tests {
         assert_eq!(v.search("", Some("ecs")), vec![v.find("ECS").unwrap()]);
         assert_eq!(v.search("rendering", None)[0], v.find("Rendering").unwrap());
         assert_eq!(v.search("nothing-matches", None), Vec::<NoteId>::new());
-        assert!(
-            v.excerpt(v.find("ECS").unwrap(), "back")
-                .unwrap()
-                .contains("Back to")
-        );
+        let excerpt = v.excerpt(v.find("ECS").unwrap(), "back").unwrap();
+        assert_eq!(excerpt.term, "Back", "as written in the note");
+        assert!(excerpt.after.starts_with(" to"));
     }
 }
