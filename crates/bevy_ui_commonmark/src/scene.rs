@@ -100,6 +100,9 @@ pub struct CodeHighlight(pub Vec<core::ops::Range<usize>>);
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub(crate) struct CodeLineHeight(pub f32);
 
+/// Space (logical px) between a code block's edges and its code.
+const CODE_PADDING: Vec2 = Vec2::new(16.0, 12.0);
+
 /// A highlight bar behind code lines (see [`CodeHighlight`]).
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub(crate) struct CodeHighlightBar;
@@ -612,18 +615,26 @@ fn code_block(
             overflow: Overflow::scroll_x(),
             width: Val::Percent(100.0),
             min_width: Val::Px(0.0),
-            padding: UiRect::axes(Val::Px(16.0), Val::Px(12.0)),
         }
         // Not a `ScrollArea`: that would swallow vertical wheel scrolling over the block.
         ScrollPosition
         on(scroll_code_sideways)
-        CodeHighlight
-        line_height
-        HighlightColor(highlight_color)
         Children [
-            root @{style_scene} no_wrap SelectableText
-            Node { flex_shrink: 0.0 }
-            Children [ {spans} ]
+            // The padded code, at least as wide as the block: highlight bars span it and
+            // scroll sideways with the text.
+            Node {
+                min_width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                padding: UiRect::axes(Val::Px(CODE_PADDING.x), Val::Px(CODE_PADDING.y)),
+            }
+            CodeHighlight
+            line_height
+            HighlightColor(highlight_color)
+            Children [
+                root @{style_scene} no_wrap SelectableText
+                Node { flex_shrink: 0.0 }
+                Children [ {spans} ]
+            ]
         ]
     });
 
@@ -779,10 +790,10 @@ pub(crate) fn draw_code_highlights(
                 Node {
                     position_type: PositionType::Absolute,
                     left: Val::Px(0.0),
-                    width: Val::Percent(100.0),
-                    top: Val::Px(lines.start as f32 * line.0),
+                    right: Val::Px(0.0),
+                    // Absolute insets start at the padding box, the text inside the padding.
+                    top: Val::Px(CODE_PADDING.y + lines.start as f32 * line.0),
                     height: Val::Px(lines.len() as f32 * line.0),
-                    border_radius: BorderRadius::all(Val::Px(3.0)),
                     ..default()
                 },
                 BackgroundColor(color.0),
