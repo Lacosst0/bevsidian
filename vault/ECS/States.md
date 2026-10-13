@@ -57,6 +57,65 @@ fn start(mut next: ResMut<NextState<AppState>>) {
 
 The change happens the next time Bevy runs the `StateTransition` schedule (once a frame), not instantly. Setting the state you are already in does nothing visible by default.
 
+## Try it
+
+This is the real thing: Bevy's own `State`, `NextState` and `OnEnter` / `OnExit` schedules running in the preview. Press **Play** and watch the log: `OnExit(Menu)` runs first, then `OnEnter(Playing)`. **Back to menu** goes the other way.
+
+```rust example=states
+use bevy::prelude::*;
+
+#[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+enum AppState {
+    #[default]
+    Menu,
+    Playing,
+}
+
+#[derive(Component)]
+struct MenuScreen;
+
+#[derive(Component)]
+struct Level;
+
+fn spawn_menu(mut commands: Commands) {
+    commands.spawn(MenuScreen);
+    info!("OnEnter(Menu): spawn the menu");
+}
+
+fn despawn_menu(menus: Query<Entity, With<MenuScreen>>, mut commands: Commands) {
+    for menu in &menus {
+        commands.entity(menu).despawn();
+    }
+    info!("OnExit(Menu): despawn the menu");
+}
+
+fn spawn_level(mut commands: Commands) {
+    commands.spawn(Level);
+    info!("OnEnter(Playing): spawn the level");
+}
+
+fn despawn_level(levels: Query<Entity, With<Level>>, mut commands: Commands) {
+    for level in &levels {
+        commands.entity(level).despawn();
+    }
+    info!("OnExit(Playing): despawn the level");
+}
+
+fn plugin(app: &mut App) {
+    app.init_state::<AppState>()
+        .add_systems(OnEnter(AppState::Menu), spawn_menu)
+        .add_systems(OnExit(AppState::Menu), despawn_menu)
+        .add_systems(OnEnter(AppState::Playing), spawn_level)
+        .add_systems(OnExit(AppState::Playing), despawn_level);
+}
+
+fn play(mut next: ResMut<NextState<AppState>>) {
+    next.set(AppState::Playing);
+}
+```
+
+The menu entity exists only in the menu, the level only while playing. Each state brings what it needs and takes it away again; `DespawnOnExit` (below) does the removal for you.
+
 ## Clean up for free
 
 Mark entities with `DespawnOnExit` and they vanish when the state ends:

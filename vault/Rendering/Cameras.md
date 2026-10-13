@@ -134,9 +134,93 @@ fn cursor_world(
 }
 ```
 
+## A camera that follows
+
+Do not copy the player's position: **ease towards it**. `smooth_nudge` moves a fraction of the gap each frame, correctly for any frame rate:
+
+```rust
+use bevy::prelude::*;
+
+#[derive(Component)]
+struct Player;
+
+fn follow(
+    time: Res<Time>,
+    player: Single<&Transform, (With<Player>, Without<Camera2d>)>,
+    mut camera: Single<&mut Transform, With<Camera2d>>,
+) {
+    let target = player.translation.truncate().extend(camera.translation.z);
+    camera.translation.smooth_nudge(&target, 5.0, time.delta_secs());
+}
+```
+
+The `5.0` is how fast it catches up (higher is snappier). Put it in `PostUpdate`, after the player's transform changes, or the camera lags a frame behind and the player seems to jitter.
+
+## Keep the camera inside the level
+
+Clamp the follow target so the camera never shows outside the map:
+
+```rust
+use bevy::prelude::*;
+
+/// The camera centre limited so a view of `view` size stays inside `bounds`.
+fn clamp_to_level(centre: Vec2, view: Vec2, bounds: Rect) -> Vec2 {
+    let half = view / 2.0;
+    Vec2::new(
+        centre.x.clamp(bounds.min.x + half.x, (bounds.max.x - half.x).max(bounds.min.x + half.x)),
+        centre.y.clamp(bounds.min.y + half.y, (bounds.max.y - half.y).max(bounds.min.y + half.y)),
+    )
+}
+```
+
+(The `max` keeps it sane when the level is smaller than the screen.)
+
+## Pixel-art games
+
+Pixel art needs the screen to be a whole multiple of the art's pixels, or edges shimmer. Two parts: sample images without smoothing (`ImagePlugin::default_nearest()`), and use a **fixed-height** view that scales with the window:
+
+```rust
+use bevy::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_systems(Startup, |mut commands: Commands| {
+            commands.spawn((
+                Camera2d,
+                Projection::Orthographic(OrthographicProjection {
+                    scaling_mode: bevy::camera::ScalingMode::FixedVertical { viewport_height: 180.0 },
+                    ..OrthographicProjection::default_2d()
+                }),
+            ));
+        })
+        .run();
+}
+```
+
+`FixedVertical` always shows 180 world units top to bottom: a wider window shows more to the sides, not a bigger picture. `AutoMin`/`AutoMax` and `Fixed` are the other scaling modes.
+
+## Which camera sees what
+
+Each camera draws the entities whose `RenderLayers` overlap with its own. The default is layer 0 for both, so everything is seen by everyone. Put the minimap-only icons on layer 1 and give the minimap camera layer 1 too:
+
+```rust
+use bevy::{camera::visibility::RenderLayers, prelude::*};
+
+fn setup(mut commands: Commands) {
+    commands.spawn((Camera2d, RenderLayers::layer(0)));
+    commands.spawn((
+        Camera2d,
+        Camera { order: 1, ..default() },
+        RenderLayers::from_layers(&[0, 1]),   // sees the world plus the minimap icons
+    ));
+    commands.spawn((Sprite::default(), RenderLayers::layer(1)));  // only the second camera sees this
+}
+```
+
 ## Screen shake, follow, bloom
 
-Cameras are entities: shake by changing `Transform`, follow by `smooth_nudge` ([[Transforms]]), glow by adding `Bloom` ([[Post-processing]]).
+Cameras are entities: shake by changing `Transform` ([[Game feel]]), glow by adding `Bloom` ([[Post-processing]]).
 
 ## Next
 

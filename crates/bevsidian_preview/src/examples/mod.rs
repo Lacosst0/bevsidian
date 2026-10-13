@@ -10,6 +10,7 @@ mod bouncing;
 mod cave;
 mod change;
 mod commands;
+mod conditions;
 mod dragging;
 mod ecs;
 mod events;
@@ -22,6 +23,7 @@ mod resources;
 pub mod scenes;
 mod sprites;
 mod stage;
+mod states;
 mod tilemap;
 mod timers;
 
@@ -31,13 +33,14 @@ use crate::example::Example;
 
 /// Every example's name.
 #[cfg(test)]
-pub const NAMES: [&str; 18] = [
+pub const NAMES: [&str; 20] = [
     "ai",
     "animation",
     "bouncing",
     "cave",
     "change",
     "commands",
+    "conditions",
     "dragging",
     "ecs",
     "events",
@@ -48,6 +51,7 @@ pub const NAMES: [&str; 18] = [
     "queries",
     "resources",
     "sprites",
+    "states",
     "tilemap",
     "timers",
 ];
@@ -61,6 +65,7 @@ pub fn find(name: &str) -> Option<&'static Example> {
         "cave" => &cave::EXAMPLE,
         "change" => &change::EXAMPLE,
         "commands" => &commands::EXAMPLE,
+        "conditions" => &conditions::EXAMPLE,
         "dragging" => &dragging::EXAMPLE,
         "ecs" => &ecs::EXAMPLE,
         "events" => &events::EXAMPLE,
@@ -71,6 +76,7 @@ pub fn find(name: &str) -> Option<&'static Example> {
         "queries" => &queries::EXAMPLE,
         "resources" => &resources::EXAMPLE,
         "sprites" => &sprites::EXAMPLE,
+        "states" => &states::EXAMPLE,
         "tilemap" => &tilemap::EXAMPLE,
         "timers" => &timers::EXAMPLE,
         _ => return None,

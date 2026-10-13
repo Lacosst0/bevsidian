@@ -23,7 +23,7 @@ An Obsidian-like documentation vault for Bevy, written in Bevy 0.20 (BSN scenes,
 
 Notes run code with `example=NAME` (README, "Live code previews"). Examples live in
 `crates/bevsidian_preview/src/examples/`, one file each; a block runs the example's base
-systems plus the functions its code mentions. Keep a note's code in sync with its example.
+systems plus the functions its code mentions. Keep a note's code in sync with its example. A ```` ```rust pick ```` block lets the reader switch parts of a program on and off (README, "Pick blocks").
 
 ## Checks
 

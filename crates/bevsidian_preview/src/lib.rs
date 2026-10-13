@@ -383,6 +383,24 @@ mod tests {
     }
 
     #[test]
+    fn states_follow_the_buttons() {
+        let example = examples::find("states").unwrap();
+        let setup = (example.setup)(&World::new());
+        let code = "spawn_menu despawn_menu spawn_level despawn_level NextState";
+        let mut preview = PreviewRuntime::new(example, setup, code, None);
+        let shows = |preview: &PreviewRuntime, row: &str| {
+            preview
+                .cards
+                .iter()
+                .any(|c| c.rows.iter().any(|r| r.contains(row)))
+        };
+        assert!(shows(&preview, "MenuScreen"), "starts in the menu");
+        preview.run_action(0); // Play
+        assert!(shows(&preview, "Level"));
+        assert!(!shows(&preview, "MenuScreen"), "OnExit(Menu) ran");
+    }
+
+    #[test]
     fn every_example_builds() {
         for name in examples::NAMES {
             let example = examples::find(name).unwrap();

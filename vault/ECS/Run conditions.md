@@ -8,25 +8,59 @@ A **run condition** is a function that returns `bool`. Attach it to a system and
 
 ## Attach a condition
 
-```rust
+```rust example=conditions
 use bevy::prelude::*;
 
 #[derive(Resource)]
 struct Paused(bool);
 
+#[derive(Component)]
+struct Enemy;
+
+#[derive(Component)]
+struct Distance(u32);
+
 fn not_paused(paused: Res<Paused>) -> bool {
     !paused.0
 }
 
-fn move_enemies() {}
+fn spawn_enemies(mut commands: Commands) {
+    commands.spawn((Enemy, Distance(0)));
+}
+
+fn move_enemies(mut enemies: Query<&mut Distance, With<Enemy>>) {
+    for mut distance in &mut enemies {
+        distance.0 += 1;
+    }
+}
+
+fn announce(paused: Res<Paused>) {
+    info!("Paused changed to {}", paused.0);
+}
+
+fn always_runs(paused: Res<Paused>) {
+    if paused.0 {
+        info!("always_runs: still running while paused");
+    }
+}
 
 fn main() {
     App::new()
         .insert_resource(Paused(false))
-        .add_systems(Update, move_enemies.run_if(not_paused))
+        .add_systems(Startup, spawn_enemies)
+        .add_systems(
+            Update,
+            (
+                move_enemies.run_if(not_paused),
+                announce.run_if(resource_changed::<Paused>),
+                always_runs,
+            ),
+        )
         .run();
 }
 ```
+
+Press play and watch `Distance` grow. Then **Toggle pause**: `move_enemies` is skipped (the step highlights nothing), `announce` runs once because `Paused` changed, and `always_runs` keeps going.
 
 A condition is a system too: it can take any read-only parameter (`Res`, `Query`, ...).
 

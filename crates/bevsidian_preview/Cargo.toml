@@ -20,6 +20,7 @@ bevy = { workspace = true, features = [
     "bevy_picking",
     "ui_picking",
     "bevy_scene",
+    "bevy_state",
     "bevy_log",
     # Bevy's system stepping, used to run a preview one system at a time.
     "bevy_debug_stepping",

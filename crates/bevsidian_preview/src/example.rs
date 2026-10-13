@@ -201,6 +201,20 @@ macro_rules! update {
     };
 }
 
+/// A system that runs every frame while a condition holds
+/// (`add_systems(Update, f.run_if(condition))`).
+macro_rules! update_if {
+    ($f:ident, $condition:expr) => {
+        $crate::example::Function {
+            name: stringify!($f),
+            kind: $crate::example::Kind::Update,
+            add: |_, schedule, step| {
+                schedule.add_systems($f.run_if($condition).in_set(step));
+            },
+        }
+    };
+}
+
 /// An observer (`add_observer(f)`).
 macro_rules! observer {
     ($f:ident) => {
@@ -214,7 +228,24 @@ macro_rules! observer {
     };
 }
 
-pub(crate) use {observer, startup, update};
+/// A system in a schedule of its own, such as `OnEnter(State::A)`
+/// (`add_systems(OnEnter(State::A), f)`). Like an observer, it runs when something
+/// triggers it, not as a step of every frame.
+macro_rules! scheduled {
+    ($f:ident, $label:expr) => {
+        $crate::example::Function {
+            name: stringify!($f),
+            kind: $crate::example::Kind::Observer,
+            add: |world, _, _| {
+                world
+                    .resource_mut::<::bevy::ecs::schedule::Schedules>()
+                    .add_systems($label, $f);
+            },
+        }
+    };
+}
+
+pub(crate) use {observer, scheduled, startup, update, update_if};
 
 #[cfg(test)]
 mod tests {

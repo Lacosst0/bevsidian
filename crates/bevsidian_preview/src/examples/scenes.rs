@@ -15,6 +15,8 @@ pub fn find(name: &str) -> Option<fn() -> Box<dyn Scene>> {
         "kit-form" => || Box::new(kit::settings_card()),
         "kit-entity" => || Box::new(kit::entity_card()),
         "flex" => || Box::new(layout::flex()),
+        "grid" => || Box::new(layout::grid()),
+        "grow" => || Box::new(layout::grow()),
         _ => return None,
     })
 }
@@ -273,6 +275,93 @@ mod layout {
                     @{square(50.0, 50.0, Color::srgb(0.98, 0.75, 0.3))}
                     --
                     @{square(30.0, 40.0, Color::srgb(0.35, 0.75, 0.9))}
+                ]
+            ]
+        }
+    }
+
+    fn cell(index: usize, height: f32) -> impl Scene {
+        const COLOURS: [Color; 6] = [
+            Color::srgb(0.95, 0.45, 0.4),
+            Color::srgb(0.98, 0.75, 0.3),
+            Color::srgb(0.55, 0.85, 0.45),
+            Color::srgb(0.35, 0.75, 0.9),
+            Color::srgb(0.6, 0.5, 0.95),
+            Color::srgb(0.95, 0.55, 0.8),
+        ];
+        let color = COLOURS[index % COLOURS.len()];
+        bsn! {
+            Node { height: px(height), min_width: px(24) }
+            BackgroundColor(color)
+        }
+    }
+
+    /// Eight cells in a grid whose columns and gap you change.
+    pub fn grid() -> impl Scene {
+        let columns = signal(|| 3_u16);
+        let gap = signal(|| 4_u32);
+        let column_options = named(vec![(1, "1"), (2, "2"), (3, "3"), (4, "4")]);
+        let gap_options = named(vec![(0, "0"), (4, "4"), (12, "12")]);
+        let cells: Vec<_> = (0..8).map(|i| cell(i, 36.0)).collect();
+        view! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
+            Children [
+                @{field("columns", None, segmented(column_options, columns.clone()))}
+                --
+                @{field("gap", None, segmented(gap_options, gap.clone()))}
+                --
+                Node {
+                    display: Display::Grid,
+                    grid_template_columns: $(vec![RepeatedGridTrack::flex($columns, 1.0)]),
+                    column_gap: $(px($gap as f32)),
+                    row_gap: $(px($gap as f32)),
+                    padding: UiRect::all(px(8)),
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(6)),
+                }
+                BorderColor::all(Color::srgb(0.3, 0.3, 0.33))
+                Children [ {cells} ]
+            ]
+        }
+    }
+
+    /// A row of three boxes: how much the middle one grows, and whether the row wraps.
+    pub fn grow() -> impl Scene {
+        let grow = signal(|| 0_u32);
+        let wrap = signal(|| false);
+        let grow_options = named(vec![(0, "0"), (1, "1"), (2, "2")]);
+        let wrap_options = named(vec![(false, "nowrap"), (true, "wrap")]);
+        let fixed = |index: usize| {
+            bsn! {
+                @{cell(index, 36.0)}
+                Node { width: px(110), flex_shrink: 0.0 }
+            }
+        };
+        view! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
+            Children [
+                @{field("flex-grow (middle)", None, segmented(grow_options, grow.clone()))}
+                --
+                @{field("flex-wrap", None, segmented(wrap_options, wrap.clone()))}
+                --
+                Node {
+                    column_gap: px(8),
+                    row_gap: px(8),
+                    padding: UiRect::all(px(8)),
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(6)),
+                    flex_wrap: $(if $wrap { FlexWrap::Wrap } else { FlexWrap::NoWrap }),
+                }
+                BorderColor::all(Color::srgb(0.3, 0.3, 0.33))
+                Children [
+                    @{fixed(0)}
+                    --
+                    @{cell(1, 36.0)}
+                    Node { width: px(110), flex_grow: $($grow as f32) }
+                    --
+                    @{fixed(2)}
+                    --
+                    @{fixed(3)}
                 ]
             ]
         }

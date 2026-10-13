@@ -109,6 +109,96 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 Works in 2D too: place sources and the listener on the same plane (`spatial_audio_2d` example).
 
+## Volume channels: music, effects, master
+
+Players expect separate sliders. Mark each sound with its kind, keep the volumes in a resource, and write them to the sinks whenever the resource changes:
+
+```rust
+use bevy::{audio::Volume, prelude::*};
+
+#[derive(Resource)]
+struct Volumes { master: f32, music: f32, effects: f32 }
+
+#[derive(Component)]
+struct Music;
+
+#[derive(Component)]
+struct Effect;
+
+fn apply_volumes(
+    volumes: Res<Volumes>,
+    mut music: Query<&mut AudioSink, (With<Music>, Without<Effect>)>,
+    mut effects: Query<&mut AudioSink, (With<Effect>, Without<Music>)>,
+) {
+    if !volumes.is_changed() {
+        return;
+    }
+    for mut sink in &mut music {
+        sink.set_volume(Volume::Linear(volumes.master * volumes.music));
+    }
+    for mut sink in &mut effects {
+        sink.set_volume(Volume::Linear(volumes.master * volumes.effects));
+    }
+}
+```
+
+Spawn effects with `Effect` and the starting volume from the same resource, so a new sound is not louder than the slider says. Volume sliders feel right on a curve: use the slider value squared, since loudness is not linear.
+
+## Fade in and out
+
+Abrupt starts and stops click. Fade the sink's volume over time. This one fades out and then despawns (an easing curve would be gentler, see [[Game feel]]):
+
+```rust
+use bevy::{audio::Volume, prelude::*};
+
+#[derive(Component)]
+struct FadeOut { seconds: f32, left: f32 }
+
+fn fade_out(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut sounds: Query<(Entity, &mut FadeOut, &mut AudioSink)>,
+) {
+    for (entity, mut fade, mut sink) in &mut sounds {
+        fade.left -= time.delta_secs();
+        sink.set_volume(Volume::Linear((fade.left / fade.seconds).max(0.0)));
+        if fade.left <= 0.0 {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+```
+
+To change the music, fade the old track out and spawn the new one at once: that is a crossfade.
+
+## Variety and limits
+
+The same footstep a hundred times is fatiguing. Two cheap fixes:
+
+```rust
+use bevy::{audio::Volume, prelude::*};
+
+#[derive(Resource)]
+struct Footsteps(Vec<Handle<AudioSource>>);
+
+fn footstep(mut commands: Commands, steps: Res<Footsteps>, time: Res<Time>) {
+    // Pick one of several recordings, and shift the pitch a little.
+    let t = time.elapsed_secs();
+    let which = (t * 7.0) as usize % steps.0.len();     // use real randomness in a real game
+    let pitch = 0.95 + (t * 13.0).sin().abs() * 0.1;
+    commands.spawn((
+        AudioPlayer::new(steps.0[which].clone()),
+        PlaybackSettings::DESPAWN.with_speed(pitch).with_volume(Volume::Linear(0.6)),
+    ));
+}
+```
+
+And **limit** how many play at once: a swarm of enemies dying on one frame can spawn hundreds of players. Count `AudioPlayer`s of one kind and skip new ones past a cap (8 is plenty).
+
+## The browser needs a click first
+
+Web browsers refuse to start audio until the player has interacted with the page. If your music is silent on the web ([[Web build]]), that is why: show a "Click to start" screen, and begin the music after it.
+
 ## Settings players expect
 
 Store music volume, effects volume and mute in a [[Resources|resource]] and apply on change. Separate music from effects so players can turn down one. See [[Saving and loading]].

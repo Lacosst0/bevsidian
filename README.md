@@ -62,7 +62,13 @@ An example shows its world either as **cards** of its entities and component val
 
 To add one, write the program in a file there, list its functions with `startup!`, `update!` and `observer!` in an `Example`, and name it in `examples/mod.rs`. Keep the notes' code in sync with it. An `Example` can also have **actions** (buttons above the preview that do something to its world, shown when the block mentions the action's `name`), a **`Log`** resource (lines the systems "say", shown under the cards) and a **`tick`** that runs at the start of every frame (e.g. to swap message buffers). 2D games draw sprites (including texture atlases and rotation); `examples/stage.rs` has the shared stage.
 
+Examples list their functions with `startup!`, `update!`, `update_if!(f, condition)` (a system with a run condition), `observer!` and `scheduled!(f, OnEnter(State))` (a system in another schedule). `examples/states.rs` shows how to run Bevy's real state machinery in a bare world.
+
 `preview=NAME` shows a UI scene instead (see [`UI kit`](vault/UI%20kit.md)); those live in `examples/scenes.rs`.
+
+### Pick blocks
+
+A ```` ```rust pick ```` block is a program whose parts the reader switches on and off with chips (see [`bevy_radioactive`](vault/Libraries/bevy_radioactive.md)). Everything before the first `//@ option` is the base. `//@ anchor NAME` marks a line where options insert code (the marker is not shown); `//@ option ID Label` starts a chip, and each `//@ at NAME` below it starts the lines inserted at that anchor, indented like the anchor. Added lines are highlighted. `tools/check_snippets.py` compiles the base, every option alone and all of them together. The code is in `crates/bevy_ui_commonmark/src/pick.rs`.
 
 ## Running
 
