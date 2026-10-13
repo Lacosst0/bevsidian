@@ -579,10 +579,30 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
     }
 }
 
-/// The note icon shown to the right of its title.
+/// The note icon shown before its title (`size` is the title's font size): an accent glyph on
+/// a tinted rounded tile, centred on the title's first line.
 fn title_icon(icon: char, size: f32) -> impl Scene + use<> {
+    let tile = (size * 1.5).round();
+    let line = size * 1.2;
+    let node = Node {
+        width: Val::Px(tile),
+        height: Val::Px(tile),
+        flex_shrink: 0.0,
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        // Centred on the first line, a little low to match the text's visual centre.
+        margin: UiRect::top(Val::Px(((line - tile) / 2.0 + size * 0.06).round())),
+        border_radius: BorderRadius::all(Val::Px((tile * 0.28).round())),
+        ..default()
+    };
+    let tint = BackgroundColor(ACCENT.with_alpha(0.14));
     let text = Text::new(icon.to_string());
-    bsn! { text @{icon_font(size * 0.9)} TextColor(ACCENT) Pickable::IGNORE Node { flex_shrink: 0.0 } }
+    bsn! {
+        node
+        tint
+        Pickable::IGNORE
+        Children [ text @{icon_font(tile * 0.6)} TextColor(ACCENT) Pickable::IGNORE ]
+    }
 }
 
 /// Shard builder for the reading pane; the key is `(note, text size, layout, vault revision)`.
@@ -613,7 +633,7 @@ fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -
         let text = Text::new(note.name.clone());
         let size = theme.heading_size(1);
         let row = Node {
-            align_items: AlignItems::Center,
+            align_items: AlignItems::FlexStart,
             column_gap: Val::Px(size * 0.45),
             margin: UiRect::bottom(Val::Px(16.0)),
             ..default()
@@ -621,9 +641,9 @@ fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -
         bsn! {
             row
             Children [
-                text @{ui_font(size, FontWeight::BOLD)} TextColor(TEXT) SelectableText Node { flex_shrink: 1.0 }
-                --
                 @{title_icon(icon, size)}
+                --
+                text @{ui_font(size, FontWeight::BOLD)} TextColor(TEXT) SelectableText Node { flex_shrink: 1.0 }
             ]
         }
     });

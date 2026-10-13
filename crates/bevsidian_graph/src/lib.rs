@@ -100,6 +100,8 @@ pub struct GraphState {
     pinch: Option<f32>,
     /// Simulation "temperature": decays to zero, re-heated by interaction.
     alpha: f32,
+    /// The node last dragged: while the graph settles, nodes far from it barely move.
+    anchor: Option<Entity>,
     /// Shared node meshes and material.
     circle: Handle<Mesh>,
     mask: Handle<ColorMaterial>,
@@ -268,7 +270,13 @@ fn spawn_nodes(
         }
     }
     state.edges = edges;
-    state.alpha = state.alpha.max(if kept.is_empty() { 1.0 } else { 0.3 });
+    state.anchor = None;
+    if kept.is_empty() {
+        state.alpha = 1.0;
+    } else {
+        // An edit only adds or removes a few links: settle gently.
+        state.alpha = state.alpha.max(0.1);
+    }
 }
 
 /// Icon colours.
@@ -280,10 +288,9 @@ const DIM_COLOR: Color = Color::srgb(0.3, 0.3, 0.33);
 fn attach_viewport(
     mut commands: Commands,
     added: Query<Entity, Added<GraphViewport>>,
-    mut state: ResMut<GraphState>,
+    state: Res<GraphState>,
 ) {
     for entity in &added {
-        state.alpha = state.alpha.max(0.6);
         commands
             .entity(entity)
             .insert(ImageNode::new(state.image.clone()))
@@ -372,6 +379,7 @@ fn simulate(
         forces[j] -= f;
     }
     let alpha = state.alpha;
+    let weights = state.anchor.map(|anchor| mobility(&state.edges, anchor));
     for (i, (entity, mut node, mut transform)) in nodes.iter_mut().enumerate() {
         debug_assert_eq!(positions[i].0, entity);
         // Gravity towards the centre keeps islands on screen.
@@ -380,13 +388,44 @@ fn simulate(
             node.velocity = Vec2::ZERO;
             continue;
         }
-        node.velocity = (node.velocity + force * dt * alpha) * 0.85;
+        let mobility = weights
+            .as_ref()
+            .map_or(1.0, |m| m.get(&entity).copied().unwrap_or(FAR_MOBILITY));
+        node.velocity = (node.velocity + force * dt * alpha * mobility) * 0.85;
         let step = node.velocity * dt * 8.0;
         transform.translation += step.clamp_length_max(40.0).extend(0.0);
     }
     if state.dragging.is_none() {
-        state.alpha *= 0.99;
+        // 1% per 60 Hz frame, at any frame rate.
+        state.alpha *= 0.99_f32.powf(dt * 60.0);
     }
+}
+
+/// How freely nodes near a dragged node move, by distance in links: the node itself settles,
+/// its neighbours follow partly, the next ring a little, and the rest of the graph stays put.
+const NEAR_MOBILITY: [f32; 3] = [1.0, 0.3, 0.1];
+const FAR_MOBILITY: f32 = 0.03;
+
+fn mobility(
+    edges: &[(Entity, Entity)],
+    anchor: Entity,
+) -> bevy::platform::collections::HashMap<Entity, f32> {
+    let mut result = bevy::platform::collections::HashMap::default();
+    result.insert(anchor, NEAR_MOBILITY[0]);
+    let mut ring = vec![anchor];
+    for &weight in &NEAR_MOBILITY[1..] {
+        let mut next = Vec::new();
+        for &(a, b) in edges {
+            for (from, to) in [(a, b), (b, a)] {
+                if ring.contains(&from) && !result.contains_key(&to) {
+                    result.insert(to, weight);
+                    next.push(to);
+                }
+            }
+        }
+        ring = next;
+    }
+    result
 }
 
 /// Label font size at zoom 1.
@@ -468,7 +507,7 @@ fn style_nodes(
 }
 
 /// Edge width on screen, in render-target pixels.
-const EDGE_WIDTH: f32 = 1.5;
+const EDGE_WIDTH: f32 = 2.5;
 
 fn draw_edges(
     nav: Res<Nav>,
@@ -499,7 +538,7 @@ fn draw_edges(
         } else if focus.is_some() {
             Color::srgb(0.2, 0.2, 0.22)
         } else {
-            Color::srgb(0.38, 0.38, 0.42)
+            Color::srgb(0.42, 0.42, 0.47)
         };
         let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
         let normal = (pb - pa).normalize_or_zero().perp() * half;
@@ -675,7 +714,8 @@ fn on_drag(
         state.press = Some(press);
         state.dragging = press.node;
         if press.node.is_some() {
-            state.alpha = state.alpha.max(0.3);
+            state.anchor = press.node;
+            state.alpha = state.alpha.max(0.15);
         }
     }
     let Ok((node, _)) = nodes_ui.get(event.entity) else {

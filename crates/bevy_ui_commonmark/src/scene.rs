@@ -57,8 +57,8 @@ pub struct RenderOptions<'a> {
     pub theme: &'a MdTheme,
     /// Whether a wikilink target exists (unresolved links are dimmed).
     pub resolve: &'a dyn Fn(&WikiLink) -> bool,
-    /// Shown to the right of the document title (its first top-level level-1 heading),
-    /// e.g. a note icon. Called with the heading's font size.
+    /// Shown before the document title (its first top-level level-1 heading), e.g. a note
+    /// icon, top-aligned with it. Called with the heading's font size.
     pub title_badge: Option<&'a dyn Fn(f32) -> Box<dyn Scene>>,
 }
 
@@ -161,12 +161,12 @@ fn heading_block(
     let title: Box<dyn Scene> = match badge {
         Some(badge) => {
             let row = Node {
-                align_items: AlignItems::Center,
+                align_items: AlignItems::FlexStart,
                 column_gap: Val::Px(size * 0.45),
                 ..default()
             };
             Box::new(
-                bsn! { row Children [ @{text} heading Node { flex_shrink: 1.0 } -- @{badge} ] },
+                bsn! { row Children [ @{badge} -- @{text} heading Node { flex_shrink: 1.0 } ] },
             )
         }
         None => Box::new(bsn! { @{text} heading }),
