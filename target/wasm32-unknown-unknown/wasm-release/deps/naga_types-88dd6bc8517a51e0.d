@@ -1,0 +1,11 @@
+/home/runner/work/bevsidian/bevsidian/target/wasm32-unknown-unknown/wasm-release/deps/naga_types-88dd6bc8517a51e0.d: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/glsl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/hlsl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/msl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/spv.rs
+
+/home/runner/work/bevsidian/bevsidian/target/wasm32-unknown-unknown/wasm-release/deps/libnaga_types-88dd6bc8517a51e0.rlib: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/glsl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/hlsl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/msl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/spv.rs
+
+/home/runner/work/bevsidian/bevsidian/target/wasm32-unknown-unknown/wasm-release/deps/libnaga_types-88dd6bc8517a51e0.rmeta: /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/lib.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/glsl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/hlsl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/msl.rs /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/spv.rs
+
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/lib.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/glsl.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/hlsl.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/msl.rs:
+/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/naga-types-30.0.1/src/spv.rs:

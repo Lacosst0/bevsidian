@@ -1,0 +1,7 @@
+cargo:rerun-if-changed=vault
+cargo:rerun-if-changed=vault/ECS.md
+cargo:rerun-if-changed=vault/Mario.md
+cargo:rerun-if-changed=vault/Rendering.md
+cargo:rerun-if-changed=vault/Scenes and BSN.md
+cargo:rerun-if-changed=vault/UI kit.md
+cargo:rerun-if-changed=vault/Welcome.md
