@@ -1,7 +1,7 @@
 //! The application shell: sidebars, top bar, reading pane and quick switcher.
 //!
 //! Static structure is plain BSN; everything that depends on navigation state is a
-//! `coat!` region or `shard` driven by the [`Nav`] signals.
+//! `view!` region driven by the [`Nav`] signals.
 
 use bevy::{
     feathers::controls::{FeathersTextInput, FeathersTextInputContainer},
@@ -11,7 +11,7 @@ use bevy::{
     text::FontWeight,
     ui_widgets::{Activate, ScrollArea},
 };
-use bevy_radioactive::coat::{coat, shard};
+use bevy_radioactive::view::{memo, view};
 use bevy_ui_commonmark::{MdTheme, RenderOptions, markdown_scene};
 use bevy_ui_textselect::{ClickableSpan, SelectableText};
 
@@ -55,15 +55,15 @@ fn hover_rows(
 #[derive(Component, Clone, Copy, Debug, Default)]
 struct ActiveRow;
 
-fn spawn_shell(mut commands: Commands, nav: Res<Nav>, vault: Res<Vault>) {
+fn spawn_shell(mut commands: Commands, nav: Res<Nav>, vault: Res<Vault>, theme: Res<MdTheme>) {
     // No MSAA: UI is anti-aliased per glyph/shape, and 4x MSAA at phone resolutions is costly.
     commands.spawn((Camera2d, IsDefaultUiCamera, Msaa::Off));
-    commands.spawn_scene(shell(nav.clone(), vault.clone()));
+    commands.spawn_scene(shell(nav.clone(), vault.clone(), theme.clone()));
 }
 
-fn shell(nav: Nav, vault: Vault) -> impl Scene {
+fn shell(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
     let left = left_sidebar(nav.clone(), vault.clone());
-    let main = main_area(nav.clone(), vault.clone());
+    let main = main_area(nav.clone(), vault.clone(), theme);
     let right = right_sidebar(nav.clone(), vault.clone());
     let backdrop = drawer_backdrop(nav.clone());
     let selection = crate::layout::selection_bar(nav.clone());
@@ -108,7 +108,7 @@ fn drawer_backdrop(nav: Nav) -> impl Scene {
         nav.left_open.clone(),
         nav.right_open.clone(),
     );
-    coat! {
+    view! {
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
@@ -149,7 +149,7 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
     let nav_tags = nav.clone();
     let nav_clear = nav.clone();
     let (mode, open, touch) = (nav.mode.clone(), nav.left_open.clone(), nav.touch.clone());
-    coat! {
+    view! {
         Node {
             display: $(if !$mode.left_drawer() || $open { Display::Flex } else { Display::None }),
             position_type: $(if $mode.left_drawer() { PositionType::Absolute } else { PositionType::Relative }),
@@ -263,7 +263,7 @@ fn file_row(
     nav: Nav,
     vault: &VaultData,
     query: &str,
-    current: bevy_radioactive::coat::Signal<NoteId>,
+    current: bevy_radioactive::view::Signal<NoteId>,
 ) -> impl Scene + use<> {
     let note = &vault.notes[id];
     let name = Text::new(note.name.clone());
@@ -277,7 +277,7 @@ fn file_row(
         bsn! { text @{ui_font(11.5, FontWeight::NORMAL)} TextColor(MUTED) }
     });
     let open = nav.clone();
-    coat! {
+    view! {
         Node {
             flex_direction: FlexDirection::Column,
             padding: UiRect::axes(Val::Px(10.0), Val::Px(8.0)),
@@ -316,7 +316,7 @@ fn tag_chip(tag: String, count: usize, nav: Nav) -> impl Scene {
 
     let active_tag = nav.tag.clone();
     let chip_tag = tag.clone();
-    coat! {
+    view! {
         Node {
             padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
             border_radius: BorderRadius::all(Val::Px(12.0)),
@@ -361,7 +361,7 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
         nav.clone(),
         nav.clone(),
     );
-    coat! {
+    view! {
         Node {
             height: $(if $mode == LayoutMode::Compact { Val::Px(50.0) } else { Val::Px(42.0) }),
             flex_shrink: 0.0,
@@ -509,18 +509,25 @@ pub(crate) fn segment(label: &str) -> impl Scene + use<> {
     }
 }
 
-fn main_area(nav: Nav, vault: Vault) -> impl Scene {
+fn main_area(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
     let top = top_bar(nav.clone(), vault.clone());
     let view = nav.view.clone();
+    // The reading pane is rebuilt when the note, text size, layout or vault content changes.
     let note_key = {
         let (current, size, mode) = (nav.current.clone(), nav.text_size.clone(), nav.mode.clone());
         let vault = vault.clone();
-        move || (current.get(), size.get(), mode.get(), vault.get().revision)
+        memo(move || (current.get(), size.get(), mode.get(), vault.get().revision))
+    };
+    let render_note = {
+        let nav = nav.clone();
+        move |(id, size, mode, _): (NoteId, u32, LayoutMode, u64)| {
+            note_scene((id, size, mode), &vault, &nav, &theme)
+        }
     };
     let mode = nav.mode.clone();
     let (editing, current) = (nav.editing.clone(), nav.current.clone());
     let graph_nav = nav.clone();
-    coat! {
+    view! {
         Node {
             flex_grow: 1.0,
             flex_shrink: 1.0,
@@ -534,7 +541,7 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
             --
             match $view {
                 View::Note => {
-                    let note_key = note_key.clone();
+                    let (note_key, render_note) = (note_key.clone(), render_note.clone());
                     Node {
                         flex_grow: 1.0,
                         flex_basis: Val::Px(0.0),
@@ -561,9 +568,14 @@ fn main_area(nav: Nav, vault: Vault) -> impl Scene {
                                 Node { position_type: PositionType::Relative, width: Val::Percent(100.0) }
                                 crate::editor::EditorSlot($current)
                             } else {
-                                let note_key = note_key.clone();
+                                let (note_key, render_note) = (note_key.clone(), render_note.clone());
                                 Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
-                                shard(note_key, note_shard)
+                                Children [
+                                    let render_note = render_note.clone();
+                                    match $note_key {
+                                        key => { @{render_note(key)} }
+                                    }
+                                ]
                             }
                         ]
                     ]
@@ -605,15 +617,15 @@ fn title_icon(icon: char, size: f32) -> impl Scene + use<> {
     }
 }
 
-/// Shard builder for the reading pane; the key is `(note, text size, layout, vault revision)`.
-fn note_shard(key: &(NoteId, u32, LayoutMode, u64), world: &World) -> Box<dyn Scene> {
-    note_scene((key.0, key.1, key.2), world)
-}
-
-fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -> Box<dyn Scene> {
-    let vault = world.resource::<Vault>().get_untracked();
-    let nav = world.resource::<Nav>().clone();
-    let mut theme = world.resource::<MdTheme>().clone();
+fn note_scene(
+    (id, text_size, mode): (NoteId, u32, LayoutMode),
+    vault: &Vault,
+    nav: &Nav,
+    theme: &MdTheme,
+) -> Box<dyn Scene> {
+    let vault = vault.get_untracked();
+    let nav = nav.clone();
+    let mut theme = theme.clone();
     theme.base_size = text_size as f32;
     if mode == LayoutMode::Compact {
         theme = theme.compact();
@@ -692,10 +704,15 @@ fn note_scene((id, text_size, mode): (NoteId, u32, LayoutMode), world: &World) -
 fn right_sidebar(nav: Nav, vault: Vault) -> impl Scene {
     let side_key = {
         let current = nav.current.clone();
-        move || (current.get(), vault.get().revision)
+        let vault = vault.clone();
+        memo(move || (current.get(), vault.get().revision))
+    };
+    let render_side = {
+        let nav = nav.clone();
+        move |(id, _): (NoteId, u64)| side_panel(id, &vault, nav.clone())
     };
     let (mode, open) = (nav.mode.clone(), nav.right_open.clone());
-    coat! {
+    view! {
         Node {
             display: $(if !$mode.right_drawer() || $open { Display::Flex } else { Display::None }),
             position_type: $(if $mode.right_drawer() { PositionType::Absolute } else { PositionType::Relative }),
@@ -714,13 +731,18 @@ fn right_sidebar(nav: Nav, vault: Vault) -> impl Scene {
         BorderColor::all(BORDER)
         Children [
             Node { flex_direction: FlexDirection::Column, padding: UiRect::bottom(Val::Px(16.0)) }
-            shard(side_key.clone(), move |key: &(NoteId, u64), world: &World| side_panel(key.0, world, nav.clone()))
+            Children [
+                let render_side = render_side.clone();
+                match $side_key {
+                    key => { @{render_side(key)} }
+                }
+            ]
         ]
     }
 }
 
-fn side_panel(id: NoteId, world: &World, nav: Nav) -> Box<dyn Scene> {
-    let vault = world.resource::<Vault>().get_untracked();
+fn side_panel(id: NoteId, vault: &Vault, nav: Nav) -> Box<dyn Scene> {
+    let vault = vault.get_untracked();
     let note = &vault.notes[id];
 
     let outline: Vec<Box<dyn Scene>> = note
@@ -884,7 +906,7 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
     let names = vault.clone();
 
     let nav_rows = nav.clone();
-    coat! {
+    view! {
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),

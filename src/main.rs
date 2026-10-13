@@ -19,7 +19,7 @@ use bevy::{
     text::Font,
     winit::{UpdateMode, WinitSettings},
 };
-use bevy_radioactive::RadioactivePlugin;
+use bevy_radioactive::view::ViewPlugin;
 use bevy_ui_commonmark::CommonMarkPlugin;
 
 use bevsidian_core::{Nav, Vault, VaultData, theme::palette};
@@ -44,7 +44,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins((FeathersPlugins, RadioactivePlugin, CommonMarkPlugin))
+        .add_plugins((FeathersPlugins, ViewPlugin, CommonMarkPlugin))
         .insert_resource(ClearColor(palette::BG))
         // Render on input and while something animates (see `layout::keep_awake`).
         .insert_resource(WinitSettings {

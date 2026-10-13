@@ -1402,8 +1402,8 @@ checksum = "41935a00c02004753bd7ed5094754397800b3f673bf15553bb007b06216872d5"
 
 [[package]]
 name = "bevy_radioactive"
-version = "0.4.0"
-source = "git+https://github.com/Lacosst0/bevy_radioactive#e4e66a4af191ff3513c58a81690d4394865be189"
+version = "0.5.0"
+source = "git+https://github.com/Lacosst0/bevy_radioactive#09c3c8850b8a5fb94f3287f8b1c489bcdd8fb444"
 dependencies = [
  "bevy",
  "bevy_radioactive_macros",
@@ -1411,8 +1411,8 @@ dependencies = [
 
 [[package]]
 name = "bevy_radioactive_macros"
-version = "0.4.0"
-source = "git+https://github.com/Lacosst0/bevy_radioactive#e4e66a4af191ff3513c58a81690d4394865be189"
+version = "0.5.0"
+source = "git+https://github.com/Lacosst0/bevy_radioactive#09c3c8850b8a5fb94f3287f8b1c489bcdd8fb444"
 dependencies = [
  "proc-macro2",
  "quote",

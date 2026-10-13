@@ -4,7 +4,7 @@
 //! remembered in `localStorage`.
 
 use bevy::{picking::events::PointerClick, prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::coat::{Signal, coat, signal};
+use bevy_radioactive::view::{Signal, signal, view};
 
 use bevsidian_core::{
     nav::{MAX_FPS_CHOICES, Nav, SCROLL_SPEEDS, TEXT_SIZES},
@@ -143,7 +143,7 @@ fn row_label(label: &str) -> impl Scene + use<> {
 /// An on/off switch bound to `value`.
 fn switch(value: Signal<bool>) -> impl Scene {
     let toggle = value.clone();
-    coat! {
+    view! {
         Node {
             width: Val::Px(44.0),
             height: Val::Px(24.0),
@@ -179,7 +179,7 @@ fn vsync_control(nav: &Nav) -> Box<dyn Scene> {
 
 /// "120 Hz target": the measured refresh rate the browser syncs the page to.
 fn vsync_target(hz: Signal<Option<u32>>) -> impl Scene {
-    coat! {
+    view! {
         Text($(match $hz {
             Some(hz) => format!("{hz} Hz target"),
             None => "Measuring…".to_owned(),
@@ -207,7 +207,7 @@ pub fn settings_panel(nav: Nav) -> impl Scene {
         nav.max_fps.clone(),
     );
     let help = signal(|| false);
-    coat! {
+    view! {
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),

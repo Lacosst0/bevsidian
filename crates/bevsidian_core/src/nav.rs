@@ -7,7 +7,7 @@ use bevy::{
     text::EditableText,
     ui_widgets::{ScrollArea, ScrollIntoView},
 };
-use bevy_radioactive::coat::{Signal, signal};
+use bevy_radioactive::view::{Signal, signal};
 use bevy_ui_commonmark::{LinkTarget, MdFootnote, MdHeading, MdLinkActivated};
 use bevy_ui_textselect::{Modifiers, TextSelection};
 
@@ -35,7 +35,7 @@ pub enum View {
     Graph,
 }
 
-/// Reactive navigation state, shared by the UI (through `coat!` signals) and systems.
+/// Reactive navigation state, shared by the UI (through `view!` signals) and systems.
 #[derive(Resource, Clone)]
 pub struct Nav {
     pub current: Signal<NoteId>,

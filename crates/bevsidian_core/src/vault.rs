@@ -3,7 +3,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use bevy::prelude::*;
-use bevy_radioactive::coat::Signal;
+use bevy_radioactive::view::Signal;
 use bevy_ui_commonmark::{MdDocument, WikiLink};
 
 /// Index of a note in [`Vault::notes`].

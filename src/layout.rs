@@ -21,7 +21,7 @@ use bevy::{
 };
 use std::time::Duration;
 
-use bevy_radioactive::coat::coat;
+use bevy_radioactive::view::view;
 use bevy_ui_textselect::{ClearSelection, CopySelection, SelectAll, TextSelection};
 use bevy_ui_touchscroll::{ScrollSpeed, SmoothScroll, TouchScroll, TouchScrollPlugin};
 
@@ -171,7 +171,7 @@ fn bar_button(label: &str) -> impl Scene + use<> {
 /// Floating Copy / Select all / Done bar shown while text is selected on touch screens.
 pub fn selection_bar(nav: Nav) -> impl Scene {
     let (has_selection, touch) = (nav.has_selection.clone(), nav.touch.clone());
-    coat! {
+    view! {
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
@@ -295,7 +295,7 @@ fn on_virtual_key(
 /// The on-screen keyboard, docked at the bottom while a text field is focused by touch.
 pub fn keyboard_panel(nav: Nav) -> impl Scene {
     let (keyboard, touch) = (nav.keyboard.clone(), nav.touch.clone());
-    coat! {
+    view! {
         Node {
             position_type: PositionType::Absolute,
             width: Val::Percent(100.0),
