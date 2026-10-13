@@ -5,8 +5,7 @@
 
 use bevy::{
     feathers::controls::{FeathersTextInput, FeathersTextInputContainer},
-    input_focus::{AutoFocus, tab_navigation::TabIndex},
-    picking::events::PointerClick,
+    input_focus::AutoFocus,
     prelude::*,
     text::FontWeight,
     ui_widgets::{Activate, ScrollArea},
@@ -17,43 +16,18 @@ use bevy_ui_textselect::{ClickableSpan, SelectableText};
 
 use bevsidian_core::{
     nav::{LayoutMode, Nav, NotePane, SearchInput, View},
-    theme::{icon_font, palette, ui_font},
     vault::{NoteId, Vault, VaultData},
 };
 use bevsidian_graph::GraphViewport;
+use bevsidian_ui::{
+    Selected, Size, Variant, badge_button, button, caption, color, dialog, empty, glyph, icon,
+    icon_button, icon_font, item, label, layer, radius, scrim, section_label, shortcuts, toggle,
+    toggle_group, ui_font,
+};
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, spawn_shell)
-        .add_systems(Update, hover_rows);
+    app.add_systems(Startup, spawn_shell);
 }
-
-use palette::{ACCENT, BG, BG_ACTIVE, BG_HOVER, BG_SIDEBAR, BORDER, FAINT, MUTED, TAG_BG, TEXT};
-
-/// A list row that highlights on hover.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub(crate) struct HoverRow;
-
-fn hover_rows(
-    mut rows: Query<
-        (
-            &bevy::picking::hover::Hovered,
-            &mut BackgroundColor,
-            Option<&ActiveRow>,
-        ),
-        (With<HoverRow>, Changed<bevy::picking::hover::Hovered>),
-    >,
-) {
-    for (hovered, mut bg, active) in &mut rows {
-        if active.is_some() {
-            continue;
-        }
-        bg.0 = if hovered.get() { BG_HOVER } else { Color::NONE };
-    }
-}
-
-/// Marks the row of the open note.
-#[derive(Component, Clone, Copy, Debug, Default)]
-struct ActiveRow;
 
 fn spawn_shell(mut commands: Commands, nav: Res<Nav>, vault: Res<Vault>, theme: Res<MdTheme>) {
     // No MSAA: UI is anti-aliased per glyph/shape, and 4x MSAA at phone resolutions is costly.
@@ -80,7 +54,7 @@ fn shell(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
             min_height: Val::Px(0.0),
             overflow: Overflow::clip(),
         }
-        BackgroundColor(BG)
+        BackgroundColor(color::BACKGROUND)
         Children [
             @{left}
             --
@@ -114,31 +88,20 @@ fn drawer_backdrop(nav: Nav) -> impl Scene {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
         }
-        GlobalZIndex(40)
+        GlobalZIndex(layer::DRAWER_BACKDROP)
         Pickable::IGNORE
         Children [
             if ($left_open && $mode.left_drawer()) || ($right_open && $mode.right_drawer()) {
                 let nav = nav.clone();
-                Node { width: Val::Percent(100.0), height: Val::Percent(100.0) }
-                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5))
-                on(move |_: On<PointerClick>| nav.close_drawers())
+                @{scrim(move || nav.close_drawers())}
             }
         ]
     }
 }
 
-fn section_title(title: &str) -> impl Scene + use<> {
-    let text = Text::new(title.to_uppercase());
-    bsn! {
-        text @{ui_font(11.0, FontWeight::SEMIBOLD)}
-        TextColor(FAINT)
-        Node { margin: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(14.0), Val::Px(6.0)) }
-    }
-}
-
 fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
-    let files_title = section_title("Files");
-    let tags_title = section_title("Tags");
+    let files_title = section_label("Files");
+    let tags_title = section_label("Tags");
 
     let tags_vault = vault.clone();
     let (query, tag, current) = (nav.query.clone(), nav.tag.clone(), nav.current.clone());
@@ -160,10 +123,10 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
             flex_direction: FlexDirection::Column,
             border: UiRect::right(Val::Px(1.0)),
         }
-        GlobalZIndex($(if $mode.left_drawer() { 50 } else { 0 }))
-        BackgroundColor(BG_SIDEBAR)
-        BorderColor::all(BORDER)
-        BoxShadow::new(Color::srgba(0.0, 0.0, 0.0, $(if $mode.left_drawer() { 0.5 } else { 0.0 })), Val::Px(0.0), Val::Px(0.0), Val::Px(0.0), Val::Px(24.0))
+        GlobalZIndex($(if $mode.left_drawer() { layer::DRAWER } else { 0 }))
+        BackgroundColor(color::CARD)
+        BorderColor::all(color::BORDER)
+        BoxShadow::new(color::SHADOW.with_alpha($(if $mode.left_drawer() { 0.5 } else { 0.0 })), Val::Px(0.0), Val::Px(0.0), Val::Px(0.0), Val::Px(24.0))
         Children [
             Node {
                 padding: UiRect::new(Val::Px(14.0), Val::Px(14.0), Val::Px(14.0), Val::Px(8.0)),
@@ -171,10 +134,10 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
                 column_gap: Val::Px(8.0),
             }
             Children [
-                Node { width: Val::Px(18.0), height: Val::Px(18.0), border_radius: BorderRadius::all(Val::Px(5.0)) }
-                BackgroundColor(ACCENT)
+                Node { width: Val::Px(18.0), height: Val::Px(18.0), border_radius: BorderRadius::all(Val::Px(radius::MD)) }
+                BackgroundColor(color::PRIMARY)
                 --
-                Text("Bevsidian") @{ui_font(13.0, FontWeight::MEDIUM)} TextColor(TEXT)
+                Text("Bevsidian") @{ui_font(13.0, FontWeight::MEDIUM)} TextColor(color::FOREGROUND)
             ]
             --
             Node { padding: UiRect::axes(Val::Px(10.0), Val::Px(4.0)) }
@@ -188,21 +151,19 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
             ]
             --
             if $tag.is_some() {
+                // The active tag filter; clicking it clears the filter.
                 let nav_clear = nav_clear.clone();
-                Node {
-                    margin: UiRect::new(Val::Px(10.0), Val::Px(10.0), Val::Px(6.0), Val::Px(0.0)),
-                    padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
-                    border_radius: BorderRadius::all(Val::Px(4.0)),
-                    justify_content: JustifyContent::SpaceBetween,
-                }
-                BackgroundColor(TAG_BG)
-                bevy::ui_widgets::Button
-                ClickableSpan
-                on(move |_: On<PointerClick>| nav_clear.clear_tag())
+                Node { padding: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(6.0), Val::Px(0.0)) }
                 Children [
-                    Text($(format!("#{}", $tag.clone().unwrap_or_default()))) @{ui_font(12.0, FontWeight::MEDIUM)} TextColor(ACCENT)
-                    --
-                    Text("clear ×") @{ui_font(12.0, FontWeight::NORMAL)} TextColor(MUTED)
+                    @{badge_button()}
+                    Selected(true)
+                    ClickableSpan
+                    on(move |_: On<Activate>| nav_clear.clear_tag())
+                    Children [
+                        Text($(format!("#{}", $tag.clone().unwrap_or_default()))) @{ui_font(12.0, FontWeight::MEDIUM)} TextColor(color::PRIMARY) Pickable::IGNORE
+                        --
+                        @{icon("x", 13.0, color::MUTED_FOREGROUND)}
+                    ]
                 ]
             }
             --
@@ -228,8 +189,7 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
                 }
                 --
                 if $(empty_vault.get().search(&$query, $tag.as_deref()).is_empty()) {
-                    Text("No matching notes") @{ui_font(12.0, FontWeight::NORMAL)} TextColor(FAINT)
-                    Node { margin: UiRect::all(Val::Px(8.0)) }
+                    @{empty("No matching notes")}
                 }
             ]
             --
@@ -249,7 +209,7 @@ fn left_sidebar(nav: Nav, vault: Vault) -> impl Scene {
                 }
             ]
             --
-            Text("Ctrl+O switch  ·  Ctrl+G graph  ·  Ctrl+± text") @{ui_font(12.0, FontWeight::NORMAL)} TextColor(FAINT)
+            @{shortcuts(&[("Ctrl O", "switch"), ("Ctrl G", "graph"), ("Ctrl ±", "text size")])}
             Node {
                 display: $(if $touch { Display::None } else { Display::Flex }),
                 margin: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(0.0), Val::Px(12.0)),
@@ -270,27 +230,23 @@ fn file_row(
     let icon = Text::new(note.icon.to_string());
     let folder = (!note.folder.is_empty()).then(|| {
         let text = Text::new(format!("{}/", note.folder));
-        bsn! { text @{ui_font(11.0, FontWeight::NORMAL)} TextColor(FAINT) }
+        bsn! { text @{ui_font(11.0, FontWeight::NORMAL)} TextColor(color::SUBTLE_FOREGROUND) }
     });
     let excerpt = vault.excerpt(id, query).map(|excerpt| {
         let text = Text::new(excerpt);
-        bsn! { text @{ui_font(11.5, FontWeight::NORMAL)} TextColor(MUTED) }
+        bsn! { text @{ui_font(11.5, FontWeight::NORMAL)} TextColor(color::MUTED_FOREGROUND) }
     });
     let open = nav.clone();
     view! {
+        @{item()}
         Node {
             flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Stretch,
             padding: UiRect::axes(Val::Px(10.0), Val::Px(8.0)),
-            border_radius: BorderRadius::all(Val::Px(4.0)),
             row_gap: Val::Px(2.0),
         }
-        BackgroundColor($(if $current == id { BG_ACTIVE } else { Color::NONE }))
-        HoverRow
-        bevy::picking::hover::Hovered
-        bevy::ui_widgets::Button
-        TabIndex(0)
+        Selected($($current == id))
         ClickableSpan
-        bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
         on(move |_: On<Activate>| open.open(id, None))
         Children [
             @{folder}
@@ -298,10 +254,10 @@ fn file_row(
             Node { align_items: AlignItems::Center, column_gap: Val::Px(8.0) }
             Pickable::IGNORE
             Children [
-                icon @{icon_font(15.0)} TextColor($(if $current == id { ACCENT } else { FAINT }))
+                icon @{icon_font(15.0)} TextColor($(if $current == id { color::PRIMARY } else { color::SUBTLE_FOREGROUND }))
                 Pickable::IGNORE
                 --
-                name @{ui_font(14.5, FontWeight::NORMAL)} TextColor($(if $current == id { TEXT } else { MUTED }))
+                name @{ui_font(14.5, FontWeight::NORMAL)} TextColor($(if $current == id { color::FOREGROUND } else { color::MUTED_FOREGROUND }))
                 Pickable::IGNORE
             ]
             --
@@ -317,21 +273,13 @@ fn tag_chip(tag: String, count: usize, nav: Nav) -> impl Scene {
     let active_tag = nav.tag.clone();
     let chip_tag = tag.clone();
     view! {
-        Node {
-            padding: UiRect::axes(Val::Px(10.0), Val::Px(5.0)),
-            border_radius: BorderRadius::all(Val::Px(12.0)),
-            column_gap: Val::Px(5.0),
-            align_items: AlignItems::Center,
-        }
-        BackgroundColor($(if $active_tag.as_deref() == Some(tag.as_str()) { ACCENT.with_alpha(0.45) } else { TAG_BG }))
-        bevy::ui_widgets::Button
-        TabIndex(0)
-        bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
+        @{badge_button()}
+        Selected($($active_tag.as_deref() == Some(tag.as_str())))
         on(move |_: On<Activate>| nav.toggle_tag(&chip_tag))
         Children [
-            label @{ui_font(12.0, FontWeight::MEDIUM)} TextColor(ACCENT) Pickable::IGNORE
+            label @{ui_font(12.0, FontWeight::MEDIUM)} TextColor(color::PRIMARY) Pickable::IGNORE
             --
-            count @{ui_font(11.0, FontWeight::NORMAL)} TextColor(MUTED) Pickable::IGNORE
+            count @{ui_font(11.0, FontWeight::NORMAL)} TextColor(color::MUTED_FOREGROUND) Pickable::IGNORE
         ]
     }
 }
@@ -346,12 +294,8 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
     );
     let nav_settings = nav.clone();
     let (nav_edit, editing) = (nav.clone(), nav.editing.clone());
-    let pen = bevsidian_core::icons::find("pencil")
-        .unwrap_or('✎')
-        .to_string();
-    let done = bevsidian_core::icons::find("check")
-        .unwrap_or('✓')
-        .to_string();
+    let (pen, done) = (glyph("pencil"), glyph("check"));
+    let (back_glyph, forward_glyph) = (glyph("chevron-left"), glyph("chevron-right"));
     let (nav_back, nav_fwd, nav_note, nav_graph, nav_switch, nav_left, nav_right) = (
         nav.clone(),
         nav.clone(),
@@ -363,34 +307,31 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
     );
     view! {
         Node {
-            height: $(if $mode == LayoutMode::Compact { Val::Px(50.0) } else { Val::Px(42.0) }),
+            height: $(if $mode == LayoutMode::Compact { Val::Px(50.0) } else { Val::Px(44.0) }),
             flex_shrink: 0.0,
             align_items: AlignItems::Center,
             padding: UiRect::horizontal(Val::Px(6.0)),
             column_gap: Val::Px(2.0),
             border: UiRect::bottom(Val::Px(1.0)),
         }
-        BorderColor::all(BORDER)
+        BorderColor::all(color::BORDER)
         Children [
-            @{icon_button()}
+            @{icon_button(Variant::Ghost, Size::Icon, "panel-left")}
             Node { display: $(if $mode.left_drawer() { Display::Flex } else { Display::None }) }
             on(move |_: On<Activate>| nav_left.toggle_drawer(true))
-            Children [ @{bars_icon(false)} ]
             --
-            @{icon_button()}
+            @{button(Variant::Ghost, Size::Icon)}
             on(move |_: On<Activate>| nav_back.go_back())
             Children [
-                Text("‹") @{ui_font(22.0, FontWeight::NORMAL)}
-                TextColor($(if $back.is_empty() { FAINT } else { TEXT }))
-                Pickable::IGNORE
+                Text({back_glyph.clone()}) @{icon_font(20.0)} Pickable::IGNORE
+                TextColor($(if $back.is_empty() { color::SUBTLE_FOREGROUND } else { color::FOREGROUND }))
             ]
             --
-            @{icon_button()}
+            @{button(Variant::Ghost, Size::Icon)}
             on(move |_: On<Activate>| nav_fwd.go_forward())
             Children [
-                Text("›") @{ui_font(22.0, FontWeight::NORMAL)}
-                TextColor($(if $forward.is_empty() { FAINT } else { TEXT }))
-                Pickable::IGNORE
+                Text({forward_glyph.clone()}) @{icon_font(20.0)} Pickable::IGNORE
+                TextColor($(if $forward.is_empty() { color::SUBTLE_FOREGROUND } else { color::FOREGROUND }))
             ]
             --
             Node {
@@ -398,7 +339,8 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
                 flex_shrink: 1.0,
                 min_width: Val::Px(0.0),
                 overflow: Overflow::clip(),
-                justify_content: JustifyContent::Center,
+                // Centred when it fits; on phones it starts at the left and is cut at the end.
+                justify_content: $(if $mode == LayoutMode::Compact { JustifyContent::Start } else { JustifyContent::Center }),
                 margin: UiRect::horizontal(Val::Px(6.0)),
             }
             Children [
@@ -408,104 +350,44 @@ fn top_bar(nav: Nav, vault: Vault) -> impl Scene {
                     View::Graph => "Graph view".to_owned(),
                 }))
                 @{ui_font(13.5, FontWeight::MEDIUM)}
-                TextColor(MUTED)
+                TextColor(color::MUTED_FOREGROUND)
                 TextLayout { linebreak: LineBreak::NoWrap }
             ]
             --
-            @{segment("Note")}
-            BackgroundColor($(if $view == View::Note { BG_ACTIVE } else { Color::NONE }))
-            on(move |_: On<Activate>| nav_note.show(View::Note))
+            @{toggle_group()}
+            Node { margin: UiRect::horizontal(Val::Px(4.0)) }
+            Children [
+                @{toggle("Note")}
+                Selected($($view == View::Note))
+                on(move |_: On<Activate>| nav_note.show(View::Note))
+                --
+                @{toggle("Graph")}
+                Selected($($view == View::Graph))
+                on(move |_: On<Activate>| nav_graph.show(View::Graph))
+            ]
             --
-            @{segment("Graph")}
-            BackgroundColor($(if $view == View::Graph { BG_ACTIVE } else { Color::NONE }))
-            on(move |_: On<Activate>| nav_graph.show(View::Graph))
-            --
-            @{segment("Search")}
+            @{icon_button(Variant::Ghost, Size::Icon, "search")}
             Node { display: $(if $mode == LayoutMode::Compact { Display::None } else { Display::Flex }) }
             on(move |_: On<Activate>| nav_switch.open_switcher())
             --
             // Edit the note (Ctrl+E); a check mark closes the editor.
-            @{icon_button()}
+            @{button(Variant::Ghost, Size::Icon)}
             Node { display: $(if $view == View::Note { Display::Flex } else { Display::None }) }
             on(move |_: On<Activate>| nav_edit.toggle_editing())
             Children [
                 Text($(if $editing { done.clone() } else { pen.clone() }))
                 @{icon_font(18.0)}
-                TextColor($(if $editing { ACCENT } else { TEXT }))
+                TextColor($(if $editing { color::PRIMARY } else { color::FOREGROUND }))
                 Pickable::IGNORE
             ]
             --
-            @{icon_button()}
-            on(move |_: On<Activate>| nav_settings.settings.set(!nav_settings.settings.get_untracked()))
-            Children [ @{crate::settings::sliders_icon()} ]
+            @{icon_button(Variant::Ghost, Size::Icon, "sliders-horizontal")}
+            on(move |_: On<Activate>| nav_settings.settings.update(|open| *open = !*open))
             --
-            @{icon_button()}
+            @{icon_button(Variant::Ghost, Size::Icon, "panel-right")}
             Node { display: $(if $mode.right_drawer() { Display::Flex } else { Display::None }) }
             on(move |_: On<Activate>| nav_right.toggle_drawer(false))
-            Children [ @{bars_icon(true)} ]
         ]
-    }
-}
-
-/// A small "≡" drawn with nodes (fonts rarely have a good one). `ragged` draws an outline icon.
-fn bars_icon(ragged: bool) -> impl Scene {
-    let widths: [f32; 3] = if ragged {
-        [16.0, 11.0, 14.0]
-    } else {
-        [16.0; 3]
-    };
-    let bars: Vec<Box<dyn Scene>> = widths
-        .into_iter()
-        .map(|w| {
-            Box::new(bsn! {
-                Node { width: Val::Px(w), height: Val::Px(2.0), border_radius: BorderRadius::all(Val::Px(1.0)) }
-                BackgroundColor(TEXT)
-            }) as Box<dyn Scene>
-        })
-        .collect();
-    bsn! {
-        Node {
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(4.0),
-            align_items: AlignItems::Start,
-        }
-        Pickable::IGNORE
-        Children [ {bars} ]
-    }
-}
-
-pub(crate) fn icon_button() -> impl Scene {
-    bsn! {
-        Node {
-            width: Val::Px(36.0),
-            height: Val::Px(36.0),
-            flex_shrink: 0.0,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            border_radius: BorderRadius::all(Val::Px(4.0)),
-        }
-        BackgroundColor(Color::NONE)
-        bevy::ui_widgets::Button
-        TabIndex(0)
-        HoverRow
-        bevy::picking::hover::Hovered
-        bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
-    }
-}
-
-pub(crate) fn segment(label: &str) -> impl Scene + use<> {
-    let text = Text::new(label);
-    bsn! {
-        Node {
-            padding: UiRect::axes(Val::Px(11.0), Val::Px(7.0)),
-            border_radius: BorderRadius::all(Val::Px(6.0)),
-            margin: UiRect::left(Val::Px(2.0)),
-            flex_shrink: 0.0,
-        }
-        bevy::ui_widgets::Button
-        TabIndex(0)
-        bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
-        Children [ text @{ui_font(12.5, FontWeight::MEDIUM)} TextColor(TEXT) Pickable::IGNORE ]
     }
 }
 
@@ -607,13 +489,13 @@ fn title_icon(icon: char, size: f32) -> impl Scene + use<> {
         border_radius: BorderRadius::all(Val::Px((tile * 0.28).round())),
         ..default()
     };
-    let tint = BackgroundColor(ACCENT.with_alpha(0.14));
+    let tint = BackgroundColor(color::PRIMARY.with_alpha(0.14));
     let text = Text::new(icon.to_string());
     bsn! {
         node
         tint
         Pickable::IGNORE
-        Children [ text @{icon_font(tile * 0.6)} TextColor(ACCENT) Pickable::IGNORE ]
+        Children [ text @{icon_font(tile * 0.6)} TextColor(color::PRIMARY) Pickable::IGNORE ]
     }
 }
 
@@ -656,7 +538,7 @@ fn note_scene(
             Children [
                 @{title_icon(icon, size)}
                 --
-                text @{ui_font(size, FontWeight::BOLD)} TextColor(TEXT) SelectableText Node { flex_shrink: 1.0 }
+                text @{ui_font(size, FontWeight::BOLD)} TextColor(color::FOREGROUND) SelectableText Node { flex_shrink: 1.0 }
             ]
         }
     });
@@ -667,7 +549,7 @@ fn note_scene(
                 .backlinks
                 .iter()
                 .map(|&source| {
-                    let link = note_label(&vault.notes[source], 15.0, ACCENT);
+                    let link = note_label(&vault.notes[source], 15.0, color::PRIMARY);
                     let nav = nav.clone();
                     Box::new(bsn! {
                         @{side_row(Val::Px(10.0))}
@@ -676,7 +558,7 @@ fn note_scene(
                     }) as Box<dyn Scene>
                 })
                 .collect();
-            let heading = section_title(&format!("Linked mentions ({})", note.backlinks.len()));
+            let heading = section_label(&format!("Linked mentions ({})", note.backlinks.len()));
             Box::new(bsn! {
                 Node {
                     flex_direction: FlexDirection::Column,
@@ -684,7 +566,7 @@ fn note_scene(
                     padding: UiRect::top(Val::Px(8.0)),
                     border: UiRect::top(Val::Px(1.0)),
                 }
-                BorderColor::all(BORDER)
+                BorderColor::all(color::BORDER)
                 Children [ @{heading} -- {rows} ]
             }) as Box<dyn Scene>
         })
@@ -726,10 +608,10 @@ fn right_sidebar(nav: Nav, vault: Vault) -> impl Scene {
             border: UiRect::left(Val::Px(1.0)),
             overflow: Overflow::scroll_y(),
         }
-        GlobalZIndex($(if $mode.right_drawer() { 50 } else { 0 }))
+        GlobalZIndex($(if $mode.right_drawer() { layer::DRAWER } else { 0 }))
         ScrollArea
-        BackgroundColor(BG_SIDEBAR)
-        BorderColor::all(BORDER)
+        BackgroundColor(color::CARD)
+        BorderColor::all(color::BORDER)
         Children [
             Node { flex_direction: FlexDirection::Column, padding: UiRect::bottom(Val::Px(16.0)) }
             Children [
@@ -760,7 +642,7 @@ fn side_panel(id: NoteId, vault: &Vault, nav: Nav) -> Box<dyn Scene> {
             Box::new(bsn! {
                 @{side_row(indent)}
                 on(move |_: On<Activate>| nav.open(id, Some(slug.clone())))
-                Children [ text @{ui_font(13.0, FontWeight::NORMAL)} TextColor(MUTED) Pickable::IGNORE ]
+                Children [ text @{ui_font(13.0, FontWeight::NORMAL)} TextColor(color::MUTED_FOREGROUND) Pickable::IGNORE ]
             }) as Box<dyn Scene>
         })
         .collect();
@@ -768,7 +650,7 @@ fn side_panel(id: NoteId, vault: &Vault, nav: Nav) -> Box<dyn Scene> {
     let note_rows = |ids: &[NoteId]| -> Vec<Box<dyn Scene>> {
         ids.iter()
             .map(|&target| {
-                let link = note_label(&vault.notes[target], 13.0, ACCENT);
+                let link = note_label(&vault.notes[target], 13.0, color::PRIMARY);
                 let nav = nav.clone();
                 Box::new(bsn! {
                     @{side_row(Val::Px(12.0))}
@@ -790,13 +672,7 @@ fn side_panel(id: NoteId, vault: &Vault, nav: Nav) -> Box<dyn Scene> {
         })
         .collect();
 
-    let empty = |label: &str| -> Option<Box<dyn Scene>> {
-        let text = Text::new(label);
-
-        Some(Box::new(bsn! {
-            text @{ui_font(12.5, FontWeight::NORMAL)} TextColor(FAINT) Node { margin: UiRect::horizontal(Val::Px(12.0)) }
-        }))
-    };
+    let empty = |text: &str| -> Option<Box<dyn Scene>> { Some(Box::new(empty(text))) };
     let outline_empty: Vec<_> = outline
         .is_empty()
         .then(|| empty("No headings"))
@@ -815,17 +691,17 @@ fn side_panel(id: NoteId, vault: &Vault, nav: Nav) -> Box<dyn Scene> {
         .flatten()
         .into_iter()
         .collect();
-    let stats = Text::new(format!(
+    let stats = caption(&format!(
         "{} words · {} backlinks",
         note.doc.plain_text().split_whitespace().count(),
         note.backlinks.len()
     ));
 
     let titles = (
-        section_title("Outline"),
-        section_title(&format!("Backlinks ({})", note.backlinks.len())),
-        section_title("Outgoing links"),
-        section_title("Tags"),
+        section_label("Outline"),
+        section_label(&format!("Backlinks ({})", note.backlinks.len())),
+        section_label("Outgoing links"),
+        section_label("Tags"),
     );
     let (t_outline, t_back, t_out, t_tags) = titles;
     Box::new(bsn! {
@@ -853,17 +729,21 @@ fn side_panel(id: NoteId, vault: &Vault, nav: Nav) -> Box<dyn Scene> {
             }
             Children [ {tags} ]
             --
-            stats @{ui_font(11.5, FontWeight::NORMAL)} TextColor(FAINT)
+            @{stats}
             Node { margin: UiRect::new(Val::Px(12.0), Val::Px(12.0), Val::Px(18.0), Val::Px(0.0)) }
         ]
     })
 }
 
 /// A note's icon and name, e.g. in link lists.
-fn note_label(note: &bevsidian_core::vault::Note, size: f32, color: Color) -> impl Scene + use<> {
+fn note_label(
+    note: &bevsidian_core::vault::Note,
+    size: f32,
+    text_color: Color,
+) -> impl Scene + use<> {
     let (icon, name) = (
         Text::new(note.icon.to_string()),
-        Text::new(note.name.clone()),
+        label(&note.name, size, FontWeight::NORMAL, text_color),
     );
     let row = Node {
         align_items: AlignItems::Center,
@@ -874,26 +754,21 @@ fn note_label(note: &bevsidian_core::vault::Note, size: f32, color: Color) -> im
         row
         Pickable::IGNORE
         Children [
-            icon @{icon_font(size)} TextColor(FAINT) Pickable::IGNORE
+            icon @{icon_font(size)} TextColor(color::SUBTLE_FOREGROUND) Pickable::IGNORE
             --
-            name @{ui_font(size, FontWeight::NORMAL)} TextColor(color) Pickable::IGNORE
+            @{name}
         ]
     }
 }
 
+/// A side panel row, indented by `indent`.
 fn side_row(indent: Val) -> impl Scene {
     bsn! {
+        @{item()}
         Node {
             padding: UiRect::new(indent, Val::Px(10.0), Val::Px(7.0), Val::Px(7.0)),
             margin: UiRect::horizontal(Val::Px(6.0)),
-            border_radius: BorderRadius::all(Val::Px(4.0)),
         }
-        BackgroundColor(Color::NONE)
-        HoverRow
-        bevy::picking::hover::Hovered
-        bevy::ui_widgets::Button
-        TabIndex(0)
-        bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
     }
 }
 
@@ -913,7 +788,7 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
         }
-        GlobalZIndex(100)
+        GlobalZIndex(layer::COMMAND)
         Pickable::IGNORE
         Children [
             if $is_open {
@@ -921,32 +796,16 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
                 let nav_rows = nav_rows.clone();
                 let names = names.clone();
                 let vault = vault.clone();
+                @{scrim(move || close.set(false))}
                 Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Start,
                     padding: UiRect::top(Val::Percent(8.0)),
                 }
-                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55))
-                on(move |click: On<PointerClick>| {
-                    if click.entity == click.original_event_target() {
-                        close.set(false);
-                    }
-                })
                 Children [
-                    Node {
-                        width: Val::Px(560.0),
-                        max_width: Val::Percent(94.0),
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(10.0)),
-                        row_gap: Val::Px(6.0),
-                        border: UiRect::all(Val::Px(1.0)),
-                        border_radius: BorderRadius::all(Val::Px(8.0)),
-                    }
-                    BackgroundColor(BG_SIDEBAR)
-                    BorderColor::all(BORDER)
-                    BoxShadow::new(Color::srgba(0.0, 0.0, 0.0, 0.5), Val::Px(0.0), Val::Px(8.0), Val::Px(0.0), Val::Px(24.0))
+                    // A command palette: search, results, key hints.
+                    @{dialog(560.0)}
+                    Node { padding: UiRect::all(Val::Px(10.0)), row_gap: Val::Px(6.0) }
                     Children [
                         @FeathersTextInputContainer
                         Children [
@@ -960,27 +819,27 @@ fn quick_switcher(nav: Nav, vault: Vault) -> impl Scene {
                             let (i, id) = entry;
                             let nav_rows = nav_rows.clone();
                             let names = names.clone();
+                            @{item()}
                             Node {
                                 flex_direction: FlexDirection::Column,
+                                align_items: AlignItems::Stretch,
+                                row_gap: Val::Px(2.0),
                                 padding: UiRect::axes(Val::Px(10.0), Val::Px(6.0)),
-                                border_radius: BorderRadius::all(Val::Px(5.0)),
                             }
-                            BackgroundColor($(if $index == i { BG_ACTIVE } else { Color::NONE }))
-                            bevy::ui_widgets::Button
-                            bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
+                            Selected($($index == i))
                             on(move |_: On<Activate>| {
                                 nav_rows.open(id, None);
                                 nav_rows.switcher.set(false);
                             })
                             Children [
-                                @{note_label(&names.get_untracked().notes[id], 14.0, TEXT)}
+                                @{note_label(&names.get_untracked().notes[id], 14.0, color::FOREGROUND)}
                                 --
-                                Text({names.get_untracked().notes[id].path.clone()}) @{ui_font(11.5, FontWeight::NORMAL)} TextColor(FAINT) Pickable::IGNORE
+                                @{caption(&names.get_untracked().notes[id].path)}
                             ]
                         }
                         --
-                        Text("↑↓ navigate   ↵ open   esc close") @{ui_font(11.5, FontWeight::NORMAL)} TextColor(FAINT)
-                        Node { margin: UiRect::new(Val::Px(6.0), Val::Px(6.0), Val::Px(4.0), Val::Px(0.0)) }
+                        @{shortcuts(&[("↑ ↓", "navigate"), ("↵", "open"), ("Esc", "close")])}
+                        Node { margin: UiRect::new(Val::Px(6.0), Val::Px(6.0), Val::Px(4.0), Val::Px(2.0)) }
                     ]
                 ]
             }

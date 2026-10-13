@@ -24,9 +24,9 @@ use bevy::{
 };
 use bevy_ui_commonmark::{CodeBlockInfo, CodeHighlight, MdCodeGroup};
 
-use bevsidian_core::{
-    icons,
-    theme::{icon_font, palette, ui_font},
+use bevsidian_ui::{
+    Size, Variant, button, color, glyph, icon_font, inset, label, muted, progress, size, tile,
+    ui_font,
 };
 use demos::{Demo, WorldDemo};
 
@@ -387,29 +387,11 @@ enum Control {
     Reset,
 }
 
-const PREVIEW_BG: Color = Color::srgb(0.09, 0.09, 0.1);
-
-fn frame_node() -> Node {
-    Node {
-        flex_direction: FlexDirection::Column,
-        row_gap: Val::Px(10.0),
-        padding: UiRect::all(Val::Px(12.0)),
-        border: UiRect::all(Val::Px(1.0)),
-        border_radius: BorderRadius::all(Val::Px(8.0)),
-        min_width: Val::Px(0.0),
-        overflow: Overflow::clip(),
-        ..default()
-    }
-}
-
 fn scene_frame(scene: Box<dyn Scene>) -> impl Scene {
-    let node = frame_node();
     // Shows the scene root's layout box, e.g. the width a patch sets.
-    let outline = Outline::new(Val::Px(1.0), Val::ZERO, palette::ACCENT.with_alpha(0.6));
+    let outline = Outline::new(Val::Px(1.0), Val::ZERO, color::PRIMARY.with_alpha(0.6));
     bsn! {
-        node
-        BackgroundColor(PREVIEW_BG)
-        BorderColor::all(palette::BORDER)
+        @{inset()}
         Children [
             Node { padding: UiRect::axes(Val::Px(4.0), Val::Px(2.0)), min_height: Val::Px(40.0) }
             Children [ @{scene} outline ]
@@ -418,7 +400,6 @@ fn scene_frame(scene: Box<dyn Scene>) -> impl Scene {
 }
 
 fn world_frame(preview: WorldPreview, stepping: bool) -> impl Scene {
-    let node = frame_node();
     let status = Text::new("");
     let controls: Vec<Box<dyn Scene>> = if stepping {
         [
@@ -434,12 +415,10 @@ fn world_frame(preview: WorldPreview, stepping: bool) -> impl Scene {
         Vec::new()
     };
     bsn! {
-        node
+        @{inset()}
         preview
-        BackgroundColor(PREVIEW_BG)
-        BorderColor::all(palette::BORDER)
         Children [
-            status @{ui_font(11.5, FontWeight::MEDIUM)} TextColor(palette::MUTED) PreviewPart::Status
+            status @{ui_font(size::XS, FontWeight::MEDIUM)} TextColor(color::MUTED_FOREGROUND) PreviewPart::Status
             --
             // Tall enough for a card, so the controls stay put when the first one appears.
             Node { flex_wrap: FlexWrap::Wrap, column_gap: Val::Px(8.0), row_gap: Val::Px(8.0), min_height: Val::Px(104.0) }
@@ -452,25 +431,15 @@ fn world_frame(preview: WorldPreview, stepping: bool) -> impl Scene {
 }
 
 fn control_button(control: Control, icon: &str) -> impl Scene + use<> {
-    let glyph = Text::new(icons::find(icon).unwrap_or(icons::DEFAULT).to_string());
-    let node = Node {
-        width: Val::Px(36.0),
-        height: Val::Px(30.0),
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        border_radius: BorderRadius::all(Val::Px(6.0)),
-        ..default()
-    };
+    let glyph = Text::new(glyph(icon));
     let part = if control == Control::Play {
         PreviewPart::PlayIcon
     } else {
         PreviewPart::Icon
     };
     bsn! {
-        node
-        BackgroundColor(palette::BG_HOVER)
-        bevy::ui_widgets::Button
-        bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
+        @{button(Variant::Secondary, Size::IconSm)}
+        Node { width: Val::Px(36.0) }
         on(move |activate: On<Activate>,
                  time: Res<Time<Real>>,
                  parents: Query<&ChildOf>,
@@ -483,7 +452,7 @@ fn control_button(control: Control, icon: &str) -> impl Scene + use<> {
             }
         })
         Children [
-            glyph @{icon_font(16.0)} TextColor(palette::TEXT) Pickable::IGNORE part
+            glyph @{icon_font(16.0)} TextColor(color::FOREGROUND) Pickable::IGNORE part
         ]
     }
 }
@@ -513,8 +482,7 @@ fn show_previews(
                 }
                 Ok(PreviewPart::PlayIcon) => {
                     if let Ok(mut text) = texts.get_mut(entity) {
-                        let icon = if preview.playing { "pause" } else { "play" };
-                        text.0 = icons::find(icon).unwrap_or(icons::DEFAULT).to_string();
+                        text.0 = glyph(if preview.playing { "pause" } else { "play" });
                     }
                 }
                 Ok(PreviewPart::Icon) | Err(_) => {}
@@ -537,73 +505,26 @@ fn show_previews(
 }
 
 fn spawn_cards(commands: &mut Commands, parent: Entity, cards: &[Card]) {
-    let font = |size: f32, weight: FontWeight| TextFont {
-        font: bevy::text::FontSource::families("Inter, sans-serif"),
-        font_size: size.into(),
-        weight,
-        ..default()
-    };
     if cards.is_empty() {
-        commands.spawn((
-            Text::new("No entities yet"),
-            font(13.0, FontWeight::NORMAL),
-            TextColor(palette::FAINT),
-            ChildOf(parent),
-        ));
+        commands
+            .spawn_scene(muted("No entities yet"))
+            .insert(ChildOf(parent));
         return;
     }
     for card in cards {
-        let id = commands
-            .spawn((
-                Node {
-                    flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(3.0),
-                    padding: UiRect::axes(Val::Px(10.0), Val::Px(8.0)),
-                    border_radius: BorderRadius::all(Val::Px(6.0)),
-                    min_width: Val::Px(140.0),
-                    ..default()
-                },
-                BackgroundColor(palette::BG_SIDEBAR),
-                ChildOf(parent),
-            ))
-            .id();
-        commands.spawn((
-            Text::new(card.title.clone()),
-            font(11.0, FontWeight::BOLD),
-            TextColor(palette::MUTED),
-            ChildOf(id),
-        ));
-        for row in &card.rows {
-            commands.spawn((
-                Text::new(row.clone()),
-                font(13.0, FontWeight::MEDIUM),
-                TextColor(palette::TEXT),
-                ChildOf(id),
-            ));
-        }
-        if let Some(fill) = card.bar {
-            let track = commands
-                .spawn((
-                    Node {
-                        height: Val::Px(6.0),
-                        margin: UiRect::top(Val::Px(3.0)),
-                        border_radius: BorderRadius::all(Val::Px(3.0)),
-                        overflow: Overflow::clip(),
-                        ..default()
-                    },
-                    BackgroundColor(palette::BORDER),
-                    ChildOf(id),
-                ))
-                .id();
-            commands.spawn((
-                Node {
-                    width: Val::Percent(fill * 100.0),
-                    ..default()
-                },
-                BackgroundColor(palette::ACCENT),
-                ChildOf(track),
-            ));
-        }
+        let rows: Vec<Box<dyn Scene>> = card
+            .rows
+            .iter()
+            .map(|row| {
+                Box::new(label(row, 13.0, FontWeight::MEDIUM, color::FOREGROUND)) as Box<dyn Scene>
+            })
+            .collect();
+        let bar = card
+            .bar
+            .map(|fill| bsn! { @{progress(fill)} Node { margin: UiRect::top(Val::Px(3.0)) } });
+        commands
+            .spawn_scene(bsn! { @{tile(&card.title)} Children [ {rows} -- {bar} ] })
+            .insert(ChildOf(parent));
     }
 }
 

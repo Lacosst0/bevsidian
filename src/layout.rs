@@ -15,7 +15,7 @@ use bevy::{
     },
     input_focus::InputFocus,
     prelude::*,
-    text::{EditableText, FontWeight, TextEdit},
+    text::{EditableText, TextEdit},
     ui_widgets::Activate,
     window::PrimaryWindow,
 };
@@ -25,11 +25,8 @@ use bevy_radioactive::view::view;
 use bevy_ui_textselect::{ClearSelection, CopySelection, SelectAll, TextSelection};
 use bevy_ui_touchscroll::{ScrollSpeed, SmoothScroll, TouchScroll, TouchScrollPlugin};
 
-use bevsidian_core::{
-    Nav, View,
-    nav::LayoutMode,
-    theme::{palette, ui_font},
-};
+use bevsidian_core::{Nav, View, nav::LayoutMode};
+use bevsidian_ui::{Size, Variant, color, layer, popover, text_button};
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(TouchScrollPlugin)
@@ -157,21 +154,6 @@ fn sync_selection_bar(selection: Res<TextSelection>, nav: Res<Nav>) {
     }
 }
 
-fn bar_button(label: &str) -> impl Scene + use<> {
-    let text = Text::new(label);
-    bsn! {
-        Node {
-            padding: UiRect::axes(Val::Px(16.0), Val::Px(10.0)),
-            border_radius: BorderRadius::all(Val::Px(8.0)),
-        }
-        bevy::ui_widgets::Button
-        BackgroundColor(Color::NONE)
-        Children [
-            text @{ui_font(15.0, FontWeight::MEDIUM)} TextColor(palette::TEXT) Pickable::IGNORE
-        ]
-    }
-}
-
 /// Floating Copy / Select all / Done bar shown while text is selected on touch screens.
 pub fn selection_bar(nav: Nav) -> impl Scene {
     let (has_selection, touch) = (nav.has_selection.clone(), nav.touch.clone());
@@ -182,31 +164,24 @@ pub fn selection_bar(nav: Nav) -> impl Scene {
             bottom: Val::Px(24.0),
             justify_content: JustifyContent::Center,
         }
-        GlobalZIndex(90)
+        GlobalZIndex(layer::TOOLBAR)
         Pickable::IGNORE
         bevy_ui_textselect::PreserveSelection
         Children [
             if $has_selection && $touch {
-                Node {
-                    padding: UiRect::all(Val::Px(4.0)),
-                    border_radius: BorderRadius::all(Val::Px(12.0)),
-                    border: UiRect::all(Val::Px(1.0)),
-                    column_gap: Val::Px(2.0),
-                }
-                BackgroundColor(palette::BG_SIDEBAR)
-                BorderColor::all(palette::BORDER)
-                BoxShadow::new(Color::srgba(0.0, 0.0, 0.0, 0.5), Val::Px(0.0), Val::Px(6.0), Val::Px(0.0), Val::Px(20.0))
+                @{popover()}
+                Node { column_gap: Val::Px(2.0) }
                 Children [
-                    @{bar_button("Copy")}
+                    @{text_button(Variant::Ghost, Size::Lg, "Copy")}
                     on(|_: On<Activate>, mut commands: Commands| {
                         commands.trigger(CopySelection);
                         commands.trigger(ClearSelection);
                     })
                     --
-                    @{bar_button("Select all")}
+                    @{text_button(Variant::Ghost, Size::Lg, "Select all")}
                     on(|_: On<Activate>, mut commands: Commands| commands.trigger(SelectAll::default()))
                     --
-                    @{bar_button("Done")}
+                    @{text_button(Variant::Ghost, Size::Lg, "Done")}
                     on(|_: On<Activate>, mut commands: Commands| commands.trigger(ClearSelection))
                 ]
             }
@@ -307,7 +282,7 @@ pub fn keyboard_panel(nav: Nav) -> impl Scene {
             justify_content: JustifyContent::End,
             flex_direction: FlexDirection::Column,
         }
-        GlobalZIndex(120)
+        GlobalZIndex(layer::KEYBOARD)
         Pickable::IGNORE
         Children [
             if $keyboard && $touch {
@@ -316,8 +291,8 @@ pub fn keyboard_panel(nav: Nav) -> impl Scene {
                     padding: UiRect::new(Val::Px(6.0), Val::Px(6.0), Val::Px(8.0), Val::Px(14.0)),
                     border: UiRect::top(Val::Px(1.0)),
                 }
-                BackgroundColor(palette::BG_SIDEBAR)
-                BorderColor::all(palette::BORDER)
+                BackgroundColor(color::CARD)
+                BorderColor::all(color::BORDER)
                 KeyboardPanel
                 Children [
                     @Keys {

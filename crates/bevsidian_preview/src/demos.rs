@@ -68,6 +68,10 @@ pub fn find(name: &str) -> Option<Demo> {
             also: &[("attack", "on_damage")],
         }),
         "menu" => Demo::Scene(|| Box::new(bsn::menu())),
+        "kit-buttons" => Demo::Scene(|| Box::new(kit::buttons())),
+        "kit-toggle-group" => Demo::Scene(|| Box::new(kit::view_switch())),
+        "kit-badges" => Demo::Scene(|| Box::new(kit::badges())),
+        "kit-form" => Demo::Scene(|| Box::new(kit::settings_card())),
         "wide-menu" => Demo::Scene(|| Box::new(bsn::wide_menu())),
         _ => return None,
     })
@@ -144,6 +148,90 @@ mod bsn {
         bsn! {
             @menu()
             Node { width: px(400) }
+        }
+    }
+}
+
+/// `UI kit.md`
+mod kit {
+    use bevsidian_ui::prelude::*;
+    use bevy::{prelude::*, ui_widgets::Activate};
+    use bevy_radioactive::view::{signal, view};
+
+    pub fn buttons() -> impl Scene {
+        bsn! {
+            Node { flex_wrap: FlexWrap::Wrap, column_gap: px(8), row_gap: px(8) }
+            Children [
+                @{text_button(Variant::Primary, Size::Md, "Primary")}
+                --
+                @{text_button(Variant::Secondary, Size::Md, "Secondary")}
+                --
+                @{text_button(Variant::Outline, Size::Md, "Outline")}
+                --
+                @{text_button(Variant::Ghost, Size::Md, "Ghost")}
+                --
+                @{icon_button(Variant::Outline, Size::Icon, "search")}
+            ]
+        }
+    }
+
+    pub fn view_switch() -> impl Scene {
+        let tab = signal(|| 0);
+        let (note, graph) = (tab.clone(), tab.clone());
+        view! {
+            @{toggle_group()}
+            Children [
+                @{toggle("Note")}
+                Selected($tab == 0)
+                on(move |_: On<Activate>| note.set(0))
+                --
+                @{toggle("Graph")}
+                Selected($tab == 1)
+                on(move |_: On<Activate>| graph.set(1))
+            ]
+        }
+    }
+
+    pub fn badges() -> impl Scene {
+        bsn! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(10) }
+            Children [
+                Node { column_gap: px(6) }
+                Children [
+                    @{badge()} Children [ @{label("#ecs", 12.0, FontWeight::MEDIUM, color::PRIMARY)} ]
+                    --
+                    @{badge_button()} Selected(true)
+                    Children [ @{label("#beginner", 12.0, FontWeight::MEDIUM, color::PRIMARY)} ]
+                ]
+                --
+                @{shortcuts(&[("Ctrl O", "switch"), ("Esc", "close")])}
+            ]
+        }
+    }
+
+    pub fn settings_card() -> impl Scene {
+        let (fps, size) = (signal(|| true), signal(|| 16));
+        let (smaller, larger, text) = (size.clone(), size.clone(), size.clone());
+        let text_size = stepper(
+            move || format!("{} px", text.get()),
+            move || smaller.update(|s| *s -= 1),
+            move || larger.update(|s| *s += 1),
+        );
+        bsn! {
+            @{card()}
+            Node { width: px(300) }
+            Children [
+                @{title("Settings")}
+                --
+                @{field("Text size", text_size)}
+                --
+                @{field("Show FPS", switch(fps))}
+                --
+                @{separator()}
+                --
+                @{text_button(Variant::Primary, Size::Sm, "Done")}
+                Node { align_self: AlignSelf::End }
+            ]
         }
     }
 }

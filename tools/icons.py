@@ -17,15 +17,16 @@ from fontTools.ttLib import TTFont
 VERSION = "0.468.0"
 ICONS = """
 archive atom bell bird book book-open bookmark box boxes brain brush bug calculator calendar
-camera cat chart-bar chart-line check circle circle-help clapperboard clock cloud code coffee
-compass component cpu crown cuboid database dog download feather file-text film fish flag flame
-flask-conical folder gamepad-2 gem ghost git-branch github globe graduation-cap hammer headphones
-heart house image info key keyboard layers layout-template leaf library lightbulb link list
-list-checks lock mail map message-square mic monitor moon mountain mouse-pointer move music
-notebook-pen orbit package paintbrush palette pause pencil pizza play puzzle quote rocket rotate-3d
-rotate-ccw scale-3d scroll-text search send server settings shapes shield smartphone sparkles speaker sprout
-star step-back step-forward sun table target terminal text tree-pine triangle-alert trophy type upload user users video
-volume-2 wand-sparkles wrench zap
+camera cat chart-bar chart-line check chevron-left chevron-right circle circle-help clapperboard
+clock cloud code coffee compass component copy cpu crown cuboid database dog download feather
+file-text film fish flag flame flask-conical folder gamepad-2 gem ghost git-branch github globe
+graduation-cap hammer headphones heart house image info key keyboard layers layout-template leaf
+library lightbulb link list list-checks lock mail map maximize message-square mic minus monitor
+moon mountain mouse-pointer move music notebook-pen orbit package paintbrush palette panel-left
+panel-right pause pencil pizza play plus puzzle quote rocket rotate-3d rotate-ccw scale-3d
+scroll-text search send server settings shapes shield sliders-horizontal smartphone sparkles
+speaker sprout star step-back step-forward sun table target terminal text tree-pine
+triangle-alert trophy type upload user users video volume-2 wand-sparkles wrench x zap
 """.split()
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent

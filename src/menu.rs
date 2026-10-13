@@ -7,7 +7,6 @@
 use bevy::{
     picking::{
         events::{PointerPress, PointerScroll},
-        hover::Hovered,
         pointer::PointerButton,
     },
     prelude::*,
@@ -18,9 +17,7 @@ use bevy::{
 use bevy_ui_commonmark::{CopiedBubble, LinkTarget, MdLink, MdLinkActivated, MdRoot};
 use bevy_ui_textselect::{CopySelection, PreserveSelection, SelectAll, TextSelection};
 
-use bevsidian_core::theme::palette;
-
-use crate::ui::HoverRow;
+use bevsidian_ui::{color, label, layer, popover, radius, size, toast};
 
 pub fn plugin(app: &mut App) {
     app.add_observer(open_menu)
@@ -34,7 +31,7 @@ pub fn plugin(app: &mut App) {
 #[derive(Component, Clone, Copy, Debug, Default)]
 struct ContextMenu;
 
-const MENU_WIDTH: f32 = 190.0;
+const MENU_WIDTH: f32 = 196.0;
 const ITEM_HEIGHT: f32 = 34.0;
 
 #[derive(Clone)]
@@ -87,63 +84,31 @@ fn open_menu(
         .min(bounds - size - 4.0)
         .max(Vec2::splat(4.0));
 
+    let (left, top) = (position.x, position.y);
     let menu = commands
-        .spawn((
-            ContextMenu,
-            PreserveSelection,
+        .spawn_scene(bsn! {
+            @{popover()}
+            ContextMenu
+            PreserveSelection
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(position.x),
-                top: Val::Px(position.y),
+                left: Val::Px(left),
+                top: Val::Px(top),
                 width: Val::Px(MENU_WIDTH),
                 flex_direction: FlexDirection::Column,
-                padding: UiRect::all(Val::Px(5.0)),
-                border: UiRect::all(Val::Px(1.0)),
-                border_radius: BorderRadius::all(Val::Px(8.0)),
-                ..default()
-            },
-            BackgroundColor(palette::BG_SIDEBAR),
-            BorderColor::all(palette::BORDER),
-            BoxShadow::new(
-                Color::srgba(0.0, 0.0, 0.0, 0.5),
-                Val::Px(0.0),
-                Val::Px(6.0),
-                Val::Px(0.0),
-                Val::Px(18.0),
-            ),
-            GlobalZIndex(150),
-        ))
+            }
+            GlobalZIndex(layer::MENU)
+        })
         .id();
-    for (label, item) in items {
+    for (text, item) in items {
+        let text = label(text, size::BASE, FontWeight::NORMAL, color::FOREGROUND);
         commands
-            .spawn((
-                Node {
-                    height: Val::Px(ITEM_HEIGHT),
-                    padding: UiRect::horizontal(Val::Px(10.0)),
-                    align_items: AlignItems::Center,
-                    border_radius: BorderRadius::all(Val::Px(5.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::NONE),
-                HoverRow,
-                Hovered::default(),
-                bevy::ui_widgets::Button,
-                bevy::picking::cursor::EntityCursor::System(
-                    bevy::window::SystemCursorIcon::Pointer,
-                ),
-                ChildOf(menu),
-                children![(
-                    Text::new(label),
-                    TextFont {
-                        font: bevy::text::FontSource::families("Inter, sans-serif"),
-                        font_size: 14.0.into(),
-                        weight: FontWeight::NORMAL,
-                        ..default()
-                    },
-                    TextColor(palette::TEXT),
-                    Pickable::IGNORE,
-                )],
-            ))
+            .spawn_scene(bsn! {
+                @{bevsidian_ui::item()}
+                Node { height: Val::Px(ITEM_HEIGHT), border_radius: BorderRadius::all(Val::Px(radius::MD)) }
+                Children [ @{text} ]
+            })
+            .insert(ChildOf(menu))
             .observe(
                 move |_: On<Activate>,
                       menus: Query<Entity, With<ContextMenu>>,
@@ -227,37 +192,18 @@ fn copied_toast(
         commands.entity(toast).insert(CopiedBubble { until });
         return;
     }
-    commands.spawn((
-        Toast,
-        CopiedBubble { until },
-        Node {
-            position_type: PositionType::Absolute,
-            width: Val::Percent(100.0),
-            bottom: Val::Px(84.0),
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-        GlobalZIndex(160),
-        Pickable::IGNORE,
-        children![(
+    let toast = toast("Copied!");
+    commands
+        .spawn_scene(bsn! {
             Node {
-                padding: UiRect::axes(Val::Px(14.0), Val::Px(7.0)),
-                border_radius: BorderRadius::all(Val::Px(8.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.26, 0.26, 0.28)),
-            Pickable::IGNORE,
-            children![(
-                Text::new("Copied!"),
-                TextFont {
-                    font: bevy::text::FontSource::families("Inter, sans-serif"),
-                    font_size: 14.0.into(),
-                    weight: FontWeight::MEDIUM,
-                    ..default()
-                },
-                TextColor(palette::TEXT),
-                Pickable::IGNORE,
-            )],
-        )],
-    ));
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                bottom: Val::Px(84.0),
+                justify_content: JustifyContent::Center,
+            }
+            GlobalZIndex(layer::TOAST)
+            Pickable::IGNORE
+            Children [ @{toast} ]
+        })
+        .insert((Toast, CopiedBubble { until }));
 }

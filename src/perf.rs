@@ -19,11 +19,11 @@ use bevy::{
     platform::time::Instant,
     prelude::*,
     render::{Render, RenderApp, RenderSystems},
-    text::FontWeight,
     window::{PresentMode, PrimaryWindow},
 };
 
-use bevsidian_core::{Nav, theme::palette};
+use bevsidian_core::Nav;
+use bevsidian_ui::{color, layer, mono, radius};
 
 pub fn plugin(app: &mut App) {
     let render_end = RenderEnd::default();
@@ -134,22 +134,17 @@ fn spawn_readout(mut commands: Commands) {
             left: Val::Px(8.0),
             bottom: Val::Px(8.0),
             padding: UiRect::axes(Val::Px(8.0), Val::Px(4.0)),
-            border_radius: BorderRadius::all(Val::Px(6.0)),
+            border_radius: BorderRadius::all(Val::Px(radius::MD)),
             ..default()
         },
         BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.7)),
-        GlobalZIndex(200),
+        GlobalZIndex(layer::STATS),
         Pickable::IGNORE,
         children![(
             FpsText,
             Text::new("–"),
-            TextFont {
-                font: bevy::text::FontSource::families("JetBrains Mono, monospace"),
-                font_size: 12.0.into(),
-                weight: FontWeight::NORMAL,
-                ..default()
-            },
-            TextColor(palette::TEXT),
+            mono(12.0),
+            TextColor(color::FOREGROUND),
             Pickable::IGNORE,
         )],
     ));

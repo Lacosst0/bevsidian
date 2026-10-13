@@ -53,6 +53,6 @@ Libraries such as `bevy_radioactive` add signals on top of BSN. Its `coat!` macr
 > [!IMPORTANT]
 > The `.bsn` asset file format is still in progress; the macro form is stable for code-defined scenes.
 
-See also [[Rendering#UI]] and [[ECS]].
+See also [[Rendering#UI]], [[ECS]] and the [[UI kit]] built from these scenes.
 
 [^1]: BSN is pronounced "bison".

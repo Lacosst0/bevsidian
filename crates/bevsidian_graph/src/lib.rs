@@ -21,9 +21,9 @@ use bevy::{
 
 use bevsidian_core::{
     nav::{Nav, View},
-    theme::{palette, ui_font},
     vault::{NoteId, Vault},
 };
+use bevsidian_ui::{Size, Variant, color, icon_button};
 
 const LAYER: usize = 1;
 
@@ -165,7 +165,7 @@ fn setup(
         Camera {
             order: -1,
             is_active: false,
-            clear_color: ClearColorConfig::Custom(palette::BG),
+            clear_color: ClearColorConfig::Custom(color::BACKGROUND),
             ..default()
         },
         RenderTarget::Image(state.image.clone().into()),
@@ -174,7 +174,7 @@ fn setup(
     ));
 
     // A disc of background colour behind each icon, so edges stop at its outline.
-    state.mask = materials.add(palette::BG);
+    state.mask = materials.add(color::BACKGROUND);
     state.circle = meshes.add(Circle::new(1.0));
 }
 
@@ -257,7 +257,7 @@ fn spawn_nodes(
                     GraphText { size: LABEL_SIZE },
                     Text2d::new(note.name.clone()),
                     font("Inter, sans-serif", LABEL_SIZE, FontWeight::MEDIUM),
-                    TextColor(palette::MUTED),
+                    TextColor(color::MUTED_FOREGROUND),
                     Transform::from_xyz(0.0, -radius - 12.0, 0.0),
                     RenderLayers::layer(LAYER),
                 ));
@@ -493,11 +493,15 @@ fn style_nodes(
         } else if !lit {
             DIM_COLOR
         } else if node.note == current {
-            palette::ACCENT
+            color::PRIMARY
         } else {
             NOTE_COLOR
         };
-        let label = if lit { palette::TEXT } else { palette::FAINT };
+        let label = if lit {
+            color::FOREGROUND
+        } else {
+            color::SUBTLE_FOREGROUND
+        };
         for child in children {
             if let Ok(mut color) = icons.get_mut(*child) {
                 color.set_if_neq(TextColor(icon));
@@ -536,7 +540,7 @@ fn draw_edges(
         };
         let highlighted = focus.is_some_and(|f| f == a || f == b);
         let color = if highlighted {
-            palette::ACCENT
+            color::PRIMARY
         } else if focus.is_some() {
             Color::srgb(0.2, 0.2, 0.22)
         } else {
@@ -892,21 +896,9 @@ fn fit_all(
 
 /// Zoom buttons over the graph (the only way to zoom on touch screens).
 pub fn zoom_controls(_nav: Nav) -> impl Scene {
-    fn button(label: &'static str, factor: f32) -> impl Scene {
-        let text = Text::new(label);
+    fn button(icon: &'static str, factor: f32) -> impl Scene {
         bsn! {
-            Node {
-                width: Val::Px(40.0),
-                height: Val::Px(40.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                border_radius: BorderRadius::all(Val::Px(8.0)),
-                border: UiRect::all(Val::Px(1.0)),
-            }
-            BackgroundColor(palette::BG_SIDEBAR)
-            BorderColor::all(Color::srgb(0.25, 0.25, 0.27))
-            bevy::ui_widgets::Button
-            bevy::picking::cursor::EntityCursor::System(bevy::window::SystemCursorIcon::Pointer)
+            @{icon_button(Variant::Outline, Size::IconLg, icon)}
             on(move |_: On<bevy::ui_widgets::Activate>,
                      camera: Query<(&Transform, &Projection), With<GraphCamera>>,
                      nodes: Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
@@ -925,12 +917,6 @@ pub fn zoom_controls(_nav: Nav) -> impl Scene {
                     (position, (scale * factor).clamp(MIN_SCALE, MAX_SCALE))
                 });
             })
-            Children [
-                text
-                @{ui_font(if label.len() > 1 { 12.0 } else { 18.0 }, FontWeight::MEDIUM)}
-                TextColor(palette::TEXT)
-                Pickable::IGNORE
-            ]
         }
     }
     bsn! {
@@ -942,11 +928,11 @@ pub fn zoom_controls(_nav: Nav) -> impl Scene {
             row_gap: Val::Px(8.0),
         }
         Children [
-            @{button("+", 0.8)}
+            @{button("plus", 0.8)}
             --
-            @{button("−", 1.25)}
+            @{button("minus", 1.25)}
             --
-            @{button("Fit", 0.0)}
+            @{button("maximize", 0.0)}
         ]
     }
 }

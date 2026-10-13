@@ -11,6 +11,7 @@ publish = false
 [dependencies]
 bevy = { workspace = true, features = ["std", "bevy_sprite_render", "bevy_ui", "bevy_picking", "bevy_window", "bevy_log"] }
 bevsidian_core.workspace = true
+bevsidian_ui.workspace = true
 
 [lints]
 workspace = true

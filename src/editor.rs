@@ -24,7 +24,8 @@ use bevy::{
 };
 use bevy_ui_commonmark::{MdTheme, MdToken, highlight_markdown};
 
-use bevsidian_core::{Nav, NoteId, Vault, nav::NotePane, theme::palette};
+use bevsidian_core::{Nav, NoteId, Vault, nav::NotePane};
+use bevsidian_ui::color;
 
 pub fn plugin(app: &mut App) {
     app.init_resource::<EditSession>()
@@ -143,9 +144,9 @@ fn open_editor(
             // Glyphs come from the highlight layer.
             TextColor(Color::NONE),
             TextCursorStyle {
-                color: palette::ACCENT,
-                selection_color: palette::ACCENT.with_alpha(0.32),
-                unfocused_selection_color: palette::ACCENT.with_alpha(0.18),
+                color: color::PRIMARY,
+                selection_color: color::PRIMARY.with_alpha(0.32),
+                unfocused_selection_color: color::PRIMARY.with_alpha(0.18),
                 selected_text_color: None,
                 selection_radius: 2.0,
             },
@@ -179,7 +180,7 @@ fn open_editor(
             layout,
             font,
             line_height,
-            TextColor(palette::TEXT),
+            TextColor(color::FOREGROUND),
             Pickable::IGNORE,
             ChildOf(add.entity),
         ))
@@ -364,12 +365,12 @@ fn refresh_highlight(
 
 fn token_color(token: MdToken, theme: &MdTheme) -> Color {
     match token {
-        MdToken::Text => palette::TEXT,
-        MdToken::Marker => palette::FAINT,
-        MdToken::Heading => palette::ACCENT,
+        MdToken::Text => color::FOREGROUND,
+        MdToken::Marker => color::SUBTLE_FOREGROUND,
+        MdToken::Heading => color::PRIMARY,
         MdToken::Strong => Color::WHITE,
         MdToken::Emphasis => Color::srgb(0.78, 0.86, 0.95),
-        MdToken::Strike | MdToken::Url => palette::MUTED,
+        MdToken::Strike | MdToken::Url => color::MUTED_FOREGROUND,
         MdToken::Code => theme.code,
         MdToken::Link | MdToken::Tag => theme.link,
         MdToken::FrontMatter => Color::srgb(0.55, 0.7, 0.6),

@@ -434,6 +434,7 @@ dependencies = [
  "bevsidian_core",
  "bevsidian_graph",
  "bevsidian_preview",
+ "bevsidian_ui",
  "bevy",
  "bevy_radioactive",
  "bevy_ui_commonmark",
@@ -460,6 +461,7 @@ name = "bevsidian_graph"
 version = "0.1.0"
 dependencies = [
  "bevsidian_core",
+ "bevsidian_ui",
  "bevy",
 ]
 
@@ -468,8 +470,19 @@ name = "bevsidian_preview"
 version = "0.1.0"
 dependencies = [
  "bevsidian_core",
+ "bevsidian_ui",
  "bevy",
+ "bevy_radioactive",
  "bevy_ui_commonmark",
+]
+
+[[package]]
+name = "bevsidian_ui"
+version = "0.1.0"
+dependencies = [
+ "bevsidian_core",
+ "bevy",
+ "bevy_radioactive",
 ]
 
 [[package]]

@@ -22,7 +22,8 @@ use bevy::{
 use bevy_radioactive::view::ViewPlugin;
 use bevy_ui_commonmark::CommonMarkPlugin;
 
-use bevsidian_core::{Nav, Vault, VaultData, theme::palette};
+use bevsidian_core::{Nav, Vault, VaultData};
+use bevsidian_ui::color;
 
 include!(concat!(env!("OUT_DIR"), "/notes.rs"));
 
@@ -34,6 +35,17 @@ fn stepping_quiet() -> bevy::log::LogPlugin {
             bevy::log::DEFAULT_FILTER
         ),
         ..default()
+    }
+}
+
+/// The notes' theme, sharing the UI kit's text, link and tag colours.
+fn note_theme() -> bevy_ui_commonmark::MdTheme {
+    bevy_ui_commonmark::MdTheme {
+        text: color::FOREGROUND,
+        muted: color::MUTED_FOREGROUND,
+        link: color::PRIMARY,
+        tag_bg: color::PRIMARY_SOFT,
+        ..bevy_ui_commonmark::MdTheme::dark()
     }
 }
 
@@ -56,7 +68,8 @@ fn main() {
             ..default()
         }))
         .add_plugins((FeathersPlugins, ViewPlugin, CommonMarkPlugin))
-        .insert_resource(ClearColor(palette::BG))
+        .insert_resource(ClearColor(color::BACKGROUND))
+        .insert_resource(note_theme())
         // Render on input and while something animates (see `layout::keep_awake`).
         .insert_resource(WinitSettings {
             focused_mode: layout::IDLE,
@@ -71,6 +84,7 @@ fn main() {
             ui::plugin,
             bevsidian_graph::plugin,
             bevsidian_preview::plugin,
+            bevsidian_ui::plugin,
             layout::plugin,
             menu::plugin,
             perf::plugin,

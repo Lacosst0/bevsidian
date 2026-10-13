@@ -18,7 +18,8 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 | [`bevy_ui_textselect`](crates/bevy_ui_textselect) | Mouse and keyboard selection, clipboard copy, link-click events and accessibility labels for rich `Text`/`TextSpan` UI text. Hit-testing and highlight geometry come straight from the parley layout Bevy already computes. |
 | [`bevy_ui_commonmark`](crates/bevy_ui_commonmark) | CommonMark + GFM + Obsidian wikilinks/tags parser, and a builder that turns documents into BSN scenes of selectable text. |
 | [`bevy_ui_touchscroll`](crates/bevy_ui_touchscroll) | Native-feeling touch scrolling for `ScrollArea`s: 1:1 drags, Android/Flutter fling physics, tap-to-stop, and eased wheel scrolling. |
-| [`bevsidian_core`](crates/bevsidian_core) | The note vault (links, backlinks, tags, search), navigation state (`Nav` signals, shortcuts, links) and the theme. |
+| [`bevsidian_core`](crates/bevsidian_core) | The note vault (links, backlinks, tags, search), navigation state (`Nav` signals, shortcuts, links) and the note icons. |
+| [`bevsidian_ui`](crates/bevsidian_ui) | The UI kit: design tokens (colours, radii, shadows, layers, fonts) and [shadcn/ui](https://ui.shadcn.com)-style components (buttons, toggle groups, badges, keys, cards, items, dialogs, popovers, switches, steppers…) as plain `bsn!`/`view!` scene functions. The [`UI kit`](vault/UI%20kit.md) note previews them live. |
 | [`bevsidian_graph`](crates/bevsidian_graph) | The graph view: force-directed notes and tags with pan, pinch/wheel zoom and click-to-open. |
 | [`bevsidian_preview`](crates/bevsidian_preview) | Bevy-in-Bevy: live previews above code blocks. A preview runs the block's systems in a world of its own, one system at a time with Bevy's stepping (back, play/pause, forward), and highlights the lines that just ran. |
 | `bevsidian` (root) | The app: UI shell, responsive layout, context menu, settings, FPS readout, and the embedded vault. |
