@@ -91,7 +91,9 @@ jobs:
           touch .nojekyll
           mkdir -p "$dir"
           cp "$RUNNER_TEMP/index.html" "$dir/index.html"
-          git add -A
+          # Build output (`target/`, `dist/`) is untracked here, so `git add -A` would commit it.
+          git rm -r -q --cached --ignore-unmatch dist target
+          git add .nojekyll "$dir/index.html"
           if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
           git commit -m "Deploy $BRANCH ($GITHUB_SHA)"
           # Other branches may push at the same time: rebase and retry.
