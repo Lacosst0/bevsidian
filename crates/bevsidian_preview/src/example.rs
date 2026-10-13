@@ -32,6 +32,32 @@ pub struct Function {
     pub add: fn(&mut World, &mut Schedule, Step),
 }
 
+/// A button above a preview that does something to its world (triggers an event, adds an
+/// entity, ...). Shown on the blocks whose code mentions `name`.
+pub struct Action {
+    /// The function or type a block's code must mention.
+    pub name: &'static str,
+    pub label: &'static str,
+    pub run: fn(&mut World),
+}
+
+/// What the example's systems say, shown under the cards (the last few lines): a stand-in
+/// for `println!`, which a preview world has no console for.
+#[derive(Resource, Default, Debug)]
+pub struct Log(pub Vec<String>);
+
+impl Log {
+    /// Lines kept.
+    const KEEP: usize = 6;
+
+    pub fn say(&mut self, line: impl Into<String>) {
+        self.0.push(line.into());
+        if self.0.len() > Self::KEEP {
+            self.0.remove(0);
+        }
+    }
+}
+
 /// Orders an example's systems: base systems first, then the block's, as listed.
 #[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Step(pub usize);
@@ -47,6 +73,11 @@ pub struct Example {
     pub base: &'static [Function],
     /// Run by the blocks whose code names them.
     pub functions: &'static [Function],
+    /// Runs at the start of every frame, before the systems: what `App` does between frames
+    /// for the example's world (e.g. swapping the buffers of its messages).
+    pub tick: Option<fn(&mut World)>,
+    /// Buttons for the blocks whose code mentions an action's name.
+    pub actions: &'static [Action],
     /// Extra functions highlighted when a system runs (e.g. the observers it triggers).
     pub also: &'static [(&'static str, &'static str)],
     pub view: View,
@@ -70,6 +101,16 @@ impl Example {
         self.base
             .iter()
             .chain(self.functions.iter().filter(|f| mentions(code, f.name)))
+            .collect()
+    }
+}
+
+impl Example {
+    /// The actions a block offers.
+    pub fn actions_for(&self, code: &str) -> Vec<&'static Action> {
+        self.actions
+            .iter()
+            .filter(|a| mentions(code, a.name))
             .collect()
     }
 }

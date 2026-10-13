@@ -2,12 +2,18 @@
 
 use bevy::prelude::*;
 
-use crate::example::{Example, Function, Setup, View, observer, startup, update};
+use crate::example::{Action, Example, Function, Setup, View, observer, startup, update};
 
 pub static EXAMPLE: Example = Example {
     setup,
     base: &[],
     functions: FUNCTIONS,
+    tick: None,
+    actions: &[Action {
+        name: "on_damage",
+        label: "Hit the player",
+        run: hit,
+    }],
     also: &[("attack", "on_damage")],
     view: View::Cards { fps: 4.0 },
 };
@@ -65,5 +71,16 @@ fn attack(players: Query<Entity, With<Player>>, mut commands: Commands) {
             entity: player,
             amount: 10,
         });
+    }
+}
+
+/// The "Hit the player" button: triggers the event the observer listens for.
+fn hit(world: &mut World) {
+    let player = world
+        .query_filtered::<Entity, With<Player>>()
+        .iter(world)
+        .next();
+    if let Some(entity) = player {
+        world.trigger(Damage { entity, amount: 10 });
     }
 }

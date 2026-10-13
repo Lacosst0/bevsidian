@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::example::{Example, Function, Kind, Setup, Step, View, code_lines};
+use crate::example::{Action, Example, Function, Kind, Log, Setup, Step, View, code_lines};
 
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 struct PreviewSchedule;
@@ -29,6 +29,10 @@ pub const HOLD: f64 = 1.0;
 pub struct PreviewRuntime {
     setup: Setup,
     functions: Vec<&'static Function>,
+    /// Runs at the start of every frame.
+    tick: Option<fn(&mut World)>,
+    /// Buttons the block offers.
+    pub(crate) actions: Vec<&'static Action>,
     pub(crate) view: View,
     /// Whether it runs one system at a time (cards) rather than whole frames (games).
     pub(crate) stepping: bool,
@@ -50,6 +54,8 @@ pub struct PreviewRuntime {
     pub(crate) next_tick: f64,
     /// Entities and their components, for the cards.
     pub(crate) cards: Vec<Card>,
+    /// What the example said, for under the cards.
+    pub(crate) log: Vec<String>,
     /// The cards after the first frame: laid out invisibly while there are none, so the
     /// preview keeps its size.
     pub(crate) placeholder: Vec<Card>,
@@ -95,6 +101,8 @@ impl PreviewRuntime {
         let mut runtime = Self {
             setup,
             functions,
+            tick: example.tick,
+            actions: example.actions_for(code),
             view: example.view,
             stepping,
             fps: fps.unwrap_or(default_fps),
@@ -108,6 +116,7 @@ impl PreviewRuntime {
             playing: false,
             next_tick: 0.0,
             cards: Vec::new(),
+            log: Vec::new(),
             placeholder: Vec::new(),
         };
         runtime.reset();
@@ -126,6 +135,7 @@ impl PreviewRuntime {
         let mut world = World::new();
         world.insert_resource(AppTypeRegistry::default());
         world.insert_resource(Time::<()>::default());
+        world.insert_resource(Log::default());
         (self.setup)(&mut world);
         let mut schedule = Schedule::new(PreviewSchedule);
         schedule.set_executor(SingleThreadedExecutor::new());
@@ -171,6 +181,9 @@ impl PreviewRuntime {
         self.world
             .resource_mut::<Time>()
             .advance_by(Duration::from_secs_f64(seconds.min(MAX_FRAME)));
+        if let Some(tick) = self.tick {
+            tick(&mut self.world);
+        }
         self.world.run_schedule(PreviewSchedule);
     }
 
@@ -193,6 +206,9 @@ impl PreviewRuntime {
             if index == 0 {
                 self.frame += 1;
                 self.world.resource_mut::<Time>().advance_by(FRAME);
+                if let Some(tick) = self.tick {
+                    tick(&mut self.world);
+                }
             }
             self.world.resource_mut::<Stepping>().step_frame();
             if let Err(error) = self.world.run_system_cached(Stepping::begin_frame) {
@@ -248,6 +264,15 @@ impl PreviewRuntime {
         }
     }
 
+    /// Presses action `index`: it runs on the preview's world at once.
+    pub(crate) fn run_action(&mut self, index: usize) {
+        if let Some(action) = self.actions.get(index) {
+            (action.run)(&mut self.world);
+            self.world.flush();
+            self.snapshot();
+        }
+    }
+
     /// Triggers `event` in the preview world (e.g. pointer input over a game).
     pub(crate) fn trigger<'a, E: Event<Trigger<'a>: Default>>(&mut self, event: E) {
         self.world.trigger(event);
@@ -298,5 +323,6 @@ impl PreviewRuntime {
             }
         }
         self.cards = cards;
+        self.log = self.world.resource::<Log>().0.clone();
     }
 }

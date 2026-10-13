@@ -12,12 +12,14 @@ tags: [start-here]
 
 ## Start here
 
-1. [[ECS]]: entities, components, systems and resources.
-2. [[Scenes and BSN]]: describe entity hierarchies with the `bsn!` macro.
-3. [[Rendering]]: cameras, meshes, materials and UI.
-4. [[Mario]]: a small game, playable in the page.
+Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the graph (`Ctrl+G`) to see it: Bevy in the middle, one branch per area.
 
-Or follow a path, one note after another: [[Getting started]] or [[Building UI]]. The graph shows each path on its own.
+1. [[Bevy]]: the map of all areas.
+2. [[Your first game]]: the fastest path to something playable.
+3. [[ECS]]: the heart of Bevy.
+4. [[Libraries]]: the best crates, and which work with 0.20 today.
+
+Or pick a path: [[Getting started]], [[Understanding ECS]], [[A 2D game]], [[A 3D game]], [[Multiplayer]], [[Building UI]], [[Make it look good]], [[Ship it]]. In the graph, solid lines are the main route, dashed ones optional steps and dotted ones extras.
 
 ## How links work
 
@@ -41,7 +43,9 @@ Or follow a path, one note after another: [[Getting started]] or [[Building UI]]
 - [x] Markdown rendering with links and tags
 - [x] Text selection and copy
 - [x] Graph view
-- [ ] Import the full Bevy book and examples
+- [x] Interactive Bevy tutorials, area by area
+- [x] Reading paths with optional and extra steps
+- [ ] More examples
 
 ---
 

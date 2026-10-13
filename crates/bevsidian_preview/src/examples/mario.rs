@@ -22,6 +22,8 @@ pub static EXAMPLE: Example = Example {
     setup,
     base: BASE,
     functions: FUNCTIONS,
+    tick: None,
+    actions: &[],
     also: &[],
     view: View::Game {
         size: SIZE,
