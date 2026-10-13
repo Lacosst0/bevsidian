@@ -15,7 +15,7 @@ use bevy::{
     },
     prelude::*,
     render::render_resource::{Extent3d, TextureFormat},
-    text::FontWeight,
+    text::{FontWeight, LineHeight},
     ui::UiGlobalTransform,
 };
 
@@ -246,6 +246,8 @@ fn spawn_nodes(
                     GraphText { size: icon_size },
                     Text2d::new(note.icon.to_string()),
                     font("lucide", icon_size, FontWeight::NORMAL),
+                    // One-em line: Lucide icons are centred in their em box.
+                    LineHeight::RelativeToFont(1.0),
                     TextColor(NOTE_COLOR),
                     Transform::default(),
                     RenderLayers::layer(LAYER),
@@ -507,7 +509,7 @@ fn style_nodes(
 }
 
 /// Edge width on screen, in render-target pixels.
-const EDGE_WIDTH: f32 = 2.5;
+const EDGE_WIDTH: f32 = 4.0;
 
 fn draw_edges(
     nav: Res<Nav>,

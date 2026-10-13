@@ -42,6 +42,11 @@ options.name_IDs = ["*"]
 subsetter = subset.Subsetter(options)
 subsetter.populate(unicodes=codes.values())
 subsetter.subset(font)
+# Lucide's metrics give every glyph a left side bearing of 0, though the outlines start further
+# right; hinting rasterizers trust the metric and draw each icon off-centre. Use the real one.
+glyf = font["glyf"]
+for name, (advance, _) in font["hmtx"].metrics.items():
+    font["hmtx"][name] = (advance, getattr(glyf[name], "xMin", 0))
 font.save(ROOT / "assets/fonts/Lucide.ttf")
 
 rows = "\n".join(f'    ("{name}", \'\\u{{{code:x}}}\'),' for name, code in codes.items())

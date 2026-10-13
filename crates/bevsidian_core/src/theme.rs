@@ -1,6 +1,9 @@
 //! Colors and fonts shared by every view.
 
-use bevy::{prelude::*, text::FontWeight};
+use bevy::{
+    prelude::*,
+    text::{FontWeight, LineHeight},
+};
 use bevy_ui_commonmark::insert;
 
 /// The dark palette (Obsidian-like).
@@ -30,10 +33,20 @@ pub fn ui_font(size: f32, weight: FontWeight) -> impl Scene {
 }
 
 /// The icon font at `size`; its text is an icon character (see [`crate::icons`]).
+///
+/// The text node is exactly one em square with a one-em line: Lucide draws every icon centred
+/// in its em box, so icons line up as squares (a default text box is 1.2 em tall).
 pub fn icon_font(size: f32) -> impl Scene {
-    insert(TextFont {
+    let font = TextFont {
         font: bevy::text::FontSource::families("lucide"),
         font_size: size.into(),
         ..default()
-    })
+    };
+    let node = Node {
+        width: Val::Px(size),
+        height: Val::Px(size),
+        flex_shrink: 0.0,
+        ..default()
+    };
+    bsn! { @{insert(font)} @{insert(LineHeight::RelativeToFont(1.0))} @{insert(node)} }
 }

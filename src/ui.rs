@@ -590,8 +590,8 @@ fn title_icon(icon: char, size: f32) -> impl Scene + use<> {
         flex_shrink: 0.0,
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
-        // Centred on the first line, a little low to match the text's visual centre.
-        margin: UiRect::top(Val::Px(((line - tile) / 2.0 + size * 0.06).round())),
+        // Centred on the first line.
+        margin: UiRect::top(Val::Px(((line - tile) / 2.0).round())),
         border_radius: BorderRadius::all(Val::Px((tile * 0.28).round())),
         ..default()
     };
