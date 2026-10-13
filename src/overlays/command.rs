@@ -2,12 +2,9 @@
 //! move, Enter to open.
 
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{memo, view};
+use bevy_radioactive::view::{Memo, memo, view};
 
-use bevsidian_core::{
-    Vault,
-    nav::{Nav, SWITCHER_RESULTS},
-};
+use bevsidian_core::{Vault, nav::Nav, vault::NoteId};
 use bevsidian_ui::prelude::*;
 
 pub fn command_palette(nav: Nav, vault: Vault) -> impl Scene {
@@ -27,21 +24,45 @@ pub fn command_palette(nav: Nav, vault: Vault) -> impl Scene {
     }
 }
 
+/// A row of the list: a group label, or a note with its index among the notes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum Row {
+    Label(&'static str),
+    Note(usize, NoteId),
+}
+
 fn palette(nav: Nav, vault: Vault) -> impl Scene {
     let results = {
-        let (query, vault) = (nav.switcher_query.clone(), vault.clone());
+        let (nav, vault) = (nav.clone(), vault.clone());
         memo(move || {
-            vault
-                .get()
-                .search(&query.get(), None)
-                .into_iter()
-                .take(SWITCHER_RESULTS)
-                .collect::<Vec<_>>()
+            // What the results depend on.
+            let _ = (
+                nav.switcher_query.get(),
+                nav.current.get(),
+                nav.back.with(Vec::len),
+            );
+            nav.switcher_results(&vault.get())
         })
     };
-    let (index, touch) = (nav.switcher_index.clone(), nav.touch.clone());
+    // With no query, the notes visited last come first, under their own label.
+    let rows = {
+        let results = results.clone();
+        memo(move || {
+            let (notes, recent) = results.get();
+            let mut rows = Vec::new();
+            for (i, &id) in notes.iter().enumerate() {
+                if i == 0 {
+                    rows.push(Row::Label(if recent > 0 { "Recent" } else { "Notes" }));
+                } else if i == recent {
+                    rows.push(Row::Label("Notes"));
+                }
+                rows.push(Row::Note(i, id));
+            }
+            rows
+        })
+    };
     let query = Some(nav.switcher_query.clone());
-    let (listing, emptiness) = (results.clone(), results.clone());
+    let (emptiness, touch) = (results.clone(), nav.touch.clone());
     let shadow = shadow::dialog();
     view! {
         Node {
@@ -67,34 +88,13 @@ fn palette(nav: Nav, vault: Vault) -> impl Scene {
             Node { flex_direction: FlexDirection::Column, padding: UiRect::all(px(4)), max_height: px(380), overflow: Overflow::scroll_y() }
             bevy::ui_widgets::ScrollArea
             Children [
-                @{group_label("Notes")}
-                --
                 #[key(*entry)]
-                for entry in $(listing.get().into_iter().enumerate().collect::<Vec<_>>()) {
-                    let (i, id) = entry;
-                    let (nav, listed) = (nav.clone(), results.clone());
-                    let data = vault.get_untracked();
-                    let note = &data.notes[id];
-                    @{item()}
-                    Node { height: $(if $touch { px(44) } else { px(36) }) }
-                    // The keyboard can point past a shrunken list: then the last one is meant.
-                    Selected($($index.min(listed.with(Vec::len).saturating_sub(1)) == i))
-                    on(move |_: On<Activate>| {
-                        nav.open(id, None);
-                        nav.switcher.set(false);
-                    })
-                    Children [
-                        @{item_icon_char(note.icon)}
-                        --
-                        @{item_label(&note.name)}
-                        --
-                        @{label(&note.path, size::XS, FontWeight::NORMAL, color::MUTED_FOREGROUND)}
-                        TextLayout { linebreak: LineBreak::NoWrap }
-                        Node { flex_shrink: 0.0 }
-                    ]
+                for entry in $rows {
+                    let scene = row(&nav, &vault, &results, entry);
+                    @{scene}
                 }
                 --
-                if $(emptiness.with(Vec::is_empty)) {
+                if $(emptiness.with(|(notes, _)| notes.is_empty())) {
                     @{empty("No notes match")}
                 }
             ]
@@ -106,4 +106,39 @@ fn palette(nav: Nav, vault: Vault) -> impl Scene {
             }
         ]
     }
+}
+
+fn row(nav: &Nav, vault: &Vault, results: &Memo<(Vec<NoteId>, usize)>, row: Row) -> Box<dyn Scene> {
+    let (i, id) = match row {
+        Row::Label(text) => return Box::new(group_label(text)),
+        Row::Note(i, id) => (i, id),
+    };
+    let (open, index, touch, listed) = (
+        nav.clone(),
+        nav.switcher_index.clone(),
+        nav.touch.clone(),
+        results.clone(),
+    );
+    let data = vault.get_untracked();
+    let note = &data.notes[id];
+    let (icon, name, path) = (note.icon, note.name.clone(), note.path.clone());
+    Box::new(view! {
+        @{item()}
+        Node { height: $(if $touch { px(44) } else { px(36) }) }
+        // The keyboard can point past a shrunken list: then the last one is meant.
+        Selected($($index.min(listed.with(|(notes, _)| notes.len()).saturating_sub(1)) == i))
+        on(move |_: On<Activate>| {
+            open.open(id, None);
+            open.switcher.set(false);
+        })
+        Children [
+            @{item_icon_char(icon)}
+            --
+            @{item_label(&name)}
+            --
+            @{label(&path, size::XS, FontWeight::NORMAL, color::MUTED_FOREGROUND)}
+            TextLayout { linebreak: LineBreak::NoWrap }
+            Node { flex_shrink: 0.0 }
+        ]
+    })
 }

@@ -11,7 +11,7 @@ use bevy_radioactive::view::{Signal, signal};
 use bevy_ui_commonmark::{LinkTarget, MdFootnote, MdHeading, MdLinkActivated};
 use bevy_ui_textselect::{Modifiers, TextSelection};
 
-use crate::vault::{NoteId, Vault};
+use crate::vault::{NoteId, Vault, VaultData};
 
 pub fn plugin(app: &mut App) {
     app.add_observer(on_link).add_systems(
@@ -19,6 +19,7 @@ pub fn plugin(app: &mut App) {
         (
             shortcuts,
             reset_switcher_index,
+            follow_paths,
             reset_scroll_on_navigation,
             scroll_to_anchor,
             track_section.after(reset_scroll_on_navigation),
@@ -55,6 +56,9 @@ pub struct Nav {
     pub scrolled: Signal<bool>,
     /// The current note's links popover is open.
     pub links: Signal<bool>,
+    /// The reading path being followed (its note): the graph shows only its notes, and its
+    /// notes link to the previous and next step.
+    pub path: Signal<Option<NoteId>>,
     /// Quick switcher state.
     pub switcher: Signal<bool>,
     pub switcher_query: Signal<String>,
@@ -93,6 +97,9 @@ pub struct Nav {
 /// How many notes the quick switcher lists.
 pub const SWITCHER_RESULTS: usize = 12;
 
+/// How many recently visited notes the quick switcher lists first.
+pub const SWITCHER_RECENT: usize = 5;
+
 /// Choices for [`Nav::max_fps`], in the order the setting cycles through them.
 pub const MAX_FPS_CHOICES: [u32; 6] = [30, 60, 90, 120, 144, 0];
 
@@ -126,6 +133,7 @@ impl Nav {
             section: signal(|| None),
             scrolled: signal(|| false),
             links: signal(|| false),
+            path: signal(|| None),
             switcher: signal(|| false),
             switcher_query: signal(String::new),
             switcher_index: signal(|| 0),
@@ -144,6 +152,30 @@ impl Nav {
             display_hz: signal(|| None),
             editing: signal(|| false),
         }
+    }
+
+    /// The quick switcher's results: notes matching the query, or with no query, the notes
+    /// visited last (most recent first, not the open one), then the others. Returns them with
+    /// how many lead as recent.
+    pub fn switcher_results(&self, vault: &VaultData) -> (Vec<NoteId>, usize) {
+        let query = self.switcher_query.get_untracked();
+        let mut results = vault.search(&query, None);
+        let mut recent = 0;
+        if query.trim().is_empty() {
+            let current = self.current.get_untracked();
+            let mut visited: Vec<NoteId> = Vec::new();
+            for &id in self.back.get_untracked().iter().rev() {
+                if id != current && !visited.contains(&id) && visited.len() < SWITCHER_RECENT {
+                    visited.push(id);
+                }
+            }
+            recent = visited.len();
+            results.retain(|id| !visited.contains(id));
+            visited.extend(results);
+            results = visited;
+        }
+        results.truncate(SWITCHER_RESULTS);
+        (results, recent)
     }
 
     /// Opens a note, recording history.
@@ -311,6 +343,7 @@ fn on_link(
         LinkTarget::Tag(tag) => nav.toggle_tag(tag),
         LinkTarget::Footnote(label) => nav.anchor.set(Some(Anchor::Footnote(label.clone()))),
         LinkTarget::Url(url) => open_url(url),
+        LinkTarget::Docs(path) => open_url(&crate::docs::url(path)),
     }
 }
 
@@ -325,6 +358,18 @@ pub fn open_url(url: &str) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         info!("open {url} in your browser");
+    }
+}
+
+/// Opening a path's note starts following that path.
+fn follow_paths(nav: Res<Nav>, vault: Res<Vault>, mut last: Local<Option<NoteId>>) {
+    let current = nav.current.get_untracked();
+    if *last == Some(current) {
+        return;
+    }
+    *last = Some(current);
+    if vault.get_untracked().path(current).is_some() {
+        nav.path.set_if_neq(Some(current));
     }
 }
 
@@ -384,11 +429,7 @@ fn shortcuts(
                 }
             }
             KeyCode::ArrowDown | KeyCode::ArrowUp if nav.switcher.get_untracked() => {
-                let count = vault
-                    .get_untracked()
-                    .search(&nav.switcher_query.get_untracked(), None)
-                    .len()
-                    .clamp(1, SWITCHER_RESULTS);
+                let count = nav.switcher_results(&vault.get_untracked()).0.len().max(1);
                 let index = nav.switcher_index.get_untracked();
                 let next = if input.key_code == KeyCode::ArrowDown {
                     (index + 1) % count
@@ -398,14 +439,12 @@ fn shortcuts(
                 nav.switcher_index.set(next);
             }
             KeyCode::Enter | KeyCode::NumpadEnter if nav.switcher.get_untracked() => {
-                let results = vault
-                    .get_untracked()
-                    .search(&nav.switcher_query.get_untracked(), None);
+                let (results, _) = nav.switcher_results(&vault.get_untracked());
                 // The index may point past a list that shrank as the query grew.
                 let index = nav
                     .switcher_index
                     .get_untracked()
-                    .min(results.len().min(SWITCHER_RESULTS).saturating_sub(1));
+                    .min(results.len().saturating_sub(1));
                 if let Some(id) = results.get(index) {
                     nav.open(*id, None);
                 }

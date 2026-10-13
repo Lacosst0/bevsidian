@@ -18,6 +18,8 @@ pub struct MdDocument {
     pub blocks: Vec<Block>,
     /// Every `[[wikilink]]` in the document, in order of appearance (duplicates kept).
     pub links: Vec<WikiLink>,
+    /// The Rust path of every docs reference (`` [`Commands`] ``), in order of appearance.
+    pub docs: Vec<String>,
     /// Every distinct `#tag` (without `#`), in order of first appearance.
     /// Includes tags from a YAML front-matter `tags:` list.
     pub tags: Vec<String>,
@@ -194,6 +196,31 @@ pub enum LinkTarget {
     Url(String),
     /// `[^label]`
     Footnote(String),
+    /// A rustdoc-style reference to an API item: `` [`Commands`] ``, `` [text][`Commands`] ``,
+    /// `[text](Commands::spawn)` or `[text](docs:Commands)`. Holds the Rust path as written
+    /// (`Commands`, `bevy::ecs::system::Commands`, `Commands::spawn`, `bsn!`).
+    Docs(String),
+}
+
+/// The scheme of explicit docs links (`[text](docs:Commands)`).
+const DOCS_SCHEME: &str = "docs:";
+
+/// The Rust path in a rustdoc-style link: `Commands`, `ecs::system::Commands`,
+/// `Commands::spawn`, `bsn!`, `run_once()`. Backticks around it are allowed.
+pub fn rust_path(text: &str) -> Option<&str> {
+    let path = text.trim().trim_matches('`');
+    let bare = path
+        .strip_suffix("()")
+        .or_else(|| path.strip_suffix('!'))
+        .unwrap_or(path);
+    let ident = |segment: &str| {
+        segment
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_')
+            && segment.chars().all(|c| c.is_alphanumeric() || c == '_')
+    };
+    bare.split("::").all(ident).then_some(path)
 }
 
 /// A run of text sharing one style and link.
@@ -441,6 +468,15 @@ fn push_tag(raw: &str, tags: &mut Vec<String>) {
     }
 }
 
+/// The Rust path a link destination refers to: `docs:Path`, or a path with `::` (rustdoc's
+/// `[text](Commands::spawn)`).
+fn docs_target(dest: &str) -> Option<&str> {
+    if let Some(path) = dest.strip_prefix(DOCS_SCHEME) {
+        return rust_path(path);
+    }
+    dest.contains("::").then(|| rust_path(dest)).flatten()
+}
+
 impl MdDocument {
     /// Parses markdown source.
     #[allow(clippy::too_many_lines)]
@@ -481,7 +517,16 @@ impl MdDocument {
             inl.active = false;
         }
 
-        for event in Parser::new_ext(source, options) {
+        // Rustdoc-style references (`` [`Commands`] ``) have no link definition: point them at
+        // the docs instead of leaving them as text.
+        let docs_reference = |link: pulldown_cmark::BrokenLink<'_>| {
+            let reference = link.reference.trim();
+            (reference.starts_with('`') && reference.ends_with('`'))
+                .then(|| rust_path(reference))
+                .flatten()
+                .map(|path| (format!("{DOCS_SCHEME}{path}").into(), "".into()))
+        };
+        for event in Parser::new_with_broken_link_callback(source, options, Some(docs_reference)) {
             match event {
                 Event::Start(tag) => match tag {
                     Tag::Paragraph => {
@@ -558,6 +603,9 @@ impl MdDocument {
                             let link = parse_wikilink(&dest_url);
                             doc.links.push(link.clone());
                             LinkTarget::Wiki(link)
+                        } else if let Some(path) = docs_target(&dest_url) {
+                            doc.docs.push(path.to_owned());
+                            LinkTarget::Docs(path.to_owned())
                         } else {
                             LinkTarget::Url(dest_url.to_string())
                         };
@@ -835,6 +883,60 @@ fn callout(kind: BlockQuoteKind) -> Callout {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rustdoc_references_link_to_docs() {
+        let doc = MdDocument::parse(
+            "Use [`Commands`], [spawning][`Commands::spawn`], [the macro](bsn!), \
+             [`bevy::ecs::system::Query`], [a](docs:Time) and [`not a path`] or [`Missing`]: x.\n\n\
+             [`Missing`]: https://example.com",
+        );
+        let Block::Paragraph(inlines) = &doc.blocks[0] else {
+            panic!("expected paragraph");
+        };
+        let docs: Vec<(&str, &str)> = inlines
+            .iter()
+            .filter_map(|i| match &i.link {
+                Some(LinkTarget::Docs(path)) => Some((i.text.as_str(), path.as_str())),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            docs,
+            [
+                ("Commands", "Commands"),
+                ("spawning", "Commands::spawn"),
+                ("bevy::ecs::system::Query", "bevy::ecs::system::Query"),
+                ("a", "Time"),
+            ]
+        );
+        assert!(inlines[1].style.code, "the reference keeps its code style");
+        // A defined reference stays a normal link; `bsn!` without `::` is not a docs link.
+        assert!(
+            inlines
+                .iter()
+                .any(|i| matches!(&i.link, Some(LinkTarget::Url(u)) if u == "https://example.com"))
+        );
+        assert!(
+            inlines
+                .iter()
+                .any(|i| i.text.contains("[`not a path`]") || i.text == "not a path")
+        );
+    }
+
+    #[test]
+    fn rust_paths() {
+        assert_eq!(rust_path("`Commands`"), Some("Commands"));
+        assert_eq!(rust_path("bsn!"), Some("bsn!"));
+        assert_eq!(rust_path("run_once()"), Some("run_once()"));
+        assert_eq!(
+            rust_path("ecs::system::Commands"),
+            Some("ecs::system::Commands")
+        );
+        assert_eq!(rust_path("not a path"), None);
+        assert_eq!(rust_path("a::"), None);
+        assert_eq!(rust_path("https://x"), None);
+    }
 
     #[test]
     fn wikilinks() {

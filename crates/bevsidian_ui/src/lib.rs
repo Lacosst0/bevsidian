@@ -49,5 +49,9 @@ pub mod prelude {
 
 /// Paints surfaces and keeps text inputs in sync.
 pub fn plugin(app: &mut App) {
-    app.add_plugins((surface::plugin, components::input::plugin));
+    app.add_plugins((
+        surface::plugin,
+        components::input::plugin,
+        components::tooltip::plugin,
+    ));
 }

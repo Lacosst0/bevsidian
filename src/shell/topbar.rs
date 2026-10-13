@@ -49,15 +49,18 @@ fn wide(nav: Nav, vault: Vault) -> impl Scene {
         Node { flex_grow: 1.0, min_width: px(0), align_items: AlignItems::Center, column_gap: px(2) }
         Children [
             @{icon_button(Variant::Ghost, Size::IconSm, "panel-left")}
+            Tooltip::new("Toggle sidebar")
             on(move |_: On<Activate>| sidebar.toggle_sidebar())
             --
             @{vertical_separator()}
             --
             @{icon_button(Variant::Ghost, Size::IconSm, "chevron-left")}
+            Tooltip::with_keys("Back", "Alt ←")
             Disabled($back.is_empty())
             on(move |_: On<Activate>| go_back.go_back())
             --
             @{icon_button(Variant::Ghost, Size::IconSm, "chevron-right")}
+            Tooltip::with_keys("Forward", "Alt →")
             Disabled($forward.is_empty())
             on(move |_: On<Activate>| go_forward.go_forward())
             --
@@ -129,9 +132,11 @@ fn compact(nav: Nav, vault: Vault) -> impl Scene {
             Node { flex_grow: 1.0 }
             --
             @{icon_button(Variant::Ghost, Size::IconLg, "search")}
+            Tooltip::with_keys("Quick switcher", "Ctrl O")
             on(move |_: On<Activate>| switcher.open_switcher())
             --
             @{icon_button(Variant::Ghost, Size::IconLg, "waypoints")}
+            Tooltip::with_keys("Graph", "Ctrl G")
             Selected($view == View::Graph)
             on(move |_: On<Activate>| graph.toggle_graph())
             --
@@ -186,6 +191,7 @@ fn edit_button(nav: Nav, size: Size) -> impl Scene {
     let (pen, done) = (glyph("pencil"), glyph("check"));
     view! {
         @{button(Variant::Ghost, size)}
+        Tooltip::with_keys("Edit note", "Ctrl E")
         Node { display: $(if $view == View::Note { Display::Flex } else { Display::None }) }
         Selected($editing)
         on(move |_: On<Activate>| toggle.toggle_editing())

@@ -24,6 +24,7 @@ pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
         memo(move || (current.get(), size.get(), mode.get(), vault.get().revision))
     };
     let (mode, editing, current) = (nav.mode.clone(), nav.editing.clone(), nav.current.clone());
+    let pager = (nav.clone(), vault.clone());
     let render = move |(id, size, mode, _): (NoteId, u32, LayoutMode, u64)| {
         note_body(id, size, mode, &vault, &theme)
     };
@@ -56,18 +57,126 @@ pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
                     Node { position_type: PositionType::Relative, width: Val::Percent(100.0) }
                     crate::editor::EditorSlot($current)
                 } else {
+                    let (nav, vault) = pager.clone();
                     Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
                     Children [
                         let render = render.clone();
                         match $key {
                             key => { @{render(key)} },
                         }
+                        --
+                        @{path_pager(nav, vault)}
                     ]
                 }
             ]
         ]
         --
         @{top}
+        ]
+    }
+}
+
+/// Where the current note is on the followed reading path.
+#[derive(Clone, Debug, PartialEq)]
+struct PathPlace {
+    path: NoteId,
+    name: String,
+    /// The note's step (from 1); `None` on the path's own note.
+    step: Option<usize>,
+    steps: usize,
+    previous: Option<(NoteId, String)>,
+    next: Option<(NoteId, String)>,
+}
+
+/// At the end of a note on the followed path: the path, the step, and links to the previous
+/// and next notes (from the path's own note, a link to its first step).
+fn path_pager(nav: Nav, vault: Vault) -> impl Scene {
+    let place = {
+        let (current, path, vault) = (nav.current.clone(), nav.path.clone(), vault.clone());
+        memo(move || {
+            let data = vault.get();
+            let path = data.path(path.get()?)?;
+            let current = current.get();
+            let step = path.steps.iter().position(|&s| s == current);
+            if step.is_none() && current != path.note {
+                return None;
+            }
+            let named = |id: NoteId| (id, data.notes[id].name.clone());
+            Some(PathPlace {
+                path: path.note,
+                name: data.notes[path.note].name.clone(),
+                step: step.map(|s| s + 1),
+                steps: path.steps.len(),
+                previous: step
+                    .map(|s| s.checked_sub(1).map_or(path.note, |p| path.steps[p]))
+                    .map(named),
+                next: path
+                    .steps
+                    .get(step.map_or(0, |s| s + 1))
+                    .copied()
+                    .map(named),
+            })
+        })
+    };
+    view! {
+        Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
+        Children [
+            match $place {
+                Some(place) => {
+                    let nav = nav.clone();
+                    @{pager(&nav, &place)}
+                },
+                None => {},
+            }
+        ]
+    }
+}
+
+fn pager(nav: &Nav, place: &PathPlace) -> impl Scene + use<> {
+    let (open_path, stop) = (nav.clone(), nav.path.clone());
+    let path = place.path;
+    let where_ = match place.step {
+        Some(number) => format!("Step {number} of {}", place.steps),
+        None => format!("{} steps", place.steps),
+    };
+    let link = |direction: PageDirection, label: &str, target: &Option<(NoteId, String)>| {
+        let Some((id, title)) = target.clone() else {
+            // Keeps the other link on its side.
+            return Box::new(bsn! { Node { flex_grow: 1.0, flex_basis: px(0) } }) as Box<dyn Scene>;
+        };
+        let nav = nav.clone();
+        Box::new(bsn! {
+            @{page_link(direction, label, &title)}
+            on(move |_: On<Activate>| nav.open(id, None))
+        }) as Box<dyn Scene>
+    };
+    let previous = link(PageDirection::Previous, "Previous", &place.previous);
+    let next_label = if place.step.is_some() {
+        "Next"
+    } else {
+        "Start"
+    };
+    let next = link(PageDirection::Next, next_label, &place.next);
+    bsn! {
+        Node { flex_direction: FlexDirection::Column, row_gap: px(12), margin: UiRect::top(px(48)) }
+        Children [
+            @{separator()}
+            --
+            Node { align_items: AlignItems::Center, column_gap: px(8), min_height: px(28) }
+            Children [
+                @{text_button(Variant::Ghost, Size::Xs, &place.name)}
+                on(move |_: On<Activate>| open_path.open(path, None))
+                --
+                @{caption(&where_)}
+                --
+                Node { flex_grow: 1.0 }
+                --
+                @{icon_button(Variant::Ghost, Size::IconXs, "x")}
+                on(move |_: On<Activate>| stop.set(None))
+            ]
+            --
+            Node { column_gap: px(12) }
+            Children [ @{previous} -- @{next} ]
         ]
     }
 }
@@ -88,6 +197,7 @@ fn back_to_top(nav: Nav) -> impl Scene {
             if $scrolled {
                 let shadow = shadow.clone();
                 @{icon_button(Variant::Outline, Size::IconLg, "arrow-up")}
+                Tooltip::new("Back to top")
                 Surface { idle: color::CARD, hover: color::ACCENT, selected: color::ACCENT }
                 Node { border_radius: BorderRadius::all(px(radius::FULL)) }
                 shadow

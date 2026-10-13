@@ -93,4 +93,4 @@ fn main() {
 ## See also
 
 - [[Scenes and BSN]] builds whole entity hierarchies at once.
-- [[Rendering]] covers the components the renderer reads, such as `Mesh3d` and `Camera3d`.
+- [[Rendering]] covers the components the renderer reads, such as [`Mesh3d`] and [`Camera3d`].

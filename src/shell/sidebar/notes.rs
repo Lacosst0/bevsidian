@@ -239,12 +239,30 @@ fn result_row(
     nav: &Nav,
 ) -> impl Scene + use<> {
     let note = &data.notes[id];
+    // The excerpt on one line, cut at the end, with the matched term brighter.
     let excerpt: Vec<Box<dyn Scene>> = data
         .excerpt(id, query)
-        .map(|text| {
+        .map(|excerpt| {
+            let normal = insert(font(size::XS, FontWeight::NORMAL));
+            let strong = insert(font(size::XS, FontWeight::MEDIUM));
+            let rest = insert(font(size::XS, FontWeight::NORMAL));
+            let (before, term, after) = (
+                Text::new(excerpt.before),
+                TextSpan::new(excerpt.term),
+                TextSpan::new(excerpt.after),
+            );
             Box::new(bsn! {
-                @{tinted(&text, size::XS, FontWeight::NORMAL, Tint::fixed(color::MUTED_FOREGROUND))}
-                Node { margin: UiRect::left(px(24)) }
+                before
+                @{normal}
+                TextColor(color::MUTED_FOREGROUND)
+                TextLayout { linebreak: LineBreak::NoWrap }
+                Node { margin: UiRect::left(px(24)), min_width: px(0), overflow: Overflow::clip() }
+                Pickable::IGNORE
+                Children [
+                    term @{strong} TextColor(color::FOREGROUND)
+                    --
+                    after @{rest} TextColor(color::MUTED_FOREGROUND)
+                ]
             }) as Box<dyn Scene>
         })
         .into_iter()

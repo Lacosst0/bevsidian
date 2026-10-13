@@ -61,6 +61,8 @@ pub struct MdTheme {
     pub table_header_bg: Color,
     /// Table header text.
     pub table_header: Color,
+    /// Behind the table row under the pointer.
+    pub table_row_hover: Color,
     /// Callout and code-header background.
     pub surface: Color,
     /// Corner radius of callouts, tables and code blocks.
@@ -113,6 +115,7 @@ impl MdTheme {
             border: Color::srgb_u8(0x3a, 0x3a, 0x42),
             table_header_bg: Color::srgb_u8(0x24, 0x24, 0x2a),
             table_header: Color::srgb_u8(0xf2, 0xf2, 0xf2),
+            table_row_hover: Color::srgba(1.0, 1.0, 1.0, 0.03),
             surface: Color::srgb_u8(0x1e, 0x1e, 0x22),
             radius: 6.0,
             callouts: [
@@ -147,6 +150,7 @@ impl MdTheme {
             border: Color::srgb_u8(0xd8, 0xd8, 0xde),
             table_header_bg: Color::srgb_u8(0xf3, 0xf3, 0xf6),
             table_header: Color::srgb_u8(0x10, 0x10, 0x14),
+            table_row_hover: Color::srgba(0.0, 0.0, 0.0, 0.03),
             surface: Color::srgb_u8(0xf6, 0xf6, 0xf8),
             syntax_keyword: Color::srgb_u8(0xa6, 0x26, 0xa4),
             syntax_string: Color::srgb_u8(0x50, 0xa1, 0x4f),

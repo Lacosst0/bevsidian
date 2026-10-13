@@ -5,6 +5,9 @@
 //! [`GraphViewport`] node; pointer events on the node are mapped back into the world for
 //! hovering, clicking, dragging nodes, panning (with momentum) and zooming (wheel, pinch
 //! and buttons). A press only opens a note if the pointer did not move: drags never click.
+//!
+//! Lines say how two notes are connected ([`Connection`]): solid when they link to each
+//! other, dashed when one links to the other, dotted when they only share a tag.
 
 use bevy::{
     camera::{RenderTarget, visibility::RenderLayers},
@@ -21,9 +24,9 @@ use bevy::{
 
 use bevsidian_core::{
     nav::{Nav, View},
-    vault::{NoteId, Vault},
+    vault::{NoteId, Vault, VaultData},
 };
-use bevsidian_ui::{Size, Variant, color, icon_button, radius, shadow};
+use bevsidian_ui::{Size, Tooltip, Variant, caption, color, icon_button, radius, shadow};
 
 const LAYER: usize = 1;
 
@@ -35,10 +38,13 @@ pub fn plugin(app: &mut App) {
             Update,
             (
                 spawn_nodes,
+                follow_path,
+                show_legend,
                 attach_viewport,
                 toggle_camera,
                 resize_target,
                 simulate,
+                frame_path,
                 pinch_zoom,
                 camera_motion,
                 sharpen_labels,
@@ -69,6 +75,8 @@ struct GraphNode {
     radius: f32,
     pinned: bool,
     neighbors: Vec<Entity>,
+    /// Off the reading path being followed: not drawn, simulated or picked.
+    hidden: bool,
 }
 
 #[derive(Component)]
@@ -95,7 +103,15 @@ struct GraphText {
 #[derive(Resource, Default)]
 pub struct GraphState {
     image: Handle<Image>,
+    /// Links, one per direction: the springs of the simulation.
     edges: Vec<(Entity, Entity)>,
+    /// The lines drawn, one per connected pair.
+    lines: Vec<(Entity, Entity, Connection)>,
+    /// The steps of the reading path being followed, in order (empty when none is).
+    path: Vec<Entity>,
+    /// The camera frames the shown notes while they settle (after a path is chosen), until
+    /// the user moves it.
+    framing: bool,
     hovered: Option<Entity>,
     dragging: Option<Entity>,
     /// The current press, until the next one.
@@ -236,12 +252,22 @@ fn spawn_nodes(
         ..default()
     };
 
-    // Notes start on a circle; the simulation untangles them.
+    // Notes start on a circle; the simulation untangles them. Path notes stay out: each
+    // would link to every note on its path (paths show as filters instead).
     let note_count = vault.notes.len();
     let mut note_entities = Vec::with_capacity(note_count);
     for (i, note) in vault.notes.iter().enumerate() {
+        if vault.path(i).is_some() {
+            note_entities.push(None);
+            continue;
+        }
         let angle = i as f32 / note_count.max(1) as f32 * std::f32::consts::TAU;
-        let degree = note.outgoing.len() + note.backlinks.len();
+        let degree = note.outgoing.len()
+            + note
+                .backlinks
+                .iter()
+                .filter(|&&b| vault.path(b).is_none())
+                .count();
         // Better-linked notes are bigger.
         let radius = 16.0 + 4.0 * (degree as f32).sqrt();
         let icon_size = (radius * 0.9).round();
@@ -253,6 +279,7 @@ fn spawn_nodes(
                     radius,
                     pinned: false,
                     neighbors: Vec::new(),
+                    hidden: false,
                 },
                 Transform::from_translation(
                     kept.get(&i)
@@ -300,15 +327,21 @@ fn spawn_nodes(
                 ));
             })
             .id();
-        note_entities.push(id);
+        note_entities.push(Some(id));
     }
     let mut edges = Vec::new();
     for (i, note) in vault.notes.iter().enumerate() {
         for &target in &note.outgoing {
-            edges.push((note_entities[i], note_entities[target]));
+            if let (Some(a), Some(b)) = (note_entities[i], note_entities[target]) {
+                edges.push((a, b));
+            }
         }
     }
     state.edges = edges;
+    state.lines = connections(&vault)
+        .into_iter()
+        .filter_map(|(a, b, kind)| Some((note_entities[a]?, note_entities[b]?, kind)))
+        .collect();
     state.anchor = None;
     if kept.is_empty() {
         state.alpha = 1.0;
@@ -385,6 +418,76 @@ fn resize_target(
     }
 }
 
+/// Shows the notes of the followed path, numbered in order, and hides the rest (or shows
+/// every note when no path is followed).
+fn follow_path(
+    nav: Res<Nav>,
+    vault: Res<Vault>,
+    mut state: ResMut<GraphState>,
+    mut nodes: Query<(Entity, &mut GraphNode, &mut Visibility, &Children)>,
+    mut labels: Query<&mut Text2d, With<GraphLabel>>,
+    // The path shown, and the vault revision whose nodes showed it (nodes are rebuilt when
+    // the vault changes).
+    mut last: Local<Option<(Option<NoteId>, u64)>>,
+) {
+    let path = nav.path.get_untracked();
+    let data = vault.get_untracked();
+    if *last == Some((path, data.revision)) {
+        return;
+    }
+    let changed = last.is_some_and(|(shown, _)| shown != path);
+    let rebuilt = last.is_some_and(|(_, revision)| revision != data.revision);
+    *last = Some((path, data.revision));
+    let steps = path
+        .and_then(|p| data.path(p))
+        .map(|p| p.steps.as_slice())
+        .unwrap_or_default();
+    let mut ordered = vec![None; steps.len()];
+    for (entity, mut node, mut visibility, children) in &mut nodes {
+        let step = steps.iter().position(|&s| s == node.note);
+        node.hidden = !steps.is_empty() && step.is_none();
+        visibility.set_if_neq(if node.hidden {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
+        if let Some(step) = step {
+            ordered[step] = Some(entity);
+        }
+        let name = &data.notes[node.note].name;
+        let label = step.map_or_else(|| name.clone(), |step| format!("{}. {name}", step + 1));
+        for &child in children {
+            if let Ok(mut text) = labels.get_mut(child)
+                && text.0 != label
+            {
+                text.0.clone_from(&label);
+            }
+        }
+    }
+    state.path = ordered.into_iter().flatten().collect();
+    if changed || (rebuilt && !state.path.is_empty()) {
+        // Lay the shown notes out again, and frame them as they settle.
+        state.hovered = None;
+        state.alpha = 1.0;
+        state.framing = true;
+    }
+}
+
+/// Keeps the shown notes in frame while they settle after a path is chosen.
+fn frame_path(
+    mut state: ResMut<GraphState>,
+    nodes: Query<(&Transform, &GraphNode), Without<GraphCamera>>,
+    viewport: Query<&ComputedNode, With<GraphViewport>>,
+) {
+    if !state.framing {
+        return;
+    }
+    state.camera_goal = Some(fit_all(&nodes, viewport.single().ok()));
+    if state.alpha < 0.05 {
+        state.framing = false;
+    }
+}
+
 fn simulate(
     time: Res<Time>,
     nav: Res<Nav>,
@@ -397,6 +500,7 @@ fn simulate(
     let dt = time.delta_secs().min(1.0 / 30.0);
     let positions: Vec<(Entity, Vec2)> = nodes
         .iter()
+        .filter(|(_, n, _)| !n.hidden)
         .map(|(e, _, t)| (e, t.translation.truncate()))
         .collect();
     let index = |e: Entity| positions.iter().position(|(p, _)| *p == e);
@@ -412,8 +516,9 @@ fn simulate(
             forces[j] -= f;
         }
     }
-    // Springs along edges.
-    for &(a, b) in &state.edges {
+    // Springs along edges, and between the steps of a followed path.
+    let path_links = state.path.windows(2).map(|pair| (pair[0], pair[1]));
+    for (a, b) in state.edges.iter().copied().chain(path_links) {
         let (Some(i), Some(j)) = (index(a), index(b)) else {
             continue;
         };
@@ -425,7 +530,8 @@ fn simulate(
     }
     let alpha = state.alpha;
     let weights = state.anchor.map(|anchor| mobility(&state.edges, anchor));
-    for (i, (entity, mut node, mut transform)) in nodes.iter_mut().enumerate() {
+    let visible = nodes.iter_mut().filter(|(_, n, _)| !n.hidden);
+    for (i, (entity, mut node, mut transform)) in visible.enumerate() {
         debug_assert_eq!(positions[i].0, entity);
         // Gravity towards the centre keeps islands on screen.
         let force = forces[i] - positions[i].1 * 0.08;
@@ -588,13 +694,107 @@ fn style_nodes(
     }
 }
 
-/// Edge width on screen, in render-target pixels.
+/// How two notes are connected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Connection {
+    /// Each links to the other: a solid line.
+    Mutual,
+    /// One links to the other: a dashed line.
+    OneWay,
+    /// They share a tag but neither links to the other: a dotted line.
+    Tag,
+}
+
+/// Tags on more notes than this draw no lines: they would connect everything to everything.
+const MAX_TAG_NOTES: usize = 12;
+
+/// The connected pairs of notes (each pair once, lower id first) and how they connect.
+pub fn connections(vault: &VaultData) -> Vec<(NoteId, NoteId, Connection)> {
+    let mut lines = std::collections::BTreeMap::new();
+    for (a, note) in vault.notes.iter().enumerate() {
+        for &b in &note.outgoing {
+            let mutual = vault.notes[b].outgoing.contains(&a);
+            let kind = if mutual {
+                Connection::Mutual
+            } else {
+                Connection::OneWay
+            };
+            lines.insert((a.min(b), a.max(b)), kind);
+        }
+    }
+    for notes in vault.tags.values().filter(|n| n.len() <= MAX_TAG_NOTES) {
+        for (i, &a) in notes.iter().enumerate() {
+            for &b in &notes[i + 1..] {
+                if a != b {
+                    lines.entry((a.min(b), a.max(b))).or_insert(Connection::Tag);
+                }
+            }
+        }
+    }
+    lines
+        .into_iter()
+        .map(|((a, b), kind)| (a, b, kind))
+        .collect()
+}
+
+/// Line width on screen, in render-target pixels.
 const EDGE_WIDTH: f32 = 4.0;
+/// Dashes of one-way links and the gaps between them, in render-target pixels.
+const DASH: f32 = 12.0;
+const DASH_GAP: f32 = 8.0;
+/// Space between the dots of tag lines, in render-target pixels.
+const DOT_GAP: f32 = 6.0;
+
+/// Pieces `piece` long, `gap` apart, centred on `0..length` (start and end of each).
+fn pattern(length: f32, piece: f32, gap: f32) -> impl Iterator<Item = (f32, f32)> {
+    let count = ((length + gap) / (piece + gap)).floor().max(0.0) as usize;
+    let used = count as f32 * (piece + gap) - gap;
+    let start = (length - used) / 2.0;
+    (0..count).map(move |i| {
+        let from = start + i as f32 * (piece + gap);
+        (from, from + piece)
+    })
+}
+
+/// Vertices, colours and indices of the line mesh.
+#[derive(Default)]
+struct LineMesh {
+    positions: Vec<[f32; 3]>,
+    colors: Vec<[f32; 4]>,
+    indices: Vec<u32>,
+}
+
+impl LineMesh {
+    fn quad(&mut self, from: Vec2, to: Vec2, half: f32, color: [f32; 4]) {
+        let normal = (to - from).normalize_or_zero().perp() * half;
+        let base = self.positions.len() as u32;
+        for p in [from + normal, from - normal, to - normal, to + normal] {
+            self.positions.push([p.x, p.y, 0.0]);
+            self.colors.push(color);
+        }
+        self.indices
+            .extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+    }
+
+    /// A round dot (an octagon).
+    fn dot(&mut self, center: Vec2, radius: f32, color: [f32; 4]) {
+        let base = self.positions.len() as u32;
+        self.positions.push([center.x, center.y, 0.0]);
+        self.colors.push(color);
+        for i in 0..8 {
+            let p = center + Vec2::from_angle(i as f32 * std::f32::consts::FRAC_PI_4) * radius;
+            self.positions.push([p.x, p.y, 0.0]);
+            self.colors.push(color);
+            self.indices
+                .extend([base, base + 1 + i, base + 1 + (i + 1) % 8]);
+        }
+    }
+}
 
 fn draw_edges(
     nav: Res<Nav>,
     state: Res<GraphState>,
-    nodes: Query<&Transform, With<GraphNode>>,
+    nodes: Query<(&Transform, &GraphNode)>,
     camera: Query<&Projection, With<GraphCamera>>,
     edge_mesh: Query<&Mesh2d, With<EdgeMesh>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -605,13 +805,32 @@ fn draw_edges(
     let (Ok(mesh), Ok(projection)) = (edge_mesh.single(), camera.single()) else {
         return;
     };
-    let half = EDGE_WIDTH / 2.0 * ortho_scale(projection);
+    // World units per render-target pixel: lines and patterns keep their size on screen.
+    let px = ortho_scale(projection);
+    let half = EDGE_WIDTH / 2.0 * px;
     let focus = state.hovered.or(state.dragging);
-    let mut positions = Vec::with_capacity(state.edges.len() * 4);
-    let mut colors = Vec::with_capacity(state.edges.len() * 4);
-    let mut indices = Vec::with_capacity(state.edges.len() * 6);
-    for &(a, b) in &state.edges {
-        let (Ok(ta), Ok(tb)) = (nodes.get(a), nodes.get(b)) else {
+    let mut out = LineMesh::default();
+    // Following a path: only its steps, joined in order.
+    if !state.path.is_empty() {
+        let color = color::LINK.to_linear().to_f32_array();
+        for pair in state.path.windows(2) {
+            if let (Ok((ta, _)), Ok((tb, _))) = (nodes.get(pair[0]), nodes.get(pair[1])) {
+                out.quad(
+                    ta.translation.truncate(),
+                    tb.translation.truncate(),
+                    half,
+                    color,
+                );
+            }
+        }
+    }
+    let lines = if state.path.is_empty() {
+        state.lines.as_slice()
+    } else {
+        &[]
+    };
+    for &(a, b, kind) in lines {
+        let (Ok((ta, na)), Ok((tb, nb))) = (nodes.get(a), nodes.get(b)) else {
             continue;
         };
         let highlighted = focus.is_some_and(|f| f == a || f == b);
@@ -621,20 +840,37 @@ fn draw_edges(
             Color::srgb(0.13, 0.13, 0.13)
         } else {
             Color::srgb(0.26, 0.26, 0.26)
-        };
-        let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
-        let normal = (pb - pa).normalize_or_zero().perp() * half;
-        let base = positions.len() as u32;
-        for p in [pa + normal, pa - normal, pb - normal, pb + normal] {
-            positions.push([p.x, p.y, 0.0]);
-            colors.push(color.to_linear().to_f32_array());
         }
-        indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+        .to_linear()
+        .to_f32_array();
+        let (pa, pb) = (ta.translation.truncate(), tb.translation.truncate());
+        // Patterns run between the discs' outlines, so both ends look the same.
+        let direction = (pb - pa).normalize_or_zero();
+        let from = pa + direction * na.radius;
+        let length = (pb - direction * nb.radius - from).dot(direction);
+        match kind {
+            Connection::Mutual => out.quad(pa, pb, half, color),
+            Connection::OneWay => {
+                for (start, end) in pattern(length, DASH * px, DASH_GAP * px) {
+                    out.quad(
+                        from + direction * start,
+                        from + direction * end,
+                        half,
+                        color,
+                    );
+                }
+            }
+            Connection::Tag => {
+                for (start, end) in pattern(length, EDGE_WIDTH * px, DOT_GAP * px) {
+                    out.dot(from + direction * (start + end) / 2.0, half, color);
+                }
+            }
+        }
     }
     if let Some(mut mesh) = meshes.get_mut(&mesh.0) {
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-        mesh.insert_indices(bevy::mesh::Indices::U32(indices));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, out.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, out.colors);
+        mesh.insert_indices(bevy::mesh::Indices::U32(out.indices));
     }
 }
 
@@ -668,7 +904,9 @@ fn to_world(
 fn pick(world: Vec2, nodes: &Query<(Entity, &Transform, &GraphNode)>) -> Option<Entity> {
     nodes
         .iter()
-        .filter(|(_, t, n)| t.translation.truncate().distance(world) <= n.radius + 12.0)
+        .filter(|(_, t, n)| {
+            !n.hidden && t.translation.truncate().distance(world) <= n.radius + 12.0
+        })
         .min_by(|a, b| {
             let da = a.1.translation.truncate().distance(world);
             let db = b.1.translation.truncate().distance(world);
@@ -733,6 +971,7 @@ fn on_press(
     state.press = Some(Press { node, moved: false });
     state.pan_velocity = Vec2::ZERO;
     state.camera_goal = None;
+    state.framing = false;
 }
 
 fn on_release(event: On<PointerRelease>, mut state: ResMut<GraphState>) {
@@ -842,6 +1081,7 @@ fn on_scroll(
         return;
     };
     state.camera_goal = None;
+    state.framing = false;
     let factor = (1.0 - event.y.signum() * 0.12).clamp(0.5, 1.5);
     zoom_around(&mut transform, &mut projection, anchor, factor);
 }
@@ -870,6 +1110,8 @@ fn ortho_scale(projection: &Projection) -> f32 {
 
 const MIN_SCALE: f32 = 0.25;
 const MAX_SCALE: f32 = 4.0;
+/// Closest zoom "fit" goes to.
+const FIT_MIN_SCALE: f32 = 0.8;
 
 /// Zooms by `factor` (< 1 zooms in) keeping the world point `anchor` fixed on screen.
 fn zoom_around(transform: &mut Transform, projection: &mut Projection, anchor: Vec2, factor: f32) {
@@ -912,6 +1154,7 @@ fn pinch_zoom(
     state.dragging = None;
     state.pan_velocity = Vec2::ZERO;
     state.camera_goal = None;
+    state.framing = false;
     // A pinch is never a click.
     if let Some(press) = &mut state.press {
         press.moved = true;
@@ -952,30 +1195,32 @@ fn camera_motion(
 
 /// Camera position and zoom that show every node.
 fn fit_all(
-    nodes: &Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
+    nodes: &Query<(&Transform, &GraphNode), Without<GraphCamera>>,
     viewport: Option<&ComputedNode>,
 ) -> (Vec2, f32) {
     let mut bounds: Option<Rect> = None;
-    for transform in nodes {
+    for (transform, _) in nodes.iter().filter(|(_, n)| !n.hidden) {
         let p = transform.translation.truncate();
-        // Leave room for the node and its label.
-        let r = Rect::from_center_half_size(p, Vec2::new(60.0, 30.0));
+        // Leave room for the node and its label below.
+        let r = Rect::from_center_half_size(p, Vec2::new(80.0, 50.0));
         bounds = Some(bounds.map_or(r, |b| b.union(r)));
     }
     let (Some(bounds), Some(viewport)) = (bounds, viewport) else {
         return (Vec2::ZERO, 1.0);
     };
     let size = viewport.size().max(Vec2::ONE);
-    let scale = (bounds.size() / size).max_element() * 1.1;
-    (bounds.center(), scale.clamp(MIN_SCALE, MAX_SCALE))
+    let scale = (bounds.size() / size).max_element() * 1.2;
+    // A few notes are framed at a comfortable size, not blown up to fill the view.
+    (bounds.center(), scale.clamp(FIT_MIN_SCALE, MAX_SCALE))
 }
 
 /// Zoom buttons over the graph (the only way to zoom on touch screens): one bordered group of
 /// zoom in, zoom out and fit.
 pub fn zoom_controls() -> impl Scene {
-    fn button(icon: &'static str, factor: f32, first: bool) -> impl Scene {
+    fn button(icon: &'static str, tip: &'static str, factor: f32, first: bool) -> impl Scene {
         bsn! {
             @{icon_button(Variant::Ghost, Size::Icon, icon)}
+            Tooltip::new(tip)
             Node {
                 border: UiRect::top(px(if first { 0.0 } else { 1.0 })),
                 border_radius: BorderRadius::ZERO,
@@ -983,7 +1228,7 @@ pub fn zoom_controls() -> impl Scene {
             BorderColor::all(color::BORDER)
             on(move |_: On<bevy::ui_widgets::Activate>,
                      camera: Query<(&Transform, &Projection), With<GraphCamera>>,
-                     nodes: Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
+                     nodes: Query<(&Transform, &GraphNode), Without<GraphCamera>>,
                      viewport: Query<&ComputedNode, With<GraphViewport>>,
                      mut state: ResMut<GraphState>| {
                 let Ok((transform, projection)) = camera.single() else {
@@ -993,6 +1238,7 @@ pub fn zoom_controls() -> impl Scene {
                     .camera_goal
                     .unwrap_or((transform.translation.truncate(), ortho_scale(projection)));
                 state.pan_velocity = Vec2::ZERO;
+                state.framing = false;
                 state.camera_goal = Some(if factor == 0.0 {
                     fit_all(&nodes, viewport.single().ok())
                 } else {
@@ -1016,11 +1262,105 @@ pub fn zoom_controls() -> impl Scene {
         BorderColor::all(color::INPUT)
         shadow
         Children [
-            @{button("plus", 0.8, true)}
+            @{button("plus", "Zoom in", 0.8, true)}
             --
-            @{button("minus", 1.25, false)}
+            @{button("minus", "Zoom out", 1.25, false)}
             --
-            @{button("maximize", 0.0, false)}
+            @{button("maximize", "Fit to screen", 0.0, false)}
         ]
+    }
+}
+
+/// The legend, hidden while a path is shown (its line is the path itself).
+#[derive(Component, Clone, Copy, Debug, Default)]
+struct GraphLegend;
+
+fn show_legend(state: Res<GraphState>, mut legends: Query<&mut Visibility, With<GraphLegend>>) {
+    let visibility = if state.path.is_empty() {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    for mut legend in &mut legends {
+        legend.set_if_neq(visibility);
+    }
+}
+
+/// What the line styles mean, in the graph's corner.
+pub fn legend() -> impl Scene {
+    fn row(sample: Vec<Box<dyn Scene>>, text: &str) -> impl Scene + use<> {
+        bsn! {
+            Node { align_items: AlignItems::Center, column_gap: px(10) }
+            Children [
+                Node { width: px(24), height: px(6), align_items: AlignItems::Center, justify_content: JustifyContent::SpaceBetween }
+                Children [ {sample} ]
+                --
+                @{caption(text)}
+            ]
+        }
+    }
+    fn piece(width: f32, round: bool) -> Box<dyn Scene> {
+        let node = Node {
+            width: px(width),
+            height: px(if round { 4.0 } else { 2.0 }),
+            border_radius: BorderRadius::all(px(if round { 2.0 } else { 0.0 })),
+            ..default()
+        };
+        Box::new(bsn! { node BackgroundColor(color::MUTED_FOREGROUND) })
+    }
+    let shadow = shadow::popover();
+    bsn! {
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(16),
+            bottom: px(16),
+            flex_direction: FlexDirection::Column,
+            row_gap: px(6),
+            padding: UiRect::axes(px(12), px(10)),
+            border: UiRect::all(px(1)),
+            border_radius: BorderRadius::all(px(radius::LG)),
+        }
+        BackgroundColor(color::CARD)
+        BorderColor::all(color::INPUT)
+        Pickable::IGNORE
+        GraphLegend
+        shadow
+        Children [
+            @{row(vec![piece(24.0, false)], "Linked both ways")}
+            --
+            @{row((0..3).map(|_| piece(6.0, false)).collect(), "Linked one way")}
+            --
+            @{row((0..4).map(|_| piece(4.0, true)).collect(), "Shared tag")}
+        ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connections_follow_links_and_tags() {
+        let vault = VaultData::from_sources([
+            ("A.md", "# A\n\n[[B]] [[C]] #shared"),
+            ("B.md", "# B\n\n[[A]]"),
+            ("C.md", "# C"),
+            ("D.md", "# D\n\n#shared"),
+        ]);
+        assert_eq!(
+            connections(&vault),
+            vec![
+                (0, 1, Connection::Mutual),
+                (0, 2, Connection::OneWay),
+                (0, 3, Connection::Tag),
+            ]
+        );
+    }
+
+    #[test]
+    fn patterns_are_centred() {
+        let pieces: Vec<_> = pattern(50.0, 10.0, 5.0).collect();
+        assert_eq!(pieces, vec![(5.0, 15.0), (20.0, 30.0), (35.0, 45.0)]);
+        assert_eq!(pattern(5.0, 10.0, 5.0).count(), 0);
     }
 }

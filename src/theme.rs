@@ -32,6 +32,7 @@ pub fn note_theme() -> MdTheme {
         border: color::BORDER,
         table_header_bg: Color::NONE,
         table_header: color::MUTED_FOREGROUND,
+        table_row_hover: color::HOVER,
         surface: color::CARD,
         radius: bevsidian_ui::radius::XL,
         callouts: [

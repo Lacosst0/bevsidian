@@ -17,10 +17,13 @@ tags: [start-here]
 3. [[Rendering]]: cameras, meshes, materials and UI.
 4. [[Mario]]: a small game, playable in the page.
 
+Or follow a path, one note after another: [[Getting started]] or [[Building UI]]. The graph shows each path on its own.
+
 ## How links work
 
 - `[[Note name]]` links to another note, for example [[ECS]] or [[Rendering#Cameras|cameras]].
 - A `#tag` such as #beginner groups notes; click one to filter the file list.
+- `` [`Commands`] `` links to Bevy's API docs on docs.rs, like rustdoc: [`Commands`], [`Commands::spawn`], [`bsn!`].
 - The link button next to a note's title lists its **backlinks** and outgoing links, and the **Graph** view shows how notes connect.
 
 ## Keyboard shortcuts

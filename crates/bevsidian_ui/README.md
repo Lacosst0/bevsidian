@@ -58,6 +58,8 @@ for links, the current graph node and the running code line; warnings are amber.
 | `switch.rs` | Switch | `switch` |
 | `stepper.rs` | (number input) | `stepper` |
 | `dialog.rs` | Dialog | `scrim`, `dialog`, `dialog_header`, `dialog_footer` |
+| `pagination.rs` | Pagination | `page_link` |
+| `tooltip.rs` | Tooltip | `Tooltip` (a component: add it to any element) |
 | `popover.rs` | Popover, Dropdown / Context menu | `popover`, `menu_item`, `menu_separator` |
 | `toast.rs` | Sonner | `toast` |
 | `alert.rs` | Alert | `alert` |
