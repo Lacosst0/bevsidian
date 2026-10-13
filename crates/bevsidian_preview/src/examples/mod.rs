@@ -88,5 +88,6 @@ pub fn find(name: &str) -> Option<&'static Example> {
 
 /// Assets the examples share with their previews.
 pub fn plugin(app: &mut App) {
-    app.add_plugins(animation::plugin);
+    app.add_plugins(animation::plugin)
+        .add_systems(Update, scenes::maths::animate_easing);
 }

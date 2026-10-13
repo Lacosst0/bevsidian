@@ -17,6 +17,8 @@ pub fn find(name: &str) -> Option<fn() -> Box<dyn Scene>> {
         "flex" => || Box::new(layout::flex()),
         "grid" => || Box::new(layout::grid()),
         "grow" => || Box::new(layout::grow()),
+        "colour-lab" => || Box::new(maths::colour_lab()),
+        "easing" => || Box::new(maths::easing()),
         _ => return None,
     })
 }
@@ -362,6 +364,167 @@ mod layout {
                     @{fixed(2)}
                     --
                     @{fixed(3)}
+                ]
+            ]
+        }
+    }
+}
+
+/// `Colors and math.md`
+pub mod maths {
+    use bevsidian_ui::prelude::*;
+    use bevy::prelude::*;
+    use bevy_radioactive::view::{signal, view};
+
+    fn named<T>(options: Vec<(T, &str)>) -> Vec<(T, String)> {
+        options
+            .into_iter()
+            .map(|(v, n)| (v, n.to_owned()))
+            .collect()
+    }
+
+    fn base(hue: u32, lightness: u32) -> Color {
+        Color::hsl(hue as f32, 0.8, lightness as f32 / 100.0)
+    }
+
+    fn mixed(hue: u32, lightness: u32, amount: u32) -> Color {
+        base(hue, lightness).mix(&Color::WHITE, amount as f32 / 100.0)
+    }
+
+    fn hex(color: Color) -> String {
+        Srgba::from(color).to_hex()
+    }
+
+    /// Pick a hue and a lightness, then how far to mix towards white.
+    pub fn colour_lab() -> impl Scene {
+        let hue = signal(|| 210_u32);
+        let lightness = signal(|| 50_u32);
+        let amount = signal(|| 50_u32);
+        let hues = named(vec![
+            (0, "0"),
+            (60, "60"),
+            (120, "120"),
+            (210, "210"),
+            (300, "300"),
+        ]);
+        let lightnesses = named(vec![(30, "0.3"), (50, "0.5"), (70, "0.7")]);
+        let amounts = named(vec![(0, "0"), (25, "0.25"), (50, "0.5"), (100, "1")]);
+        let chip = |radius: f32| {
+            bsn! { Node { width: px(72), height: px(48), border_radius: BorderRadius::all(px(radius)) } }
+        };
+        view! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
+            Children [
+                @{field("hue (degrees)", None, segmented(hues, hue.clone()))}
+                --
+                @{field("lightness", None, segmented(lightnesses, lightness.clone()))}
+                --
+                @{field("mix amount", None, segmented(amounts, amount.clone()))}
+                --
+                Node { column_gap: px(16), align_items: AlignItems::FlexStart }
+                Children [
+                    Node { flex_direction: FlexDirection::Column, row_gap: px(4), align_items: AlignItems::Center }
+                    Children [
+                        @{chip(6.0)}
+                        BackgroundColor($(base($hue, $lightness)))
+                        --
+                        Text($(hex(base($hue, $lightness))))
+                    ]
+                    --
+                    Node { flex_direction: FlexDirection::Column, row_gap: px(4), align_items: AlignItems::Center }
+                    Children [
+                        @{chip(6.0)}
+                        BackgroundColor(Color::WHITE)
+                        --
+                        Text("#FFFFFF")
+                    ]
+                    --
+                    Node { flex_direction: FlexDirection::Column, row_gap: px(4), align_items: AlignItems::Center }
+                    Children [
+                        @{chip(6.0)}
+                        BackgroundColor($(mixed($hue, $lightness, $amount)))
+                        --
+                        Text($(hex(mixed($hue, $lightness, $amount))))
+                    ]
+                ]
+            ]
+        }
+    }
+
+    /// Which easing curve the ball follows.
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+    pub enum Curve {
+        #[default]
+        Linear,
+        QuadraticOut,
+        CubicInOut,
+        BackOut,
+        ElasticOut,
+        BounceOut,
+    }
+
+    impl Curve {
+        fn ease(self) -> bevy::curve::easing::EaseFunction {
+            use bevy::curve::easing::EaseFunction;
+            match self {
+                Curve::Linear => EaseFunction::Linear,
+                Curve::QuadraticOut => EaseFunction::QuadraticOut,
+                Curve::CubicInOut => EaseFunction::CubicInOut,
+                Curve::BackOut => EaseFunction::BackOut,
+                Curve::ElasticOut => EaseFunction::ElasticOut,
+                Curve::BounceOut => EaseFunction::BounceOut,
+            }
+        }
+    }
+
+    /// The curve a ball follows.
+    #[derive(Component, Clone, Default)]
+    pub struct Ease(pub Curve);
+
+    /// Slides every ball along its track with its curve, then pauses, forever.
+    pub fn animate_easing(time: Res<Time>, mut balls: Query<(&Ease, &mut Node)>) {
+        let phase = (time.elapsed_secs() % 2.0) / 1.4;
+        for (curve, mut node) in &mut balls {
+            let progress = {
+                use bevy::curve::Curve as _;
+                curve.0.ease().sample_clamped(phase.min(1.0))
+            };
+            node.left = percent(progress * 92.0);
+        }
+    }
+
+    /// A ball that travels along a track using the curve you pick.
+    pub fn easing() -> impl Scene {
+        let curve = signal(Curve::default);
+        let curves = named(vec![
+            (Curve::Linear, "Linear"),
+            (Curve::QuadraticOut, "QuadraticOut"),
+            (Curve::CubicInOut, "CubicInOut"),
+            (Curve::BackOut, "BackOut"),
+            (Curve::ElasticOut, "ElasticOut"),
+            (Curve::BounceOut, "BounceOut"),
+        ]);
+        view! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(10), width: Val::Percent(100.0) }
+            Children [
+                @{field("EaseFunction", None, segmented(curves, curve.clone()))}
+                --
+                Node {
+                    height: px(28),
+                    border: UiRect::all(px(1)),
+                    border_radius: BorderRadius::all(px(14)),
+                }
+                BorderColor::all(Color::srgb(0.3, 0.3, 0.33))
+                Children [
+                    Node {
+                        position_type: PositionType::Absolute,
+                        width: px(24),
+                        height: px(24),
+                        top: px(1),
+                        border_radius: BorderRadius::all(px(12)),
+                    }
+                    BackgroundColor(Color::srgb(0.95, 0.55, 0.3))
+                    Ease($curve)
                 ]
             ]
         }

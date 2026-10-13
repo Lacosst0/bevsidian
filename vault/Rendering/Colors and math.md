@@ -24,6 +24,24 @@ fn colors() {
 }
 ```
 
+### Mix colours
+
+HSL is the friendly way to *choose* a colour: hue is the position on the colour wheel in degrees (0 red, 120 green, 240 blue), saturation the strength, lightness from black to white. `mix` blends two colours. Try it:
+
+```rust preview=colour-lab
+use bevy::prelude::*;
+
+fn lab(hue: f32, lightness: f32, amount: f32) -> (Color, Color) {
+    let base = Color::hsl(hue, 0.8, lightness);
+    let mixed = base.mix(&Color::WHITE, amount);          // 0 = base, 1 = white
+    (base, mixed)
+}
+
+fn hex(color: Color) -> String {
+    Srgba::from(color).to_hex()                           // "#3377EE"
+}
+```
+
 ### Change a colour
 
 ```rust
@@ -99,13 +117,13 @@ fn overlap() -> bool {
 
 ## Easing and curves
 
-`EaseFunction` turns a 0 to 1 progress into a smooth 0 to 1:
+`EaseFunction` turns a 0 to 1 progress into a shaped 0 to 1. Pick a curve and watch the ball: the same time, a different feel.
 
-```rust
+```rust preview=easing
 use bevy::prelude::*;
 
 fn ease(t: f32) -> f32 {
-    EaseFunction::CubicInOut.sample_clamped(t)
+    EaseFunction::CubicInOut.sample_clamped(t)      // try QuadraticOut, BackOut, ElasticOut, BounceOut
 }
 
 fn blend(from: Vec3, to: Vec3, t: f32) -> Vec3 {
@@ -115,10 +133,10 @@ fn blend(from: Vec3, to: Vec3, t: f32) -> Vec3 {
 
 ## Random numbers
 
-Bevy has no built-in RNG type. Add `rand` (or `bevy_rand`, [[Libraries]]):
+Bevy has no built-in RNG type. Add `rand` (or [[bevy_rand]]); [[Randomness]] shows how:
 
 ```toml
-rand = "0.9"
+rand = "0.10"
 ```
 
 ## Next
