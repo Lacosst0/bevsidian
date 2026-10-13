@@ -13,6 +13,8 @@ use bevsidian_core::{
 };
 use bevsidian_ui::prelude::*;
 
+use super::FollowSelection;
+
 /// Row heights: mouse, touch.
 const ROW: [f32; 2] = [32.0, 40.0];
 const SUB_ROW: [f32; 2] = [28.0, 36.0];
@@ -185,11 +187,15 @@ fn note_row(
     let headings: Vec<Box<dyn Scene>> = outline
         .iter()
         .map(|heading| {
-            let (nav, text) = (nav.clone(), heading.text.clone());
+            let (nav, text, slug) = (nav.clone(), heading.text.clone(), heading.slug.clone());
+            let (section, current) = (nav.section.clone(), nav.current.clone());
             let indent = 8.0 + 12.0 * f32::from(heading.level - top);
-            Box::new(bsn! {
+            Box::new(view! {
                 @{sub_item(None, &heading.text)}
                 Node { height: px(SUB_ROW[usize::from(touch)]), padding: UiRect::new(px(indent), px(8), px(0), px(0)) }
+                // The section being read.
+                Selected($($current == id && $section.as_deref() == Some(slug.as_str())))
+                FollowSelection
                 on(move |_: On<Activate>| nav.open(id, Some(text.clone())))
             }) as Box<dyn Scene>
         })
@@ -207,6 +213,7 @@ fn note_row(
             @{item()}
             Node { height: px(ROW[usize::from(touch)]) }
             Selected($($current == id))
+            FollowSelection
             on(move |_: On<Activate>| open.open(id, None))
             Children [
                 @{item_icon_char(note.icon)}

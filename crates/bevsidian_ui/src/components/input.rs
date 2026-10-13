@@ -22,8 +22,13 @@ use crate::{
 };
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Update, (mirror_values, show_focus));
+    app.add_systems(Update, (mirror_values, show_focus, track_focus_within));
 }
+
+/// Keeps the signal true while keyboard focus is on this entity or inside it: a search field
+/// and the suggestions under it, say, so the suggestions stay open while one is clicked.
+#[derive(Component, Clone)]
+pub struct FocusWithin(pub Signal<bool>);
 
 /// Mirrors the field's text into the signal whenever it is edited.
 #[derive(Component, Clone)]
@@ -152,6 +157,22 @@ fn clear(
 fn mirror_values(fields: Query<(&EditableText, &InputValue), Changed<EditableText>>) {
     for (text, value) in &fields {
         value.0.set_if_neq(text.value().to_string());
+    }
+}
+
+fn track_focus_within(
+    focus: Res<InputFocus>,
+    parents: Query<&ChildOf>,
+    areas: Query<(Entity, &FocusWithin)>,
+) {
+    if !focus.is_changed() {
+        return;
+    }
+    let focused = focus.get();
+    for (area, within) in &areas {
+        let inside =
+            focused.is_some_and(|f| f == area || parents.iter_ancestors(f).any(|a| a == area));
+        within.0.set_if_neq(inside);
     }
 }
 

@@ -1,24 +1,46 @@
-//! The one sidebar: the vault, a search field, the note tree with the open note's outline,
-//! its links, the tags, and Settings at the bottom. Inline on wide screens (collapsible), a
+//! The one sidebar: the vault, a search field (suggesting tags while it has focus), the note
+//! tree with the open note's outline, and Settings at the bottom. Inline on wide screens (collapsible), a
 //! drawer on phones.
 
-mod links;
 mod notes;
-mod tags;
+mod search;
 
 use bevy::{
     prelude::*,
     text::FontWeight,
-    ui_widgets::{Activate, ScrollArea},
+    ui_widgets::{Activate, ScrollArea, ScrollIntoView},
 };
 use bevy_radioactive::view::view;
 
 use bevsidian_core::{Vault, nav::Nav};
 use bevsidian_ui::prelude::*;
 
+pub fn plugin(app: &mut App) {
+    app.add_systems(
+        PostUpdate,
+        follow_selection.after(bevy::ui::UiSystems::Layout),
+    );
+}
+
+/// A row the sidebar scrolls to when it becomes selected (the open note, the section being
+/// read), so where you are is always in view.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct FollowSelection;
+
+fn follow_selection(
+    rows: Query<(Entity, &Selected, &ComputedNode), (With<FollowSelection>, Changed<Selected>)>,
+    mut commands: Commands,
+) {
+    for (row, selected, node) in &rows {
+        // Rows inside a folded branch have no size: nothing to show.
+        if selected.0 && node.size.y > 0.0 {
+            commands.trigger(ScrollIntoView { entity: row });
+        }
+    }
+}
+
 /// The sidebar column (or drawer).
 pub fn sidebar(nav: Nav, vault: Vault) -> impl Scene {
-    let query = Some(nav.query.clone());
     let (mode, drawer_open, collapsed) = (
         nav.mode.clone(),
         nav.drawer.clone(),
@@ -43,8 +65,7 @@ pub fn sidebar(nav: Nav, vault: Vault) -> impl Scene {
         Children [
             @{header(nav.clone(), vault.clone())}
             --
-            @InputField { @icon: "search", @placeholder: "Search notes…", @value: query }
-            Node { margin: UiRect::vertical(px(8)) }
+            @{search::search(nav.clone(), vault.clone())}
             --
             @{tag_filter(nav.clone())}
             --
@@ -59,10 +80,6 @@ pub fn sidebar(nav: Nav, vault: Vault) -> impl Scene {
             ScrollArea
             Children [
                 @{notes::notes(nav.clone(), vault.clone())}
-                --
-                @{links::links(nav.clone(), vault.clone())}
-                --
-                @{tags::tags(nav.clone(), vault.clone())}
             ]
             --
             @{footer(nav.clone())}

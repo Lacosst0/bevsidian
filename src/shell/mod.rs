@@ -17,7 +17,8 @@ use bevsidian_ui::color;
 use crate::{overlays, pages};
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, spawn_shell);
+    app.add_plugins(sidebar::plugin)
+        .add_systems(Startup, spawn_shell);
 }
 
 fn spawn_shell(mut commands: Commands, nav: Res<Nav>, vault: Res<Vault>, theme: Res<MdTheme>) {
@@ -44,6 +45,8 @@ fn shell(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
             @{main_column(nav.clone(), vault.clone(), theme)}
             --
             @{sidebar::backdrop(nav.clone())}
+            --
+            @{overlays::links::links_popover(nav.clone(), vault.clone())}
             --
             @{overlays::command::command_palette(nav.clone(), vault)}
             --

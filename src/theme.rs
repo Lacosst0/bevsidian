@@ -6,7 +6,7 @@ use bevy_ui_commonmark::MdTheme;
 
 use bevsidian_ui::color;
 
-/// shadcn/ui typography: Geist prose in neutral greys, violet links, neutral callouts (only
+/// shadcn/ui typography: Geist prose in neutral greys, orange links, neutral callouts (only
 /// warnings and cautions get colour) and GitHub-dark code colours.
 pub fn note_theme() -> MdTheme {
     MdTheme {

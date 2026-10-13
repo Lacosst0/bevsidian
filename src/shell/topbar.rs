@@ -1,7 +1,7 @@
 //! The bar over the page.
 //!
-//! - Wide screens: sidebar toggle | back, forward, breadcrumb … Note / Graph tabs | edit.
-//! - Phones (44 px touch targets): sidebar, back, the note's name … search, graph, edit.
+//! - Wide screens: sidebar toggle | back, forward, breadcrumb, links … Note / Graph tabs | edit.
+//! - Phones (44 px touch targets): sidebar, back, the note's name, links … search, graph, edit.
 
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
 use bevy_radioactive::view::view;
@@ -11,6 +11,8 @@ use bevsidian_core::{
     nav::{LayoutMode, Nav, View},
 };
 use bevsidian_ui::prelude::*;
+
+use crate::overlays::links::links_button;
 
 pub fn topbar(nav: Nav, vault: Vault) -> impl Scene {
     let mode = nav.mode.clone();
@@ -34,6 +36,7 @@ pub fn topbar(nav: Nav, vault: Vault) -> impl Scene {
 }
 
 fn wide(nav: Nav, vault: Vault) -> impl Scene {
+    let (link_nav, link_vault) = (nav.clone(), vault.clone());
     let (back, forward, view) = (nav.back.clone(), nav.forward.clone(), nav.view.clone());
     let (sidebar, go_back, go_forward, note, graph) = (
         nav.clone(),
@@ -60,6 +63,13 @@ fn wide(nav: Nav, vault: Vault) -> impl Scene {
             --
             @{breadcrumb(nav.clone(), vault.clone())}
             --
+            if $view == View::Note {
+                let (nav, vault) = (link_nav.clone(), link_vault.clone());
+                @{links_button(nav, vault, false)}
+            }
+            --
+            Node { flex_grow: 1.0 }
+            --
             @{tab_list()}
             Children [
                 @{tab("Note")}
@@ -84,6 +94,7 @@ fn wide(nav: Nav, vault: Vault) -> impl Scene {
 }
 
 fn compact(nav: Nav, vault: Vault) -> impl Scene {
+    let (link_nav, link_vault) = (nav.clone(), vault.clone());
     let (back, view, current) = (nav.back.clone(), nav.view.clone(), nav.current.clone());
     let (sidebar, go_back, switcher, graph) = (nav.clone(), nav.clone(), nav.clone(), nav.clone());
     let title = insert(font(size::LG, FontWeight::MEDIUM));
@@ -99,7 +110,7 @@ fn compact(nav: Nav, vault: Vault) -> impl Scene {
                 on(move |_: On<Activate>| go_back.go_back())
             }
             --
-            Node { flex_grow: 1.0, min_width: px(0), overflow: Overflow::clip(), padding: UiRect::left(px(4)) }
+            Node { flex_shrink: 1.0, min_width: px(0), overflow: Overflow::clip(), padding: UiRect::new(px(4), px(2), px(0), px(0)) }
             Children [
                 Text($(match $view {
                     View::Note => vault.get().notes[$current].name.clone(),
@@ -109,6 +120,13 @@ fn compact(nav: Nav, vault: Vault) -> impl Scene {
                 TextColor(color::FOREGROUND)
                 TextLayout { linebreak: LineBreak::NoWrap }
             ]
+            --
+            if $view == View::Note {
+                let (nav, vault) = (link_nav.clone(), link_vault.clone());
+                @{links_button(nav, vault, true)}
+            }
+            --
+            Node { flex_grow: 1.0 }
             --
             @{icon_button(Variant::Ghost, Size::IconLg, "search")}
             on(move |_: On<Activate>| switcher.open_switcher())
@@ -132,7 +150,6 @@ fn breadcrumb(nav: Nav, vault: Vault) -> impl Scene {
     );
     view! {
         Node {
-            flex_grow: 1.0,
             flex_shrink: 1.0,
             min_width: px(0),
             overflow: Overflow::clip(),

@@ -30,7 +30,7 @@ pub use dialog::{dialog, dialog_footer, dialog_header, scrim};
 pub use ecs::{ComponentValue, EcsKind, EntityCard, EntityCardProps, component_icon};
 pub use field::field;
 pub use icon::{TileStyle, glyph, icon, icon_char, icon_tile, note_icon, tinted_icon};
-pub use input::{InputField, InputFieldProps, InputValue};
+pub use input::{FocusWithin, InputField, InputFieldProps, InputValue};
 pub use item::{hash, item, item_icon, item_icon_char, item_label, sub_item};
 pub use kbd::{kbd, kbd_group, shortcuts};
 pub use popover::{menu_item, menu_separator, popover};

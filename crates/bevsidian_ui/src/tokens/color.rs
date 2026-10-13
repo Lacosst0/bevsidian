@@ -1,4 +1,4 @@
-//! Semantic colours: shadcn/ui's dark "neutral" theme, plus one violet accent for links.
+//! Semantic colours: shadcn/ui's dark "neutral" theme, plus one orange accent for links.
 //!
 //! Overlays (hover, selection, borders) are translucent white, so they read the same on the
 //! page, on a sidebar and inside a card.
@@ -51,12 +51,13 @@ pub const PRIMARY_HOVER: Color = BODY;
 /// `#171717`: text on [`PRIMARY`].
 pub const PRIMARY_FOREGROUND: Color = CARD;
 
-/// `#a78bfa`: links, the current graph node. The only hue in the interface.
-pub const LINK: Color = Color::srgb(0.655, 0.545, 0.980);
+/// `#fb923c` (Tailwind orange-400): links, the current graph node, checked boxes. The only hue
+/// in the interface besides warnings and errors.
+pub const LINK: Color = Color::srgb(0.984, 0.573, 0.235);
 /// The link colour, faint: the code line that just ran (CSS: 14 %).
-pub const LINK_SOFT: Color = Color::srgba(0.655, 0.545, 0.980, 0.03);
+pub const LINK_SOFT: Color = Color::srgba(0.984, 0.573, 0.235, 0.025);
 /// The link colour, stronger: text selection, the halo of the current graph node (CSS: 25 %).
-pub const LINK_RING: Color = Color::srgba(0.655, 0.545, 0.980, 0.072);
+pub const LINK_RING: Color = Color::srgba(0.984, 0.573, 0.235, 0.06);
 
 /// `#fbbf24`: warning callouts.
 pub const WARNING: Color = Color::srgb(0.984, 0.749, 0.141);

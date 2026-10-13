@@ -4,6 +4,7 @@ use bevy::{
     input::{ButtonState, keyboard::KeyboardInput},
     input_focus::InputFocus,
     prelude::*,
+    ui::UiGlobalTransform,
     ui_widgets::{ScrollArea, ScrollIntoView},
 };
 use bevy_radioactive::view::{Signal, signal};
@@ -20,6 +21,8 @@ pub fn plugin(app: &mut App) {
             reset_switcher_index,
             reset_scroll_on_navigation,
             scroll_to_anchor,
+            track_section.after(reset_scroll_on_navigation),
+            track_scrolled.after(reset_scroll_on_navigation),
         ),
     );
 }
@@ -45,6 +48,13 @@ pub struct Nav {
     pub forward: Signal<Vec<NoteId>>,
     /// Heading slug or footnote label to scroll to once the note is rendered.
     pub anchor: Signal<Option<Anchor>>,
+    /// Slug of the heading whose section is at the top of the reading pane: where the reader
+    /// is in the current note (`None` above the first heading, and in the graph).
+    pub section: Signal<Option<String>>,
+    /// The reading pane is scrolled far enough down to offer "back to top".
+    pub scrolled: Signal<bool>,
+    /// The current note's links popover is open.
+    pub links: Signal<bool>,
     /// Quick switcher state.
     pub switcher: Signal<bool>,
     pub switcher_query: Signal<String>,
@@ -113,6 +123,9 @@ impl Nav {
             back: signal(Vec::new),
             forward: signal(Vec::new),
             anchor: signal(|| None),
+            section: signal(|| None),
+            scrolled: signal(|| false),
+            links: signal(|| false),
             switcher: signal(|| false),
             switcher_query: signal(String::new),
             switcher_index: signal(|| 0),
@@ -142,7 +155,7 @@ impl Nav {
             self.current.set(id);
         }
         self.view.set_if_neq(View::Note);
-        self.close_drawer();
+        self.close_overlays();
         self.anchor
             .set(heading.map(|h| Anchor::Heading(bevy_ui_commonmark::slugify(&h))));
     }
@@ -153,7 +166,7 @@ impl Nav {
             self.forward.update(|f| f.push(current));
             self.current.set(prev);
             self.view.set_if_neq(View::Note);
-            self.close_drawer();
+            self.close_overlays();
         }
     }
 
@@ -163,12 +176,18 @@ impl Nav {
             self.back.update(|b| b.push(current));
             self.current.set(next);
             self.view.set_if_neq(View::Note);
-            self.close_drawer();
+            self.close_overlays();
         }
     }
 
     pub fn close_drawer(&self) {
         self.drawer.set_if_neq(false);
+    }
+
+    /// Closes the drawer and the links popover (after navigating).
+    pub fn close_overlays(&self) {
+        self.close_drawer();
+        self.links.set_if_neq(false);
     }
 
     /// Shows or hides the sidebar: the drawer on phones, the inline column elsewhere.
@@ -351,7 +370,9 @@ fn shortcuts(
             KeyCode::ArrowLeft if alt => nav.go_back(),
             KeyCode::ArrowRight if alt => nav.go_forward(),
             KeyCode::Escape => {
-                if nav.switcher.get_untracked() {
+                if nav.links.get_untracked() {
+                    nav.links.set(false);
+                } else if nav.switcher.get_untracked() {
                     nav.switcher.set(false);
                     focus.clear();
                 } else if nav.settings.get_untracked() {
@@ -423,6 +444,52 @@ fn reset_scroll_on_navigation(
             }
         }
     }
+}
+
+/// How far (logical px) the reading pane scrolls before "back to top" shows.
+const SCROLLED_PAST: f32 = 600.0;
+
+fn track_scrolled(nav: Res<Nav>, panes: Query<&ScrollPosition, With<NotePane>>) {
+    let scrolled = nav.view.get_untracked() == View::Note
+        && panes
+            .single()
+            .is_ok_and(|position| position.y > SCROLLED_PAST);
+    nav.scrolled.set_if_neq(scrolled);
+}
+
+/// A heading counts as the current section once its top passes this far (logical px) below
+/// the top of the reading pane, so the section a link scrolled to is current right away.
+const SECTION_LINE: f32 = 96.0;
+
+/// Follows the reading position: the last heading whose top is above the section line (or,
+/// scrolled to the end, the last heading on screen).
+fn track_section(
+    nav: Res<Nav>,
+    panes: Query<(&ComputedNode, &UiGlobalTransform, &ScrollPosition), With<NotePane>>,
+    headings: Query<(&MdHeading, &ComputedNode, &UiGlobalTransform)>,
+) {
+    let section = match panes.single() {
+        Ok((pane, pane_at, scroll)) if nav.view.get_untracked() == View::Note => {
+            let scale = pane.inverse_scale_factor.recip();
+            let top = pane_at.translation.y - pane.size.y / 2.0;
+            // At the very end the last sections can't reach the line: then any heading on
+            // screen counts, so the last one shown is current.
+            let end = (pane.content_size().y - pane.size.y) * pane.inverse_scale_factor;
+            let line = if end > 0.0 && scroll.y >= end - 2.0 {
+                top + pane.size.y
+            } else {
+                top + SECTION_LINE * scale
+            };
+            headings
+                .iter()
+                .map(|(heading, node, at)| (at.translation.y - node.size.y / 2.0, heading))
+                .filter(|(top, _)| *top <= line)
+                .max_by(|a, b| a.0.total_cmp(&b.0))
+                .map(|(_, heading)| heading.slug.clone())
+        }
+        _ => None,
+    };
+    nav.section.set_if_neq(section);
 }
 
 fn scroll_to_anchor(

@@ -1,6 +1,6 @@
 //! The note page: the open note rendered from markdown (or the editor), in a centred column.
 
-use bevy::{prelude::*, text::FontWeight};
+use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
 use bevy_radioactive::view::{memo, view};
 use bevy_ui_commonmark::{MdTheme, RenderOptions, markdown_scene};
 use bevy_ui_textselect::SelectableText;
@@ -27,13 +27,15 @@ pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
     let render = move |(id, size, mode, _): (NoteId, u32, LayoutMode, u64)| {
         note_body(id, size, mode, &vault, &theme)
     };
+    let top = back_to_top(nav.clone());
     view! {
+        Node { flex_grow: 1.0, flex_basis: px(0), min_width: px(0), min_height: px(0) }
+        Children [
         Node {
             flex_grow: 1.0,
-            flex_basis: px(0),
+            min_width: px(0),
             overflow: Overflow { x: OverflowAxis::Clip, y: OverflowAxis::Scroll },
             justify_content: JustifyContent::Center,
-            min_width: px(0),
         }
         NotePane
         Children [
@@ -63,6 +65,39 @@ pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
                     ]
                 }
             ]
+        ]
+        --
+        @{top}
+        ]
+    }
+}
+
+/// A round button floating at the bottom right once the note is scrolled down; it eases back
+/// to the top.
+fn back_to_top(nav: Nav) -> impl Scene {
+    let (scrolled, mode) = (nav.scrolled.clone(), nav.mode.clone());
+    let shadow = shadow::popover();
+    view! {
+        Node {
+            position_type: PositionType::Absolute,
+            right: $(if $mode == LayoutMode::Compact { px(16) } else { px(24) }),
+            bottom: $(if $mode == LayoutMode::Compact { px(16) } else { px(24) }),
+        }
+        Pickable::IGNORE
+        Children [
+            if $scrolled {
+                let shadow = shadow.clone();
+                @{icon_button(Variant::Outline, Size::IconLg, "arrow-up")}
+                Surface { idle: color::CARD, hover: color::ACCENT, selected: color::ACCENT }
+                Node { border_radius: BorderRadius::all(px(radius::FULL)) }
+                shadow
+                on(|_: On<Activate>, mut panes: Query<&mut ScrollPosition, With<NotePane>>| {
+                    // The pane's smooth scrolling eases to the new position.
+                    for mut position in &mut panes {
+                        position.0 = Vec2::ZERO;
+                    }
+                })
+            }
         ]
     }
 }

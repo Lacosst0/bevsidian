@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     text::{FontSource, FontStyle, FontWeight, LineHeight},
 };
-use bevy_ui_textselect::{ClickableSpan, SelectableText, SelectionGroup};
+use bevy_ui_textselect::{ClickableSpan, CopyText, SelectableText, SelectionGroup};
 
 use crate::{
     document::{
@@ -407,7 +407,7 @@ fn list(
         .enumerate()
         .map(|(i, item)| {
             let marker: Box<dyn Scene> = if let Some(checked) = item.task {
-                checkbox(checked, theme)
+                checkbox(checked, options)
             } else {
                 let label = match start {
                     Some(n) => format!("{}.", n + i as u64),
@@ -460,12 +460,18 @@ fn list(
     Box::new(bsn! { node Children [ {rows} ] })
 }
 
-fn checkbox(checked: bool, theme: &MdTheme) -> Box<dyn Scene> {
+/// A task-list box, centred on the item's first line. Checked boxes are filled with the link
+/// colour and show a check mark: the `"check"` icon when [`RenderOptions::icon`] is set, or
+/// two drawn strokes otherwise (fonts rarely have a `✓`).
+fn checkbox(checked: bool, options: &RenderOptions) -> Box<dyn Scene> {
+    let theme = options.theme;
+    let size = 16.0;
+    let line = theme.base_size * theme.line_height;
     let node = Node {
-        width: Val::Px(15.0),
-        height: Val::Px(15.0),
-        margin: UiRect::top(Val::Px(5.0)),
-        border: UiRect::all(Val::Px(1.5)),
+        width: Val::Px(size),
+        height: Val::Px(size),
+        margin: UiRect::top(Val::Px(((line - size) / 2.0).max(0.0))),
+        border: UiRect::all(Val::Px(1.0)),
         border_radius: BorderRadius::all(Val::Px(4.0)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
@@ -474,16 +480,26 @@ fn checkbox(checked: bool, theme: &MdTheme) -> Box<dyn Scene> {
     };
     let border = BorderColor::all(if checked { theme.link } else { theme.muted });
     let bg = BackgroundColor(if checked { theme.link } else { Color::NONE });
-    let tick = checked.then(|| {
-        let text = Text::new("✓");
-        let font = insert(TextFont {
-            font: theme.body.clone(),
-            font_size: 11.0.into(),
-            weight: FontWeight::BOLD,
-            ..default()
-        });
-        bsn! { text @{font} TextColor(Color::BLACK) }
-    });
+    let mark = Color::srgb(0.04, 0.04, 0.04);
+    let tick: Scenes = match (checked, options.icon) {
+        (false, _) => Vec::new(),
+        (true, Some(icon)) => vec![icon("check", 12.0, mark)],
+        (true, None) => {
+            let stroke = |left: f32, top: f32, width: f32, angle: f32| {
+                let node = Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(left),
+                    top: Val::Px(top),
+                    width: Val::Px(width),
+                    height: Val::Px(2.0),
+                    ..default()
+                };
+                let turn = UiTransform::from_rotation(Rot2::degrees(angle));
+                Box::new(bsn! { node turn BackgroundColor(mark) }) as Box<dyn Scene>
+            };
+            vec![stroke(2.0, 7.5, 5.0, 45.0), stroke(4.5, 6.0, 8.0, -50.0)]
+        }
+    };
     Box::new(bsn! { node border bg Children [ {tick} ] })
 }
 
@@ -908,6 +924,21 @@ impl SpanStyle {
     }
 }
 
+/// A no-break space in the body font with `chip`'s size and background: side padding for a
+/// chip span. It is left out when the selection is copied.
+fn pad_span(chip: &SpanStyle, base: &SpanStyle) -> Box<dyn Scene> {
+    let style = SpanStyle {
+        font: base.font.clone(),
+        weight: FontWeight::NORMAL,
+        italic: false,
+        strike: false,
+        underline: false,
+        ..chip.clone()
+    };
+    let pad = span_scene("\u{a0}".to_owned(), &style, None);
+    Box::new(bsn! { @{pad} CopyText(String::new()) })
+}
+
 fn span_scene(text: String, style: &SpanStyle, link: Option<MdLink>) -> Box<dyn Scene> {
     let style_scene = style.scene();
     let span = TextSpan(text);
@@ -973,9 +1004,15 @@ fn inline_style(inline: &Inline, base: &SpanStyle, options: &RenderOptions) -> S
 fn text_block(inlines: &[Inline], base: &SpanStyle, options: &RenderOptions) -> impl Scene + use<> {
     let spans: Scenes = inlines
         .iter()
-        .map(|inline| {
+        .flat_map(|inline| {
             let style = inline_style(inline, base, options);
-            span_scene(inline.text.clone(), &style, inline.link.clone().map(MdLink))
+            let span = span_scene(inline.text.clone(), &style, inline.link.clone().map(MdLink));
+            // Spans can't have padding: chips (inline code, tags) get a no-break space of
+            // their background on each side instead, which copies as nothing.
+            match style.background {
+                Some(_) => vec![pad_span(&style, base), span, pad_span(&style, base)],
+                None => vec![span],
+            }
         })
         .collect();
     let style = base.scene();

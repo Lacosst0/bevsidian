@@ -24,7 +24,7 @@ classes with the table below, and add it here as **one file** in `src/components
 | `shadow-md` / `shadow-lg` | `shadow::popover()` / `shadow::dialog()` |
 | lucide-react `<Icon />` | `icon("name", 16.0, color)` (add the name to `tools/icons.py`) |
 
-The palette is shadcn's dark *neutral* theme. The only hue is `color::LINK` (violet), kept
+The palette is shadcn's dark *neutral* theme. The only hue is `color::LINK` (orange), kept
 for links, the current graph node and the running code line; warnings are amber.
 
 ## Conventions

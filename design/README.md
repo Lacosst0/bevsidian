@@ -1,7 +1,7 @@
 # Design
 
 The UI kit and screen mockups Bevsidian's interface is built from: shadcn/ui's dark *neutral*
-theme (Geist, neutral greys, white primary buttons) with one violet accent for links.
+theme (Geist, neutral greys, white primary buttons) with one orange accent for links (the mockups predate the switch from violet).
 
 - **Canvas**: <https://claude.ai/artifact/5XrYzBsKFf7zg3LgpzwUxJ> (pan and zoom, interactive
   previews, comments). It is private: ask the owner for access.

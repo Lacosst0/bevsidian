@@ -24,7 +24,7 @@ use bevy::{
 use bevy_ui_commonmark::{CodeBlockInfo, CodeHighlight, CodePreview, MdCodeGroup};
 
 use bevsidian_ui::{
-    ComponentValue, EntityCard, Size, Variant, button, color, glyph, inset, muted, tinted_icon,
+    ComponentValue, EntityCard, Size, Variant, button, glyph, inset, muted, tinted_icon,
     vertical_separator,
 };
 use demos::{Demo, WorldDemo};
@@ -366,13 +366,12 @@ enum Control {
     Reset,
 }
 
-/// A UI scene, with its root's layout box outlined (e.g. the width a patch sets).
+/// A UI scene, as it would look in an app.
 fn scene_frame(scene: Box<dyn Scene>) -> impl Scene {
-    let outline = Outline::new(px(1), Val::ZERO, color::LINK.with_alpha(0.6));
     bsn! {
         @{inset()}
         Node { align_items: AlignItems::Stretch }
-        Children [ @{scene} outline ]
+        Children [ @{scene} ]
     }
 }
 
