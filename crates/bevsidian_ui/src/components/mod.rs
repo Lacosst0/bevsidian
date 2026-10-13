@@ -12,6 +12,7 @@ pub mod icon;
 pub mod input;
 pub mod item;
 pub mod kbd;
+pub mod pagination;
 pub mod popover;
 pub mod segmented;
 pub mod separator;
@@ -33,6 +34,7 @@ pub use icon::{TileStyle, glyph, icon, icon_char, icon_tile, note_icon, tinted_i
 pub use input::{FocusWithin, InputField, InputFieldProps, InputValue};
 pub use item::{hash, item, item_icon, item_icon_char, item_label, sub_item};
 pub use kbd::{kbd, kbd_group, shortcuts};
+pub use pagination::{PageDirection, page_link};
 pub use popover::{menu_item, menu_separator, popover};
 pub use segmented::segmented;
 pub use separator::{separator, vertical_separator};

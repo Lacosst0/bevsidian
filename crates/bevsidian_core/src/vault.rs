@@ -76,6 +76,16 @@ impl Vault {
     }
 }
 
+/// A reading path through the vault: a note with `path: true` in its front matter, whose
+/// links are the path's steps, in order (e.g. a numbered list of `[[links]]`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NotePath {
+    /// The note describing the path.
+    pub note: NoteId,
+    /// The notes it goes through, in order.
+    pub steps: Vec<NoteId>,
+}
+
 /// Vault contents.
 #[derive(Debug, Default)]
 pub struct VaultData {
@@ -83,6 +93,8 @@ pub struct VaultData {
     pub notes: Vec<Note>,
     /// Tag → notes, sorted by tag.
     pub tags: BTreeMap<String, Vec<NoteId>>,
+    /// Reading paths, in note order.
+    pub paths: Vec<NotePath>,
     /// The note opened on start.
     pub home: NoteId,
     /// Bumped by every saved edit.
@@ -153,6 +165,31 @@ impl VaultData {
                 vault.tags.entry(tag).or_default().push(id);
             }
         }
+        let is_path = |note: &Note| {
+            note.doc
+                .properties
+                .iter()
+                .any(|(key, value)| key == "path" && value == "true")
+        };
+        let path_notes: Vec<NoteId> = (0..vault.notes.len())
+            .filter(|&id| is_path(&vault.notes[id]))
+            .collect();
+        vault.paths = path_notes
+            .iter()
+            .map(|&note| {
+                let mut steps = Vec::new();
+                for link in &vault.notes[note].doc.links {
+                    if let Some(step) = vault.resolve(link)
+                        && step != note
+                        && !path_notes.contains(&step)
+                        && !steps.contains(&step)
+                    {
+                        steps.push(step);
+                    }
+                }
+                NotePath { note, steps }
+            })
+            .collect();
         vault.home = vault
             .find("Welcome")
             .or_else(|| vault.find("README"))
@@ -174,6 +211,11 @@ impl VaultData {
                         .is_some_and(|p| p.eq_ignore_ascii_case(name))
                 })
             })
+    }
+
+    /// The reading path note `id` describes, if it is one.
+    pub fn path(&self, id: NoteId) -> Option<&NotePath> {
+        self.paths.iter().find(|path| path.note == id)
     }
 
     /// Resolves a wikilink to a note.
@@ -268,6 +310,28 @@ mod tests {
         assert_eq!(v.notes[ecs].backlinks, vec![welcome, rendering]);
         assert_eq!(v.notes[ecs].folder, "guides");
         assert_eq!(v.home, welcome);
+    }
+
+    #[test]
+    fn paths_list_their_links_in_order() {
+        let v = VaultData::from_sources([
+            ("A.md", "# A"),
+            ("B.md", "# B"),
+            (
+                "Tour.md",
+                "---\npath: true\n---\n# Tour\n1. [[B]]\n2. [[A]]\n3. [[B]] again, [[Tour]], [[Gone]]",
+            ),
+        ]);
+        let tour = v.find("Tour").unwrap();
+        assert_eq!(
+            v.paths,
+            vec![NotePath {
+                note: tour,
+                steps: vec![v.find("B").unwrap(), v.find("A").unwrap()],
+            }]
+        );
+        assert!(v.path(tour).is_some());
+        assert!(v.path(v.find("A").unwrap()).is_none());
     }
 
     #[test]

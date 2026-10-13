@@ -19,6 +19,7 @@ pub fn plugin(app: &mut App) {
         (
             shortcuts,
             reset_switcher_index,
+            follow_paths,
             reset_scroll_on_navigation,
             scroll_to_anchor,
             track_section.after(reset_scroll_on_navigation),
@@ -55,6 +56,9 @@ pub struct Nav {
     pub scrolled: Signal<bool>,
     /// The current note's links popover is open.
     pub links: Signal<bool>,
+    /// The reading path being followed (its note): the graph shows only its notes, and its
+    /// notes link to the previous and next step.
+    pub path: Signal<Option<NoteId>>,
     /// Quick switcher state.
     pub switcher: Signal<bool>,
     pub switcher_query: Signal<String>,
@@ -126,6 +130,7 @@ impl Nav {
             section: signal(|| None),
             scrolled: signal(|| false),
             links: signal(|| false),
+            path: signal(|| None),
             switcher: signal(|| false),
             switcher_query: signal(String::new),
             switcher_index: signal(|| 0),
@@ -326,6 +331,18 @@ pub fn open_url(url: &str) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         info!("open {url} in your browser");
+    }
+}
+
+/// Opening a path's note starts following that path.
+fn follow_paths(nav: Res<Nav>, vault: Res<Vault>, mut last: Local<Option<NoteId>>) {
+    let current = nav.current.get_untracked();
+    if *last == Some(current) {
+        return;
+    }
+    *last = Some(current);
+    if vault.get_untracked().path(current).is_some() {
+        nav.path.set_if_neq(Some(current));
     }
 }
 

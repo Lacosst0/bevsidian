@@ -38,10 +38,13 @@ pub fn plugin(app: &mut App) {
             Update,
             (
                 spawn_nodes,
+                follow_path,
+                show_legend,
                 attach_viewport,
                 toggle_camera,
                 resize_target,
                 simulate,
+                frame_path,
                 pinch_zoom,
                 camera_motion,
                 sharpen_labels,
@@ -72,6 +75,8 @@ struct GraphNode {
     radius: f32,
     pinned: bool,
     neighbors: Vec<Entity>,
+    /// Off the reading path being followed: not drawn, simulated or picked.
+    hidden: bool,
 }
 
 #[derive(Component)]
@@ -102,6 +107,11 @@ pub struct GraphState {
     edges: Vec<(Entity, Entity)>,
     /// The lines drawn, one per connected pair.
     lines: Vec<(Entity, Entity, Connection)>,
+    /// The steps of the reading path being followed, in order (empty when none is).
+    path: Vec<Entity>,
+    /// The camera frames the shown notes while they settle (after a path is chosen), until
+    /// the user moves it.
+    framing: bool,
     hovered: Option<Entity>,
     dragging: Option<Entity>,
     /// The current press, until the next one.
@@ -242,12 +252,22 @@ fn spawn_nodes(
         ..default()
     };
 
-    // Notes start on a circle; the simulation untangles them.
+    // Notes start on a circle; the simulation untangles them. Path notes stay out: each
+    // would link to every note on its path (paths show as filters instead).
     let note_count = vault.notes.len();
     let mut note_entities = Vec::with_capacity(note_count);
     for (i, note) in vault.notes.iter().enumerate() {
+        if vault.path(i).is_some() {
+            note_entities.push(None);
+            continue;
+        }
         let angle = i as f32 / note_count.max(1) as f32 * std::f32::consts::TAU;
-        let degree = note.outgoing.len() + note.backlinks.len();
+        let degree = note.outgoing.len()
+            + note
+                .backlinks
+                .iter()
+                .filter(|&&b| vault.path(b).is_none())
+                .count();
         // Better-linked notes are bigger.
         let radius = 16.0 + 4.0 * (degree as f32).sqrt();
         let icon_size = (radius * 0.9).round();
@@ -259,6 +279,7 @@ fn spawn_nodes(
                     radius,
                     pinned: false,
                     neighbors: Vec::new(),
+                    hidden: false,
                 },
                 Transform::from_translation(
                     kept.get(&i)
@@ -306,18 +327,20 @@ fn spawn_nodes(
                 ));
             })
             .id();
-        note_entities.push(id);
+        note_entities.push(Some(id));
     }
     let mut edges = Vec::new();
     for (i, note) in vault.notes.iter().enumerate() {
         for &target in &note.outgoing {
-            edges.push((note_entities[i], note_entities[target]));
+            if let (Some(a), Some(b)) = (note_entities[i], note_entities[target]) {
+                edges.push((a, b));
+            }
         }
     }
     state.edges = edges;
     state.lines = connections(&vault)
         .into_iter()
-        .map(|(a, b, kind)| (note_entities[a], note_entities[b], kind))
+        .filter_map(|(a, b, kind)| Some((note_entities[a]?, note_entities[b]?, kind)))
         .collect();
     state.anchor = None;
     if kept.is_empty() {
@@ -395,6 +418,76 @@ fn resize_target(
     }
 }
 
+/// Shows the notes of the followed path, numbered in order, and hides the rest (or shows
+/// every note when no path is followed).
+fn follow_path(
+    nav: Res<Nav>,
+    vault: Res<Vault>,
+    mut state: ResMut<GraphState>,
+    mut nodes: Query<(Entity, &mut GraphNode, &mut Visibility, &Children)>,
+    mut labels: Query<&mut Text2d, With<GraphLabel>>,
+    // The path shown, and the vault revision whose nodes showed it (nodes are rebuilt when
+    // the vault changes).
+    mut last: Local<Option<(Option<NoteId>, u64)>>,
+) {
+    let path = nav.path.get_untracked();
+    let data = vault.get_untracked();
+    if *last == Some((path, data.revision)) {
+        return;
+    }
+    let changed = last.is_some_and(|(shown, _)| shown != path);
+    let rebuilt = last.is_some_and(|(_, revision)| revision != data.revision);
+    *last = Some((path, data.revision));
+    let steps = path
+        .and_then(|p| data.path(p))
+        .map(|p| p.steps.as_slice())
+        .unwrap_or_default();
+    let mut ordered = vec![None; steps.len()];
+    for (entity, mut node, mut visibility, children) in &mut nodes {
+        let step = steps.iter().position(|&s| s == node.note);
+        node.hidden = !steps.is_empty() && step.is_none();
+        visibility.set_if_neq(if node.hidden {
+            Visibility::Hidden
+        } else {
+            Visibility::Inherited
+        });
+        if let Some(step) = step {
+            ordered[step] = Some(entity);
+        }
+        let name = &data.notes[node.note].name;
+        let label = step.map_or_else(|| name.clone(), |step| format!("{}. {name}", step + 1));
+        for &child in children {
+            if let Ok(mut text) = labels.get_mut(child)
+                && text.0 != label
+            {
+                text.0.clone_from(&label);
+            }
+        }
+    }
+    state.path = ordered.into_iter().flatten().collect();
+    if changed || (rebuilt && !state.path.is_empty()) {
+        // Lay the shown notes out again, and frame them as they settle.
+        state.hovered = None;
+        state.alpha = 1.0;
+        state.framing = true;
+    }
+}
+
+/// Keeps the shown notes in frame while they settle after a path is chosen.
+fn frame_path(
+    mut state: ResMut<GraphState>,
+    nodes: Query<(&Transform, &GraphNode), Without<GraphCamera>>,
+    viewport: Query<&ComputedNode, With<GraphViewport>>,
+) {
+    if !state.framing {
+        return;
+    }
+    state.camera_goal = Some(fit_all(&nodes, viewport.single().ok()));
+    if state.alpha < 0.05 {
+        state.framing = false;
+    }
+}
+
 fn simulate(
     time: Res<Time>,
     nav: Res<Nav>,
@@ -407,6 +500,7 @@ fn simulate(
     let dt = time.delta_secs().min(1.0 / 30.0);
     let positions: Vec<(Entity, Vec2)> = nodes
         .iter()
+        .filter(|(_, n, _)| !n.hidden)
         .map(|(e, _, t)| (e, t.translation.truncate()))
         .collect();
     let index = |e: Entity| positions.iter().position(|(p, _)| *p == e);
@@ -422,8 +516,9 @@ fn simulate(
             forces[j] -= f;
         }
     }
-    // Springs along edges.
-    for &(a, b) in &state.edges {
+    // Springs along edges, and between the steps of a followed path.
+    let path_links = state.path.windows(2).map(|pair| (pair[0], pair[1]));
+    for (a, b) in state.edges.iter().copied().chain(path_links) {
         let (Some(i), Some(j)) = (index(a), index(b)) else {
             continue;
         };
@@ -435,7 +530,8 @@ fn simulate(
     }
     let alpha = state.alpha;
     let weights = state.anchor.map(|anchor| mobility(&state.edges, anchor));
-    for (i, (entity, mut node, mut transform)) in nodes.iter_mut().enumerate() {
+    let visible = nodes.iter_mut().filter(|(_, n, _)| !n.hidden);
+    for (i, (entity, mut node, mut transform)) in visible.enumerate() {
         debug_assert_eq!(positions[i].0, entity);
         // Gravity towards the centre keeps islands on screen.
         let force = forces[i] - positions[i].1 * 0.08;
@@ -714,7 +810,26 @@ fn draw_edges(
     let half = EDGE_WIDTH / 2.0 * px;
     let focus = state.hovered.or(state.dragging);
     let mut out = LineMesh::default();
-    for &(a, b, kind) in &state.lines {
+    // Following a path: only its steps, joined in order.
+    if !state.path.is_empty() {
+        let color = color::LINK.to_linear().to_f32_array();
+        for pair in state.path.windows(2) {
+            if let (Ok((ta, _)), Ok((tb, _))) = (nodes.get(pair[0]), nodes.get(pair[1])) {
+                out.quad(
+                    ta.translation.truncate(),
+                    tb.translation.truncate(),
+                    half,
+                    color,
+                );
+            }
+        }
+    }
+    let lines = if state.path.is_empty() {
+        state.lines.as_slice()
+    } else {
+        &[]
+    };
+    for &(a, b, kind) in lines {
         let (Ok((ta, na)), Ok((tb, nb))) = (nodes.get(a), nodes.get(b)) else {
             continue;
         };
@@ -789,7 +904,9 @@ fn to_world(
 fn pick(world: Vec2, nodes: &Query<(Entity, &Transform, &GraphNode)>) -> Option<Entity> {
     nodes
         .iter()
-        .filter(|(_, t, n)| t.translation.truncate().distance(world) <= n.radius + 12.0)
+        .filter(|(_, t, n)| {
+            !n.hidden && t.translation.truncate().distance(world) <= n.radius + 12.0
+        })
         .min_by(|a, b| {
             let da = a.1.translation.truncate().distance(world);
             let db = b.1.translation.truncate().distance(world);
@@ -854,6 +971,7 @@ fn on_press(
     state.press = Some(Press { node, moved: false });
     state.pan_velocity = Vec2::ZERO;
     state.camera_goal = None;
+    state.framing = false;
 }
 
 fn on_release(event: On<PointerRelease>, mut state: ResMut<GraphState>) {
@@ -963,6 +1081,7 @@ fn on_scroll(
         return;
     };
     state.camera_goal = None;
+    state.framing = false;
     let factor = (1.0 - event.y.signum() * 0.12).clamp(0.5, 1.5);
     zoom_around(&mut transform, &mut projection, anchor, factor);
 }
@@ -991,6 +1110,8 @@ fn ortho_scale(projection: &Projection) -> f32 {
 
 const MIN_SCALE: f32 = 0.25;
 const MAX_SCALE: f32 = 4.0;
+/// Closest zoom "fit" goes to.
+const FIT_MIN_SCALE: f32 = 0.8;
 
 /// Zooms by `factor` (< 1 zooms in) keeping the world point `anchor` fixed on screen.
 fn zoom_around(transform: &mut Transform, projection: &mut Projection, anchor: Vec2, factor: f32) {
@@ -1033,6 +1154,7 @@ fn pinch_zoom(
     state.dragging = None;
     state.pan_velocity = Vec2::ZERO;
     state.camera_goal = None;
+    state.framing = false;
     // A pinch is never a click.
     if let Some(press) = &mut state.press {
         press.moved = true;
@@ -1073,22 +1195,23 @@ fn camera_motion(
 
 /// Camera position and zoom that show every node.
 fn fit_all(
-    nodes: &Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
+    nodes: &Query<(&Transform, &GraphNode), Without<GraphCamera>>,
     viewport: Option<&ComputedNode>,
 ) -> (Vec2, f32) {
     let mut bounds: Option<Rect> = None;
-    for transform in nodes {
+    for (transform, _) in nodes.iter().filter(|(_, n)| !n.hidden) {
         let p = transform.translation.truncate();
-        // Leave room for the node and its label.
-        let r = Rect::from_center_half_size(p, Vec2::new(60.0, 30.0));
+        // Leave room for the node and its label below.
+        let r = Rect::from_center_half_size(p, Vec2::new(80.0, 50.0));
         bounds = Some(bounds.map_or(r, |b| b.union(r)));
     }
     let (Some(bounds), Some(viewport)) = (bounds, viewport) else {
         return (Vec2::ZERO, 1.0);
     };
     let size = viewport.size().max(Vec2::ONE);
-    let scale = (bounds.size() / size).max_element() * 1.1;
-    (bounds.center(), scale.clamp(MIN_SCALE, MAX_SCALE))
+    let scale = (bounds.size() / size).max_element() * 1.2;
+    // A few notes are framed at a comfortable size, not blown up to fill the view.
+    (bounds.center(), scale.clamp(FIT_MIN_SCALE, MAX_SCALE))
 }
 
 /// Zoom buttons over the graph (the only way to zoom on touch screens): one bordered group of
@@ -1104,7 +1227,7 @@ pub fn zoom_controls() -> impl Scene {
             BorderColor::all(color::BORDER)
             on(move |_: On<bevy::ui_widgets::Activate>,
                      camera: Query<(&Transform, &Projection), With<GraphCamera>>,
-                     nodes: Query<&Transform, (With<GraphNode>, Without<GraphCamera>)>,
+                     nodes: Query<(&Transform, &GraphNode), Without<GraphCamera>>,
                      viewport: Query<&ComputedNode, With<GraphViewport>>,
                      mut state: ResMut<GraphState>| {
                 let Ok((transform, projection)) = camera.single() else {
@@ -1114,6 +1237,7 @@ pub fn zoom_controls() -> impl Scene {
                     .camera_goal
                     .unwrap_or((transform.translation.truncate(), ortho_scale(projection)));
                 state.pan_velocity = Vec2::ZERO;
+                state.framing = false;
                 state.camera_goal = Some(if factor == 0.0 {
                     fit_all(&nodes, viewport.single().ok())
                 } else {
@@ -1143,6 +1267,21 @@ pub fn zoom_controls() -> impl Scene {
             --
             @{button("maximize", 0.0, false)}
         ]
+    }
+}
+
+/// The legend, hidden while a path is shown (its line is the path itself).
+#[derive(Component, Clone, Copy, Debug, Default)]
+struct GraphLegend;
+
+fn show_legend(state: Res<GraphState>, mut legends: Query<&mut Visibility, With<GraphLegend>>) {
+    let visibility = if state.path.is_empty() {
+        Visibility::Inherited
+    } else {
+        Visibility::Hidden
+    };
+    for mut legend in &mut legends {
+        legend.set_if_neq(visibility);
     }
 }
 
@@ -1183,6 +1322,7 @@ pub fn legend() -> impl Scene {
         BackgroundColor(color::CARD)
         BorderColor::all(color::INPUT)
         Pickable::IGNORE
+        GraphLegend
         shadow
         Children [
             @{row(vec![piece(24.0, false)], "Linked both ways")}

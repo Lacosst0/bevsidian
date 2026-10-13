@@ -80,7 +80,7 @@ fn main_column(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
                     @{pages::note::note_page(nav.clone(), vault.clone(), theme.clone())}
                 },
                 View::Graph => {
-                    @{pages::graph::graph_page()}
+                    @{pages::graph::graph_page(nav.clone(), vault.clone())}
                 },
             }
         ]
