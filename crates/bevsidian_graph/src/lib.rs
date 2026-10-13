@@ -28,6 +28,8 @@ use bevsidian_core::{
 };
 use bevsidian_ui::{Size, Tooltip, Variant, caption, color, icon_button, radius, shadow};
 
+mod layout;
+
 const LAYER: usize = 1;
 
 /// Adds the graph view; place a [`GraphViewport`] node in the UI to show it.
@@ -73,10 +75,17 @@ struct GraphNode {
     note: NoteId,
     velocity: Vec2,
     radius: f32,
+    /// The hub: it stays in the middle.
     pinned: bool,
     neighbors: Vec<Entity>,
     /// Off the reading path being followed: not drawn, simulated or picked.
     hidden: bool,
+    /// Where it belongs in the whole graph (see [`layout::radial`]); it drifts back there.
+    home: Vec2,
+    /// Its place on the followed path's line (see [`layout::line`]).
+    target: Option<Vec2>,
+    /// Radius of its orbit: no other note comes closer (room for its disc and label).
+    orbit: f32,
 }
 
 #[derive(Component)]
@@ -254,16 +263,20 @@ fn spawn_nodes(
         ..default()
     };
 
-    // Notes start on a circle; the simulation untangles them. Path notes stay out: each
-    // would link to every note on its path (paths show as filters instead).
+    // Path notes stay out of the graph: each would link to every note on its path (paths
+    // show as filters instead).
+    let shown: Vec<NoteId> = (0..vault.notes.len())
+        .filter(|&i| vault.path(i).is_none())
+        .collect();
+    let homes = home_positions(&vault, &shown);
     let note_count = vault.notes.len();
     let mut note_entities = Vec::with_capacity(note_count);
     for (i, note) in vault.notes.iter().enumerate() {
-        if vault.path(i).is_some() {
+        let Some(slot) = shown.iter().position(|&n| n == i) else {
             note_entities.push(None);
             continue;
-        }
-        let angle = i as f32 / note_count.max(1) as f32 * std::f32::consts::TAU;
+        };
+        let home = homes[slot];
         let degree = note.outgoing.len()
             + note
                 .backlinks
@@ -286,15 +299,15 @@ fn spawn_nodes(
                     note: i,
                     velocity: Vec2::ZERO,
                     radius,
-                    pinned: false,
+                    pinned: hub,
                     neighbors: Vec::new(),
                     hidden: false,
+                    home,
+                    target: None,
+                    orbit: orbit(radius, &note.name),
                 },
-                Transform::from_translation(
-                    kept.get(&i)
-                        .copied()
-                        .unwrap_or((Vec2::from_angle(angle) * 180.0).extend(1.0)),
-                ),
+                // Notes start at home: the first frame already shows the layout.
+                Transform::from_translation(kept.get(&i).copied().unwrap_or(home.extend(1.0))),
                 Visibility::default(),
                 RenderLayers::layer(LAYER),
             ))
@@ -354,10 +367,51 @@ fn spawn_nodes(
     state.anchor = None;
     if kept.is_empty() {
         state.alpha = 1.0;
+        state.framing = true;
     } else {
         // An edit only adds or removes a few links: settle gently.
         state.alpha = state.alpha.max(0.1);
     }
+}
+
+/// Radius a note keeps clear around itself: its disc, and its label (centred below it).
+fn orbit(radius: f32, name: &str) -> f32 {
+    let label = name.chars().count() as f32 * LABEL_SIZE * 0.55;
+    (radius + ORBIT_MARGIN).max(label / 2.0 + ORBIT_MARGIN / 2.0)
+}
+
+/// Room around a note's disc that others keep out of.
+const ORBIT_MARGIN: f32 = 22.0;
+
+/// Home positions of the `shown` notes (in that order): radiating from the hub
+/// (`hub: true`), or else from the best-linked note.
+fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Vec<Vec2> {
+    let slot = |id: NoteId| shown.iter().position(|&n| n == id);
+    let mut links = Vec::new();
+    for (a, &id) in shown.iter().enumerate() {
+        for &target in &vault.notes[id].outgoing {
+            if let Some(b) = slot(target) {
+                links.push((a, b));
+            }
+        }
+    }
+    let hub = shown.iter().position(|&id| {
+        vault.notes[id]
+            .doc
+            .properties
+            .iter()
+            .any(|(key, value)| key == "hub" && value == "true")
+    });
+    let root = hub.unwrap_or_else(|| {
+        (0..shown.len())
+            .max_by_key(|&a| links.iter().filter(|&&(x, y)| x == a || y == a).count())
+            .unwrap_or(0)
+    });
+    let space: Vec<f32> = shown
+        .iter()
+        .map(|&id| 2.0 * orbit(20.0, &vault.notes[id].name))
+        .collect();
+    layout::radial(shown.len(), &links, root, &space)
 }
 
 /// Icon colours.
@@ -449,10 +503,12 @@ fn follow_path(
     *last = Some((path, data.revision));
     let shown = path.and_then(|p| data.path(p));
     let steps = shown.map(|p| p.steps.as_slice()).unwrap_or_default();
+    let places = shown.map(|p| layout::line(&p.kinds)).unwrap_or_default();
     let mut ordered = vec![None; steps.len()];
     for (entity, mut node, mut visibility, children) in &mut nodes {
         let step = steps.iter().position(|&s| s == node.note);
         node.hidden = !steps.is_empty() && step.is_none();
+        node.target = step.and_then(|step| places.get(step).copied());
         visibility.set_if_neq(if node.hidden {
             Visibility::Hidden
         } else {
@@ -508,6 +564,17 @@ fn frame_path(
     }
 }
 
+/// How fast (per second) path steps ease onto their line.
+const PATH_EASE: f32 = 7.0;
+/// Pull towards a note's home, and along links (gentle: links only bend the layout).
+const HOME_PULL: f32 = 0.35;
+const LINK_PULL: f32 = 0.02;
+/// How much of an overlap one collision pass removes.
+const COLLISION: f32 = 0.7;
+
+/// Moves the shown notes. With a path followed, its steps ease quickly onto their line.
+/// Otherwise each note drifts towards its home on the rings, links pull gently, and no note
+/// enters another's orbit: they keep their distance but stay as close as that allows.
 fn simulate(
     time: Res<Time>,
     nav: Res<Nav>,
@@ -518,53 +585,84 @@ fn simulate(
         return;
     }
     let dt = time.delta_secs().min(1.0 / 30.0);
-    let positions: Vec<(Entity, Vec2)> = nodes
-        .iter()
-        .filter(|(_, n, _)| !n.hidden)
-        .map(|(e, _, t)| (e, t.translation.truncate()))
-        .collect();
-    let index = |e: Entity| positions.iter().position(|(p, _)| *p == e);
-    let mut forces = vec![Vec2::ZERO; positions.len()];
-
-    // Repulsion between every pair.
-    for i in 0..positions.len() {
-        for j in (i + 1)..positions.len() {
-            let delta = positions[i].1 - positions[j].1;
-            let dist2 = delta.length_squared().max(25.0);
-            let f = delta.normalize_or(Vec2::X) * (90000.0 / dist2);
+    let following = !state.path.is_empty();
+    let alpha = state.alpha;
+    let mut positions: Vec<(Entity, Vec2, f32, bool)> = Vec::new();
+    let index = |positions: &[(Entity, Vec2, f32, bool)], e: Entity| {
+        positions.iter().position(|(p, ..)| *p == e)
+    };
+    let mut forces = Vec::new();
+    for (entity, node, transform) in &nodes {
+        if node.hidden {
+            continue;
+        }
+        let at = transform.translation.truncate();
+        let fixed = state.dragging == Some(entity) || (node.pinned && !following);
+        positions.push((entity, at, node.orbit, fixed));
+        forces.push(if following {
+            Vec2::ZERO
+        } else {
+            (node.home - at) * HOME_PULL
+        });
+    }
+    if !following {
+        for &(a, b) in &state.edges {
+            let (Some(i), Some(j)) = (index(&positions, a), index(&positions, b)) else {
+                continue;
+            };
+            let delta = positions[j].1 - positions[i].1;
+            let f = delta.normalize_or_zero() * (delta.length() - layout::RING_GAP) * LINK_PULL;
             forces[i] += f;
             forces[j] -= f;
         }
     }
-    // Springs along edges, and between the steps of a followed path.
-    let path_links = state.path_lines.iter().map(|&(a, b, _)| (a, b));
-    for (a, b) in state.edges.iter().copied().chain(path_links) {
-        let (Some(i), Some(j)) = (index(a), index(b)) else {
-            continue;
-        };
-        let delta = positions[j].1 - positions[i].1;
-        let rest = 160.0;
-        let f = delta.normalize_or_zero() * (delta.length() - rest) * 0.6;
-        forces[i] += f;
-        forces[j] -= f;
-    }
-    let alpha = state.alpha;
     let weights = state.anchor.map(|anchor| mobility(&state.edges, anchor));
-    let visible = nodes.iter_mut().filter(|(_, n, _)| !n.hidden);
-    for (i, (entity, mut node, mut transform)) in visible.enumerate() {
-        debug_assert_eq!(positions[i].0, entity);
-        // Gravity towards the centre keeps islands on screen.
-        let force = forces[i] - positions[i].1 * 0.08;
-        if node.pinned || state.dragging == Some(entity) {
+    let ease = 1.0 - (-PATH_EASE * dt).exp();
+    for (i, (entity, node, _)) in nodes.iter_mut().filter(|(_, n, _)| !n.hidden).enumerate() {
+        let (_, at, _, fixed) = positions[i];
+        let mut node = node;
+        if fixed {
             node.velocity = Vec2::ZERO;
+            continue;
+        }
+        if let (true, Some(target)) = (following, node.target) {
+            node.velocity = Vec2::ZERO;
+            positions[i].1 = at.lerp(target, ease);
             continue;
         }
         let mobility = weights
             .as_ref()
             .map_or(1.0, |m| m.get(&entity).copied().unwrap_or(FAR_MOBILITY));
-        node.velocity = (node.velocity + force * dt * alpha * mobility) * 0.85;
+        node.velocity = (node.velocity + forces[i] * dt * alpha * mobility) * 0.85;
         let step = node.velocity * dt * 8.0;
-        transform.translation += step.clamp_length_max(40.0).extend(0.0);
+        positions[i].1 = at + step.clamp_length_max(40.0);
+    }
+    // Orbits: push apart any two notes closer than their orbits allow (fixed notes stay).
+    for _ in 0..2 {
+        for i in 0..positions.len() {
+            for j in (i + 1)..positions.len() {
+                let (a, b) = (positions[i], positions[j]);
+                let delta = b.1 - a.1;
+                let overlap = a.2 + b.2 - delta.length();
+                if overlap <= 0.0 || (a.3 && b.3) {
+                    continue;
+                }
+                let push = delta.normalize_or(Vec2::from_angle(i as f32)) * overlap * COLLISION;
+                match (a.3, b.3) {
+                    (true, _) => positions[j].1 += push,
+                    (_, true) => positions[i].1 -= push,
+                    _ => {
+                        positions[i].1 -= push / 2.0;
+                        positions[j].1 += push / 2.0;
+                    }
+                }
+            }
+        }
+    }
+    for (i, (_, _, mut transform)) in nodes.iter_mut().filter(|(_, n, _)| !n.hidden).enumerate() {
+        let at = positions[i].1;
+        transform.translation.x = at.x;
+        transform.translation.y = at.y;
     }
     if state.dragging.is_none() {
         // 1% per 60 Hz frame, at any frame rate.
@@ -759,6 +857,8 @@ pub fn connections(vault: &VaultData) -> Vec<(NoteId, NoteId, Connection)> {
 
 /// Line width on screen, in render-target pixels.
 const EDGE_WIDTH: f32 = 4.0;
+/// Width of the lines of the whole graph (not hovered), as a share of [`EDGE_WIDTH`].
+const THIN: f32 = 0.55;
 /// Dashes of one-way links and the gaps between them, in render-target pixels.
 const DASH: f32 = 12.0;
 const DASH_GAP: f32 = 8.0;
@@ -887,21 +987,20 @@ fn draw_edges(
             continue;
         };
         let highlighted = focus.is_some_and(|f| f == a || f == b);
-        let color = if highlighted {
-            color::LINK
+        // Many lines cross the whole graph: thin and faint, except a hovered note's.
+        let (color, width) = if highlighted {
+            (color::LINK, half)
         } else if focus.is_some() {
-            Color::srgb(0.13, 0.13, 0.13)
+            (Color::srgb(0.09, 0.09, 0.09), half * THIN)
         } else {
-            Color::srgb(0.26, 0.26, 0.26)
-        }
-        .to_linear()
-        .to_f32_array();
+            (Color::srgb(0.17, 0.17, 0.17), half * THIN)
+        };
         out.line(
             kind,
             (ta.translation.truncate(), na.radius),
             (tb.translation.truncate(), nb.radius),
-            (half, px),
-            color,
+            (width, px),
+            color.to_linear().to_f32_array(),
         );
     }
     if let Some(mut mesh) = meshes.get_mut(&mesh.0) {
@@ -1097,9 +1196,21 @@ fn on_drag(
     }
 }
 
-fn on_drag_end(_: On<PointerDragEnd>, mut state: ResMut<GraphState>) {
-    // A fling keeps panning (see `camera_motion`); a dragged node just stops.
-    if state.dragging.take().is_some() || !state.press.is_some_and(|p| p.moved) {
+fn on_drag_end(
+    _: On<PointerDragEnd>,
+    mut state: ResMut<GraphState>,
+    mut nodes: Query<(&mut GraphNode, &Transform)>,
+) {
+    // A fling keeps panning (see `camera_motion`); a dragged node just stops, and stays
+    // where it was dropped (outside a path's line).
+    if let Some(dropped) = state.dragging.take() {
+        state.pan_velocity = Vec2::ZERO;
+        if let Ok((mut node, transform)) = nodes.get_mut(dropped)
+            && node.target.is_none()
+        {
+            node.home = transform.translation.truncate();
+        }
+    } else if !state.press.is_some_and(|p| p.moved) {
         state.pan_velocity = Vec2::ZERO;
     }
 }
@@ -1146,7 +1257,7 @@ fn ortho_scale(projection: &Projection) -> f32 {
 }
 
 const MIN_SCALE: f32 = 0.25;
-const MAX_SCALE: f32 = 4.0;
+const MAX_SCALE: f32 = 6.0;
 /// Closest zoom "fit" goes to.
 const FIT_MIN_SCALE: f32 = 0.8;
 
