@@ -433,6 +433,7 @@ version = "0.1.0"
 dependencies = [
  "bevsidian_core",
  "bevsidian_graph",
+ "bevsidian_preview",
  "bevy",
  "bevy_radioactive",
  "bevy_ui_commonmark",
@@ -460,6 +461,15 @@ version = "0.1.0"
 dependencies = [
  "bevsidian_core",
  "bevy",
+]
+
+[[package]]
+name = "bevsidian_preview"
+version = "0.1.0"
+dependencies = [
+ "bevsidian_core",
+ "bevy",
+ "bevy_ui_commonmark",
 ]
 
 [[package]]
@@ -846,6 +856,7 @@ dependencies = [
  "indexmap",
  "log",
  "nonmax",
+ "rand",
  "serde",
  "slotmap",
  "smallvec",

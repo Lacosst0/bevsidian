@@ -66,6 +66,8 @@ pub enum Block {
     CodeBlock {
         /// Info-string language, e.g. `rust`.
         lang: Option<String>,
+        /// The whole info string, e.g. `rust preview=health`.
+        info: String,
         /// Raw code (trailing newline trimmed).
         code: String,
     },
@@ -444,7 +446,7 @@ impl MdDocument {
         let mut stack = vec![Frame::Root(Vec::new())];
         let mut inl = InlineState::default();
         let mut heading: Option<u8> = None;
-        let mut code: Option<(Option<String>, String)> = None;
+        let mut code: Option<(Option<String>, String, String)> = None;
         let mut html: Option<String> = None;
         let mut metadata: Option<String> = None;
 
@@ -486,15 +488,12 @@ impl MdDocument {
                     }
                     Tag::CodeBlock(kind) => {
                         flush_loose(&mut stack, &mut inl);
-                        let lang = match kind {
-                            CodeBlockKind::Fenced(info) => info
-                                .split_whitespace()
-                                .next()
-                                .map(str::to_owned)
-                                .filter(|s| !s.is_empty()),
-                            CodeBlockKind::Indented => None,
+                        let info = match kind {
+                            CodeBlockKind::Fenced(info) => info.trim().to_owned(),
+                            CodeBlockKind::Indented => String::new(),
                         };
-                        code = Some((lang, String::new()));
+                        let lang = info.split_whitespace().next().map(str::to_owned);
+                        code = Some((lang, info, String::new()));
                     }
                     Tag::HtmlBlock => {
                         flush_loose(&mut stack, &mut inl);
@@ -598,11 +597,18 @@ impl MdDocument {
                         }
                     }
                     TagEnd::CodeBlock => {
-                        if let Some((lang, mut text)) = code.take() {
+                        if let Some((lang, info, mut text)) = code.take() {
                             if text.ends_with('\n') {
                                 text.pop();
                             }
-                            push_block(&mut stack, Block::CodeBlock { lang, code: text });
+                            push_block(
+                                &mut stack,
+                                Block::CodeBlock {
+                                    lang,
+                                    info,
+                                    code: text,
+                                },
+                            );
                         }
                     }
                     TagEnd::HtmlBlock => {
@@ -687,7 +693,7 @@ impl MdDocument {
                 Event::Text(text) => {
                     if let Some(yaml) = metadata.as_mut() {
                         yaml.push_str(&text);
-                    } else if let Some((_, code)) = code.as_mut() {
+                    } else if let Some((_, _, code)) = code.as_mut() {
                         code.push_str(&text);
                     } else {
                         inl.active = true;
@@ -920,6 +926,7 @@ mod tests {
             doc.blocks[2],
             Block::CodeBlock {
                 lang: Some("rust".into()),
+                info: "rust".into(),
                 code: "fn main() {}".into()
             }
         );

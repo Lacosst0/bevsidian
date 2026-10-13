@@ -19,6 +19,7 @@ bevy_ui_commonmark = { path = "crates/bevy_ui_commonmark" }
 bevy_ui_touchscroll = { path = "crates/bevy_ui_touchscroll" }
 bevsidian_core = { path = "crates/bevsidian_core" }
 bevsidian_graph = { path = "crates/bevsidian_graph" }
+bevsidian_preview = { path = "crates/bevsidian_preview" }
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -83,6 +84,7 @@ bevy_ui_commonmark.workspace = true
 bevy_ui_touchscroll.workspace = true
 bevsidian_core.workspace = true
 bevsidian_graph.workspace = true
+bevsidian_preview.workspace = true
 
 [lints]
 workspace = true

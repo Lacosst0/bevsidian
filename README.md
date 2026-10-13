@@ -20,6 +20,7 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 | [`bevy_ui_touchscroll`](crates/bevy_ui_touchscroll) | Native-feeling touch scrolling for `ScrollArea`s: 1:1 drags, Android/Flutter fling physics, tap-to-stop, and eased wheel scrolling. |
 | [`bevsidian_core`](crates/bevsidian_core) | The note vault (links, backlinks, tags, search), navigation state (`Nav` signals, shortcuts, links) and the theme. |
 | [`bevsidian_graph`](crates/bevsidian_graph) | The graph view: force-directed notes and tags with pan, pinch/wheel zoom and click-to-open. |
+| [`bevsidian_preview`](crates/bevsidian_preview) | Bevy-in-Bevy: live previews above code blocks. A preview runs the block's systems in a world of its own, one system at a time with Bevy's stepping (back, play/pause, forward), and highlights the lines that just ran. |
 | `bevsidian` (root) | The app: UI shell, responsive layout, context menu, settings, FPS readout, and the embedded vault. |
 
 ## Adding notes
@@ -35,6 +36,10 @@ icon: rocket
 ```
 
 The icon shows next to the title, in the file list and in the graph. Only the icons listed in [`tools/icons.py`](tools/icons.py) are bundled (to keep the download small); add a name there and run `python3 tools/icons.py` to bundle another.
+
+## Live code previews
+
+Give a code block `preview=NAME` in its info string (` ```rust preview=regenerate `) to show a live preview above it. The code that runs for each name lives in [`crates/bevsidian_preview/src/demos.rs`](crates/bevsidian_preview/src/demos.rs); keep it in sync with the note.
 
 ## Running
 

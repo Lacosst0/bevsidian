@@ -60,7 +60,37 @@ pub struct RenderOptions<'a> {
     /// Shown before the document title (its first top-level level-1 heading), e.g. a note
     /// icon, top-aligned with it. Called with the heading's font size.
     pub title_badge: Option<&'a dyn Fn(f32) -> Box<dyn Scene>>,
+    /// Shown above a code block when it returns a scene, e.g. a live preview of the code.
+    /// The two are grouped under an [`MdCodeGroup`], and the code's lines can be highlighted
+    /// through the [`CodeHighlight`] in the group.
+    pub code_preview: Option<&'a dyn Fn(&CodeBlockInfo) -> Option<Box<dyn Scene>>>,
 }
+
+/// A code block, as passed to [`RenderOptions::code_preview`].
+pub struct CodeBlockInfo<'a> {
+    /// Info-string language, e.g. `rust`.
+    pub lang: Option<&'a str>,
+    /// The whole info string, e.g. `rust preview=health`.
+    pub info: &'a str,
+    /// The code.
+    pub code: &'a str,
+}
+
+/// Groups a code block with the preview shown above it.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct MdCodeGroup;
+
+/// Lines (0-based, end exclusive) of a code block drawn with a highlight behind them.
+#[derive(Component, Clone, Debug, Default, PartialEq, Eq)]
+pub struct CodeHighlight(pub Vec<core::ops::Range<usize>>);
+
+/// Height of one line of a code block, in logical px.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub(crate) struct CodeLineHeight(pub f32);
+
+/// A highlight bar behind code lines (see [`CodeHighlight`]).
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub(crate) struct CodeHighlightBar;
 
 type Scenes = Vec<Box<dyn Scene>>;
 
@@ -194,7 +224,22 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
             let base = SpanStyle::body(theme);
             Box::new(text_block(inlines, &base, options))
         }
-        Block::CodeBlock { lang, code } => code_block(lang.as_deref(), code, theme),
+        Block::CodeBlock { lang, info, code } => {
+            let block = code_block(lang.as_deref(), code, theme);
+            let info = CodeBlockInfo {
+                lang: lang.as_deref(),
+                info,
+                code,
+            };
+            match options.code_preview.and_then(|preview| preview(&info)) {
+                Some(preview) => Box::new(bsn! {
+                    Node { flex_direction: FlexDirection::Column, row_gap: Val::Px(6.0), min_width: Val::Px(0.0) }
+                    MdCodeGroup
+                    Children [ @{preview} -- @{block} ]
+                }),
+                None => block,
+            }
+        }
         Block::Quote { callout, blocks } => {
             let accent = callout.map_or(theme.border, |c| theme.callout_color(c));
             let mut children = Vec::new();
@@ -456,6 +501,8 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
         })
         .collect();
     let style_scene = style.scene();
+    let line_height = CodeLineHeight(style.size * style.line_height);
+    let highlight_color = theme.tag_bg;
     let root = Text::default();
     // Code keeps its line breaks and scrolls sideways instead of wrapping.
     let no_wrap = TextLayout {
@@ -472,6 +519,9 @@ fn code_block(lang: Option<&str>, code: &str, theme: &MdTheme) -> Box<dyn Scene>
         // Not a `ScrollArea`: that would swallow vertical wheel scrolling over the block.
         ScrollPosition
         on(scroll_code_sideways)
+        CodeHighlight
+        line_height
+        HighlightColor(highlight_color)
         Children [
             root @{style_scene} no_wrap SelectableText
             Node { flex_shrink: 0.0 }
@@ -580,6 +630,53 @@ const COPIED_SECONDS: f64 = 1.2;
 pub struct CopiedBubble {
     /// When to remove it.
     pub until: f64,
+}
+
+/// Colour of the [`CodeHighlight`] bars.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub(crate) struct HighlightColor(pub Color);
+
+/// Redraws the bars behind highlighted code lines when the [`CodeHighlight`] changes.
+pub(crate) fn draw_code_highlights(
+    blocks: Query<
+        (
+            Entity,
+            &CodeHighlight,
+            &CodeLineHeight,
+            &HighlightColor,
+            Option<&Children>,
+        ),
+        Changed<CodeHighlight>,
+    >,
+    bars: Query<(), With<CodeHighlightBar>>,
+    mut commands: Commands,
+) {
+    for (block, highlight, line, color, children) in &blocks {
+        for &child in children.into_iter().flatten() {
+            if bars.contains(child) {
+                commands.entity(child).despawn();
+            }
+        }
+        for lines in &highlight.0 {
+            commands.spawn((
+                CodeHighlightBar,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    width: Val::Percent(100.0),
+                    top: Val::Px(lines.start as f32 * line.0),
+                    height: Val::Px(lines.len() as f32 * line.0),
+                    border_radius: BorderRadius::all(Val::Px(3.0)),
+                    ..default()
+                },
+                BackgroundColor(color.0),
+                // Behind the code text.
+                ZIndex(-1),
+                Pickable::IGNORE,
+                ChildOf(block),
+            ));
+        }
+    }
 }
 
 /// Removes expired "Copied!" bubbles, keeping frames coming while one is shown.

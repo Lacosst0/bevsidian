@@ -26,6 +26,17 @@ use bevsidian_core::{Nav, Vault, VaultData, theme::palette};
 
 include!(concat!(env!("OUT_DIR"), "/notes.rs"));
 
+/// Logging, without Bevy stepping's `info` line for every step of a code preview.
+fn stepping_quiet() -> bevy::log::LogPlugin {
+    bevy::log::LogPlugin {
+        filter: format!(
+            "{},bevy_ecs::schedule::stepping=warn",
+            bevy::log::DEFAULT_FILTER
+        ),
+        ..default()
+    }
+}
+
 fn main() {
     let notes = editor::load_edits(NOTES);
     let vault = Vault::new(VaultData::from_sources(
@@ -35,7 +46,7 @@ fn main() {
     ));
     let nav = Nav::new(vault.get_untracked().home);
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+        .add_plugins(DefaultPlugins.set(stepping_quiet()).set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevsidian".into(),
                 canvas: Some("#bevy".into()),
@@ -59,6 +70,7 @@ fn main() {
             bevsidian_core::nav::plugin,
             ui::plugin,
             bevsidian_graph::plugin,
+            bevsidian_preview::plugin,
             layout::plugin,
             menu::plugin,
             perf::plugin,
@@ -114,6 +126,22 @@ mod tests {
                     "{} has an unknown icon {icon:?} (add it to tools/icons.py)",
                     note.name
                 );
+            }
+            for block in &note.doc.blocks {
+                if let bevy_ui_commonmark::Block::CodeBlock { lang, info, code } = block
+                    && info.contains("preview=")
+                {
+                    let block = bevy_ui_commonmark::CodeBlockInfo {
+                        lang: lang.as_deref(),
+                        info,
+                        code,
+                    };
+                    assert!(
+                        bevsidian_preview::code_preview(&block).is_some(),
+                        "{} has an unknown preview: {info}",
+                        note.name
+                    );
+                }
             }
         }
     }

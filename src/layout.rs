@@ -60,6 +60,7 @@ fn keep_awake(
     layout_changed: Query<(), Or<(Changed<ComputedNode>, Changed<ScrollPosition>, Added<Node>)>>,
     smooth: Query<&SmoothScroll>,
     touches: Res<Touches>,
+    previews: Query<&bevsidian_preview::PreviewRuntime>,
     time: Res<Time<Real>>,
     mut winit: ResMut<bevy::winit::WinitSettings>,
     mut awake_until: Local<f64>,
@@ -73,7 +74,10 @@ fn keep_awake(
         || (nav.view.get_untracked() == View::Graph && graph.animating())
         || nav.anchor.with_untracked(Option::is_some)
         || focus.get().is_some_and(|e| editable.contains(e))
-        || smooth.iter().any(SmoothScroll::animating);
+        || smooth.iter().any(SmoothScroll::animating)
+        || previews
+            .iter()
+            .any(bevsidian_preview::PreviewRuntime::is_playing);
     let now = time.elapsed_secs_f64();
     if busy || !layout_changed.is_empty() {
         // Keep going a little longer: layout, text and reactive regions settle after a change,

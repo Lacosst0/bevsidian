@@ -638,6 +638,7 @@ fn note_scene(
         theme: &theme,
         resolve: &resolve,
         title_badge: Some(&badge),
+        code_preview: Some(&bevsidian_preview::code_preview),
     };
     let body = markdown_scene(&note.doc, &options);
     // Obsidian-style inline title when the note has no level-1 heading.

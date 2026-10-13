@@ -12,7 +12,12 @@
 //!
 //! fn setup(mut commands: Commands, theme: Res<MdTheme>) {
 //!     let doc = MdDocument::parse("# Hello\n\nSee [[Other note]] and #bevy.");
-//!     let options = RenderOptions { theme: &theme, resolve: &|_| true, title_badge: None };
+//!     let options = RenderOptions {
+//!         theme: &theme,
+//!         resolve: &|_| true,
+//!         title_badge: None,
+//!         code_preview: None,
+//!     };
 //!     commands.spawn(Camera2d);
 //!     commands.spawn_scene(markdown_scene(&doc, &options));
 //! }
@@ -34,8 +39,8 @@ pub mod theme;
 pub use document::*;
 pub use md_highlight::{MdToken, highlight_markdown};
 pub use scene::{
-    CopiedBubble, MdBlock, MdCopyButton, MdFootnote, MdHeading, MdLink, MdRoot, RenderOptions,
-    markdown_scene,
+    CodeBlockInfo, CodeHighlight, CopiedBubble, MdBlock, MdCodeGroup, MdCopyButton, MdFootnote,
+    MdHeading, MdLink, MdRoot, RenderOptions, markdown_scene,
 };
 pub use theme::MdTheme;
 
@@ -74,7 +79,10 @@ impl Plugin for CommonMarkPlugin {
                 // margin in `cull_offscreen_blocks` covers that.
                 cull_offscreen_blocks.after(bevy::ui::UiSystems::Layout),
             )
-            .add_systems(Update, scene::expire_copied_bubbles);
+            .add_systems(
+                Update,
+                (scene::expire_copied_bubbles, scene::draw_code_highlights),
+            );
     }
 }
 

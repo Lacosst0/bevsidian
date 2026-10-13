@@ -7,9 +7,9 @@ Bevy is built on an **Entity Component System** (ECS). Data lives in *components
 
 ## Entities and components
 
-An entity is just an ID. You give it meaning by inserting components:
+An entity is just an ID. You give it meaning by inserting components. The preview above the code runs it in a real Bevy world and shows the entity it spawns:
 
-```rust
+```rust preview=spawn-player
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -19,7 +19,7 @@ struct Health(u32);
 struct Player;
 
 fn spawn_player(mut commands: Commands) {
-    commands.spawn((Player, Health(100), Transform::default()));
+    commands.spawn((Player, Health(50), Transform::default()));
 }
 ```
 
@@ -30,7 +30,9 @@ fn spawn_player(mut commands: Commands) {
 
 Systems are plain Rust functions whose parameters describe the data they need. Bevy runs systems in parallel when their data access does not conflict.
 
-```rust
+Step through it one system at a time (Bevy's built-in *stepping*), or press play: `spawn_player` runs once at startup, then `regenerate` heals the player every frame.
+
+```rust preview=regenerate
 fn regenerate(time: Res<Time>, mut query: Query<&mut Health, With<Player>>) {
     for mut health in &mut query {
         health.0 = (health.0 + 1).min(100);
@@ -57,9 +59,9 @@ fn main() {
 
 ## Observers and events
 
-*Observers* react to events immediately instead of polling every frame. They are also how [[Scenes and BSN|scenes]] attach behaviour to entities with `on(...)`.
+*Observers* react to events immediately instead of polling every frame. They are also how [[Scenes and BSN|scenes]] attach behaviour to entities with `on(...)`. Here a system triggers `Damage` each frame, and the observer runs right away:
 
-```rust
+```rust preview=damage
 #[derive(EntityEvent)]
 struct Damage {
     entity: Entity,
@@ -69,6 +71,12 @@ struct Damage {
 fn on_damage(damage: On<Damage>, mut health: Query<&mut Health>) {
     if let Ok(mut health) = health.get_mut(damage.entity) {
         health.0 = health.0.saturating_sub(damage.amount);
+    }
+}
+
+fn attack(players: Query<Entity, With<Player>>, mut commands: Commands) {
+    for player in &players {
+        commands.trigger(Damage { entity: player, amount: 10 });
     }
 }
 ```

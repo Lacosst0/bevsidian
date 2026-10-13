@@ -9,7 +9,7 @@ icon: layout-template
 
 Components are separated by whitespace, and children are separated by `--`:
 
-```rust
+```rust preview=menu
 use bevy::prelude::*;
 
 fn menu() -> impl Scene {
@@ -33,7 +33,7 @@ fn setup(mut commands: Commands) {
 
 Writing `Node { width: px(200) }` only sets `width`; every other field keeps the value it had from an earlier patch or the type's default. This makes scenes composable:
 
-```rust
+```rust preview=wide-menu
 fn wide_menu() -> impl Scene {
     bsn! {
         @menu()

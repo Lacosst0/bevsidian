@@ -23,8 +23,8 @@ flask-conical folder gamepad-2 gem ghost git-branch github globe graduation-cap 
 heart house image info key keyboard layers layout-template leaf library lightbulb link list
 list-checks lock mail map message-square mic monitor moon mountain mouse-pointer move music
 notebook-pen orbit package paintbrush palette pause pencil pizza play puzzle quote rocket rotate-3d
-scale-3d scroll-text search send server settings shapes shield smartphone sparkles speaker sprout
-star sun table target terminal text tree-pine triangle-alert trophy type upload user users video
+rotate-ccw scale-3d scroll-text search send server settings shapes shield smartphone sparkles speaker sprout
+star step-back step-forward sun table target terminal text tree-pine triangle-alert trophy type upload user users video
 volume-2 wand-sparkles wrench zap
 """.split()
 
@@ -42,8 +42,12 @@ options.name_IDs = ["*"]
 subsetter = subset.Subsetter(options)
 subsetter.populate(unicodes=codes.values())
 subsetter.subset(font)
+font.save(ROOT / "assets/fonts/Lucide.ttf")
+
 # Lucide's metrics give every glyph a left side bearing of 0, though the outlines start further
 # right; hinting rasterizers trust the metric and draw each icon off-centre. Use the real one.
+# (Done on the saved file: saving the subset font resets the bearings.)
+font = TTFont(ROOT / "assets/fonts/Lucide.ttf")
 glyf = font["glyf"]
 for name, (advance, _) in font["hmtx"].metrics.items():
     font["hmtx"][name] = (advance, getattr(glyf[name], "xMin", 0))

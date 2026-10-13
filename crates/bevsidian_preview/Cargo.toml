@@ -1,0 +1,28 @@
+[package]
+name = "bevsidian_preview"
+description = "Bevy-in-Bevy: live, steppable previews of the code blocks in Bevsidian notes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+bevy = { workspace = true, features = [
+    "std",
+    "bevy_ui",
+    "bevy_ui_widgets",
+    "bevy_text",
+    "bevy_picking",
+    "ui_picking",
+    "bevy_scene",
+    "bevy_log",
+    # Bevy's system stepping, used to run a preview one system at a time.
+    "bevy_debug_stepping",
+] }
+bevy_ui_commonmark.workspace = true
+bevsidian_core.workspace = true
+
+[lints]
+workspace = true
