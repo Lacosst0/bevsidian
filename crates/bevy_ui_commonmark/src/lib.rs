@@ -34,6 +34,7 @@ use bevy_ui_textselect::{TextSelectPlugin, TextSpanClick};
 pub mod document;
 pub mod highlight;
 pub mod md_highlight;
+pub mod pick;
 pub mod scene;
 pub mod theme;
 
@@ -86,6 +87,7 @@ impl Plugin for CommonMarkPlugin {
                     scene::expire_copied_bubbles,
                     scene::draw_code_highlights,
                     scene::hover_table_rows,
+                    pick::apply_picks,
                 ),
             );
     }

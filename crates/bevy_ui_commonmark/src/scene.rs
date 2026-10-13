@@ -16,6 +16,7 @@ use crate::{
     },
     highlight::{TokenKind, highlight},
     insert,
+    pick::{MdPick, Pick, chips},
     theme::MdTheme,
 };
 
@@ -245,6 +246,11 @@ fn render_block(block: &Block, options: &RenderOptions, depth: usize) -> Box<dyn
         Block::Paragraph(inlines) => {
             let base = SpanStyle::body(theme);
             Box::new(text_block(inlines, &base, options))
+        }
+        Block::CodeBlock { lang, info, code }
+            if info.split_whitespace().any(|word| word == "pick") =>
+        {
+            pick_block(lang.as_deref(), code, options)
         }
         Block::CodeBlock { lang, info, code } => {
             let info = CodeBlockInfo {
@@ -675,24 +681,7 @@ fn code_block(
         line_height: 1.5,
         ..SpanStyle::body(theme)
     };
-    let spans: Scenes = highlight(code, lang)
-        .into_iter()
-        .map(|(text, kind)| {
-            let mut s = style.clone();
-            s.color = match kind {
-                TokenKind::Plain => theme.text,
-                TokenKind::Keyword => theme.syntax_keyword,
-                TokenKind::String => theme.syntax_string,
-                TokenKind::Comment => theme.syntax_comment,
-                TokenKind::Number => theme.syntax_number,
-                TokenKind::Type => theme.syntax_type,
-            };
-            if kind == TokenKind::Comment {
-                s.italic = true;
-            }
-            span_scene(text.to_owned(), &s, None)
-        })
-        .collect();
+    let spans = code_spans(code, lang, theme);
     let style_scene = style.scene();
     let line_height = CodeLineHeight(style.size * style.line_height);
     let highlight_color = theme.highlight;
@@ -723,14 +712,14 @@ fn code_block(
             line_height
             HighlightColor(highlight_color)
             Children [
-                root @{style_scene} no_wrap SelectableText
+                root @{style_scene} no_wrap SelectableText CodeText
                 Node { flex_shrink: 0.0 }
                 Children [ {spans} ]
             ]
         ]
     });
 
-    let copy_source = code.to_owned();
+    let copy_source = CopySource(code.to_owned());
     let label_style = SpanStyle {
         font: theme.mono.clone(),
         size: theme.base_size * 0.75,
@@ -793,6 +782,7 @@ fn code_block(
                 {actions}
                 --
                 MdCopyButton
+                copy_source
                 Node {
                     width: Val::Px(28.0),
                     height: Val::Px(28.0),
@@ -806,9 +796,11 @@ fn code_block(
                 on(move |click: On<bevy::ui_widgets::Activate>,
                          mut clipboard: ResMut<Clipboard>,
                          time: Res<Time<Real>>,
+                         sources: Query<&CopySource>,
                          bubbles: Query<(Entity, &ChildOf), With<CopiedBubble>>,
                          mut commands: Commands| {
-                    if let Err(err) = clipboard.set_text(copy_source.clone()) {
+                    let text = sources.get(click.entity).map(|s| s.0.clone()).unwrap_or_default();
+                    if let Err(err) = clipboard.set_text(text) {
                         warn!("copy failed: {err:?}");
                         return;
                     }
@@ -851,6 +843,72 @@ fn code_block(
             @{code_text}
         ]
     })
+}
+
+/// The text a code block's copy button copies.
+#[derive(Component, Clone, Debug, Default)]
+pub(crate) struct CopySource(pub String);
+
+/// The text of a code block, whose spans a `pick` block replaces.
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub(crate) struct CodeText;
+
+/// The coloured spans of code.
+pub(crate) fn code_spans(code: &str, lang: Option<&str>, theme: &MdTheme) -> Scenes {
+    let style = SpanStyle {
+        font: theme.mono.clone(),
+        size: theme.base_size * 0.875,
+        color: theme.text,
+        line_height: 1.5,
+        ..SpanStyle::body(theme)
+    };
+    highlight(code, lang)
+        .into_iter()
+        .map(|(text, kind)| {
+            let mut s = style.clone();
+            s.color = match kind {
+                TokenKind::Plain => theme.text,
+                TokenKind::Keyword => theme.syntax_keyword,
+                TokenKind::String => theme.syntax_string,
+                TokenKind::Comment => theme.syntax_comment,
+                TokenKind::Number => theme.syntax_number,
+                TokenKind::Type => theme.syntax_type,
+            };
+            if kind == TokenKind::Comment {
+                s.italic = true;
+            }
+            span_scene(text.to_owned(), &s, None)
+        })
+        .collect()
+}
+
+/// A pick block: chips over a code block that changes with them.
+fn pick_block(lang: Option<&str>, code: &str, options: &RenderOptions) -> Box<dyn Scene> {
+    let pick = Pick::parse(code);
+    let (initial, _) = pick.compose(0);
+    let chips = chips(&pick, options.theme);
+    let block = code_block(lang, &initial, options, None, true);
+    let frame = code_frame(options.theme);
+    let state = MdPick::new(pick, lang);
+    let top = BorderRadius::top(Val::Px(options.theme.radius + 1.0));
+    Box::new(bsn! {
+        @frame state MdCodeGroup
+        Children [ @{chips} Node { border_radius: top } -- @{block} ]
+    })
+}
+
+/// The frame a code block shares with what is above it.
+fn code_frame(theme: &MdTheme) -> impl Scene + use<> {
+    let frame = Node {
+        flex_direction: FlexDirection::Column,
+        min_width: Val::Px(0.0),
+        border: UiRect::all(Val::Px(1.0)),
+        border_radius: BorderRadius::all(Val::Px(theme.radius + 2.0)),
+        overflow: Overflow::clip(),
+        ..default()
+    };
+    let border = BorderColor::all(theme.border);
+    bsn! { frame border }
 }
 
 /// How long the "Copied!" bubble stays.

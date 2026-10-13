@@ -16,5 +16,6 @@ How this app's interface is made, and how to make yours.
 8. [[Theming]] (optional)
 9. [[Picking]] (optional)
 10. [[bevy_egui]] (extra): tools and debug panels.
-11. [[bevy_hui]] (extra): UI in HTML-like files.
-12. [[bevy_lunex]] (extra)
+11. [[bevy_radioactive]] (optional): reactive UI, pick the style you like.
+12. [[bevy_hui]] (extra): UI in HTML-like files.
+13. [[bevy_lunex]] (extra)

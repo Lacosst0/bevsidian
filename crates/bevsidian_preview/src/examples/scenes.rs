@@ -7,6 +7,8 @@ pub fn find(name: &str) -> Option<fn() -> Box<dyn Scene>> {
     Some(match name {
         "menu" => || Box::new(bsn::menu()),
         "wide-menu" => || Box::new(bsn::wide_menu()),
+        "bsn-buttons" => || Box::new(bsn::dialog()),
+        "bsn-meters" => || Box::new(bsn::hud()),
         "kit-buttons" => || Box::new(kit::buttons()),
         "kit-tabs" => || Box::new(kit::view_tabs()),
         "kit-badges" => || Box::new(kit::badges()),
@@ -17,9 +19,78 @@ pub fn find(name: &str) -> Option<fn() -> Box<dyn Scene>> {
     })
 }
 
-/// `Scenes and BSN.md`
+/// `Scenes and BSN.md`, `Composing scenes.md` and `Scene components.md`
 mod bsn {
     use bevy::prelude::*;
+
+    fn button() -> impl Scene {
+        bsn! {
+            Node { padding: UiRect::all(px(8)), border_radius: BorderRadius::all(px(6)) }
+            BackgroundColor(Color::srgb(0.2, 0.2, 0.3))
+        }
+    }
+
+    fn danger_button() -> impl Scene {
+        bsn! {
+            @button()
+            BackgroundColor(Color::srgb(0.7, 0.1, 0.1))
+        }
+    }
+
+    pub fn dialog() -> impl Scene {
+        bsn! {
+            Node { column_gap: px(8) }
+            Children [
+                @button() Children [ Text("Save") ]
+                --
+                @danger_button() Children [ Text("Delete") ]
+            ]
+        }
+    }
+
+    #[derive(SceneComponent, Default, Clone)]
+    #[scene(MeterProps)]
+    struct Meter {
+        value: f32,
+    }
+
+    #[derive(Default)]
+    struct MeterProps {
+        percent: f32,
+    }
+
+    impl Meter {
+        fn scene(props: MeterProps) -> impl Scene {
+            let fill = props.percent;
+            bsn! {
+                Meter { value: {fill / 100.0} }
+                Node {
+                    width: px(160),
+                    height: px(12),
+                    border_radius: BorderRadius::all(px(6)),
+                    overflow: Overflow::clip(),
+                }
+                BackgroundColor(Color::srgb(0.15, 0.15, 0.2))
+                Children [
+                    Node { width: percent(fill), height: percent(100) }
+                    BackgroundColor(Color::srgb(0.4, 0.7, 1.0))
+                ]
+            }
+        }
+    }
+
+    pub fn hud() -> impl Scene {
+        bsn! {
+            Node { flex_direction: FlexDirection::Column, row_gap: px(8) }
+            Children [
+                @Meter { @percent: 25.0 }
+                --
+                @Meter { @percent: 75.0 }
+                --
+                @Meter { @percent: 100.0 }
+            ]
+        }
+    }
 
     pub fn menu() -> impl Scene {
         bsn! {

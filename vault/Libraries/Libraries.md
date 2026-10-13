@@ -55,6 +55,7 @@ Each library note has: what it does, a status box, a **short example that was co
 | [[bevy_mod_debugdump]] | draw the schedule graph | ⏳ `0.16` |
 | [[bevy_hui]] | UI in HTML-like files | ✅ `0.8` |
 | [[bevy_lunex]] | retained layout engine, world-space UI | 🌿 git |
+| [[bevy_radioactive]] | reactive BSN: `watch`, `subscribe`, `hooks`, `view!` | 🌿 git |
 
 ## Assets and saving
 

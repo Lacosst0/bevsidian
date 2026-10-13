@@ -13,6 +13,8 @@ says otherwise:
                        them). The `example=NAME` blocks of a note always share one module.
 - ```rust ignore       is not compiled (fragments, pseudo-code, other languages' output).
 - ```rust fresh        starts a new module even though it has `example=NAME`.
+- ```rust pick         is a program with switchable parts (see README, "Pick blocks"): the base,
+                       each option alone and all options together are compiled.
 
 A note with `check: skip` in its front matter is not compiled (excerpts of a bigger program).
 A note about a crate that has no release for the current Bevy yet says `bevy: 0.19` (the version
@@ -62,6 +64,48 @@ def blocks(text):
     return out
 
 
+def pick_variants(code):
+    """The programs a `pick` block can show that have to compile: base, each option, all."""
+    base, options = [], []
+    for line in code.splitlines():
+        marker = line.strip()
+        if marker.startswith("//@"):
+            word, _, rest = marker[3:].strip().partition(" ")
+            rest = rest.strip()
+            if word == "anchor":
+                base.append(("anchor", rest, line[: len(line) - len(line.lstrip())]))
+                continue
+            if word == "option":
+                oid, _, label = rest.partition(" ")
+                options.append((oid, []))
+                continue
+            if word == "at" and options:
+                options[-1][1].append((rest, []))
+                continue
+        if not options:
+            base.append(("code", line, ""))
+        elif options[-1][1]:
+            options[-1][1][-1][1].append(line)
+
+    def compose(chosen):
+        out = []
+        for kind, text, indent in base:
+            if kind == "code":
+                out.append(text)
+                continue
+            for i, (_, inserts) in enumerate(options):
+                if i in chosen:
+                    for at, lines in inserts:
+                        if at == text:
+                            out.extend((indent + l) if l else "" for l in lines)
+        return "\n".join(out)
+
+    variants = [("base", compose(set()))]
+    variants += [(oid, compose({i})) for i, (oid, _) in enumerate(options)]
+    variants.append(("all", compose(set(range(len(options))))))
+    return variants
+
+
 def slug(name):
     return re.sub(r"\W+", "_", name.lower()).strip("_")
 
@@ -89,6 +133,10 @@ def collect(wanted):
             words = info.split()
             if lang != "rust" or "ignore" in words:
                 continue
+            if "pick" in words:
+                for variant, source in pick_variants(code):
+                    mods.append((f"{line} [{variant}]", [source]))
+                continue
             example = any(w.startswith("example=") for w in words)
             if example and example_mod is not None and "fresh" not in words:
                 mods[example_mod][1].append(code)
@@ -115,7 +163,7 @@ def write_crate(target, bevy, crates, modules):
         else '["dev"]'
     )
     (target / "Cargo.toml").write_text(
-        f'[package]\nname = "snippets"\nversion = "0.0.0"\nedition = "2024"\n\n'
+        f'[package]\nname = "snippets"\nversion = "0.0.0"\nedition = "2024"\n\n[workspace]\n\n'
         f'[dependencies]\nbevy = {{ version = "{bevy}", features = {features} }}\n{deps}\n\n'
         f'[profile.dev]\nopt-level = 0\ndebug = false\n'
         f'[profile.dev.package."*"]\nopt-level = 1\n'

@@ -16,6 +16,7 @@ Everything you need to make a game with **Bevy 0.20**, one small step at a time.
 |:--|:--|:--|
 | **Start** | install, first window, plugins | [[Hello Bevy]] |
 | **ECS** | the heart of Bevy: data and logic | [[ECS]] |
+| **BSN** | scenes in code: the new way to spawn | [[BSN]] |
 | **Assets** | images, sounds, models, scenes | [[Assets]] |
 | **Rendering** | cameras, transforms, colours | [[Rendering]] |
 | **2D** | sprites, animation, tilemaps | [[2D]] |
@@ -35,6 +36,7 @@ A path is a list of notes to read in order. Click one, then use the **Previous /
 - [[Your first game]]: the fastest way to something playable.
 - [[Getting started]]: the core of Bevy, from data to pixels.
 - [[Understanding ECS]]: every ECS idea, with the advanced parts on the side.
+- [[Learn BSN]]: Bevy 0.20's scene notation.
 - [[A 2D game]]: sprites, animation, input, sound.
 - [[A 3D game]]: meshes, lights, cameras.
 - [[Multiplayer]]: networking from the first idea.
