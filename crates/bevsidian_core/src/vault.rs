@@ -96,6 +96,63 @@ pub struct NotePath {
     pub note: NoteId,
     /// The notes it goes through, in order.
     pub steps: Vec<NoteId>,
+    /// How each step is taken, parallel to `steps`.
+    pub kinds: Vec<StepKind>,
+}
+
+/// How a step of a reading path is taken: a link followed by `(optional)` or `(extra)` in the
+/// path's note marks the step.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StepKind {
+    /// On the way (solid line).
+    Core,
+    /// Worth a detour, but can be skipped (dashed line).
+    Optional,
+    /// Bonus material for the curious (dotted line).
+    Extra,
+}
+
+impl NotePath {
+    /// The lines joining the steps, as indices into `steps`: core steps in a chain, and each
+    /// optional or extra step hanging off the core step before it.
+    pub fn edges(&self) -> Vec<(usize, usize, StepKind)> {
+        let mut anchor = None;
+        let mut edges = Vec::new();
+        for (i, &kind) in self.kinds.iter().enumerate() {
+            if let Some(from) = anchor {
+                edges.push((from, i, kind));
+            }
+            if kind == StepKind::Core {
+                anchor = Some(i);
+            }
+        }
+        edges
+    }
+}
+
+/// The links of a path note's lines, in order, with how each step is marked.
+fn path_links(source: &str) -> Vec<(String, StepKind)> {
+    let mut links = Vec::new();
+    for line in source.lines() {
+        let lower = line.to_lowercase();
+        let kind = if lower.contains("(optional)") {
+            StepKind::Optional
+        } else if lower.contains("(extra)") {
+            StepKind::Extra
+        } else {
+            StepKind::Core
+        };
+        let mut rest = line;
+        while let Some((_, after)) = rest.split_once("[[") {
+            let Some((inner, tail)) = after.split_once("]]") else {
+                break;
+            };
+            let target = inner.split(['|', '#']).next().unwrap_or(inner);
+            links.push((target.to_owned(), kind));
+            rest = tail;
+        }
+    }
+    links
 }
 
 /// Vault contents.
@@ -189,17 +246,18 @@ impl VaultData {
         vault.paths = path_notes
             .iter()
             .map(|&note| {
-                let mut steps = Vec::new();
-                for link in &vault.notes[note].doc.links {
-                    if let Some(step) = vault.resolve(link)
+                let (mut steps, mut kinds) = (Vec::new(), Vec::new());
+                for (target, kind) in path_links(&vault.notes[note].source) {
+                    if let Some(step) = vault.find(&target)
                         && step != note
                         && !path_notes.contains(&step)
                         && !steps.contains(&step)
                     {
                         steps.push(step);
+                        kinds.push(kind);
                     }
                 }
-                NotePath { note, steps }
+                NotePath { note, steps, kinds }
             })
             .collect();
         vault.home = vault
@@ -367,10 +425,43 @@ mod tests {
             vec![NotePath {
                 note: tour,
                 steps: vec![v.find("B").unwrap(), v.find("A").unwrap()],
+                kinds: vec![StepKind::Core; 2],
             }]
         );
         assert!(v.path(tour).is_some());
         assert!(v.path(v.find("A").unwrap()).is_none());
+    }
+
+    #[test]
+    fn optional_and_extra_steps_hang_off_the_core_route() {
+        let v = VaultData::from_sources([
+            ("A.md", "# A"),
+            ("B.md", "# B"),
+            ("C.md", "# C"),
+            ("D.md", "# D"),
+            (
+                "Tour.md",
+                "---\npath: true\n---\n# Tour\n1. [[A]]\n2. [[B#Heading|b]] (optional)\n3. [[C]] (extra)\n4. [[D]]",
+            ),
+        ]);
+        let path = v.path(v.find("Tour").unwrap()).unwrap();
+        assert_eq!(
+            path.kinds,
+            vec![
+                StepKind::Core,
+                StepKind::Optional,
+                StepKind::Extra,
+                StepKind::Core
+            ]
+        );
+        assert_eq!(
+            path.edges(),
+            vec![
+                (0, 1, StepKind::Optional),
+                (0, 2, StepKind::Extra),
+                (0, 3, StepKind::Core)
+            ]
+        );
     }
 
     #[test]

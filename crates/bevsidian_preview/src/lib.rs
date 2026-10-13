@@ -20,10 +20,12 @@ mod runtime;
 use bevy::{prelude::*, ui_widgets::Activate};
 use bevy_ui_commonmark::{CodeBlockInfo, CodeHighlight, CodePreview, MdCodeGroup};
 
-use bevsidian_ui::{Size, Tooltip, Variant, button, glyph, inset, tinted_icon, vertical_separator};
+use bevsidian_ui::{
+    Size, Tooltip, Variant, button, glyph, inset, text_button, tinted_icon, vertical_separator,
+};
 pub use runtime::PreviewRuntime;
 
-use example::{Kind, Options, View};
+use example::{Action, Kind, Options, View};
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(examples::plugin)
@@ -53,9 +55,12 @@ pub fn code_preview(block: &CodeBlockInfo) -> Option<CodePreview> {
                     .functions_for(block.code)
                     .iter()
                     .any(|f| f.kind != Kind::Startup && f.kind != Kind::Observer);
+                let buttons = example.actions_for(block.code);
                 CodePreview {
                     body: Box::new(cards::cards_frame(preview)),
-                    actions: stepping.then(|| Box::new(controls(true)) as Box<dyn Scene>),
+                    actions: (stepping || !buttons.is_empty()).then(|| {
+                        Box::new(controls(Playback::Cards { stepping }, &buttons)) as Box<dyn Scene>
+                    }),
                 }
             }
             View::Game { size, background } => {
@@ -65,7 +70,10 @@ pub fn code_preview(block: &CodeBlockInfo) -> Option<CodePreview> {
                     .any(|f| f.kind == Kind::Observer);
                 CodePreview {
                     body: game::game_frame(preview, size, background, interactive),
-                    actions: Some(Box::new(controls(false))),
+                    actions: Some(Box::new(controls(
+                        Playback::Game,
+                        &example.actions_for(block.code),
+                    ))),
                 }
             }
         });
@@ -141,9 +149,19 @@ enum Control {
     Reset,
 }
 
-/// Play / pause and restart (with stepping, also step back and forward), in the code block's
-/// header.
-fn controls(stepping: bool) -> impl Scene {
+/// How a preview plays, which decides the controls it gets.
+#[derive(Clone, Copy)]
+enum Playback {
+    /// Cards: play, pause and step through the systems, if there are any to run.
+    Cards { stepping: bool },
+    /// A game: play and pause.
+    Game,
+}
+
+/// Play / pause and restart (with stepping, also step back and forward), and the block's
+/// action buttons, in the code block's header.
+fn controls(playback: Playback, actions: &[&Action]) -> impl Scene {
+    let stepping = matches!(playback, Playback::Cards { stepping: true });
     let steps: Vec<Box<dyn Scene>> = if stepping {
         vec![
             Box::new(control_button(Control::Back, "step-back", "Step back")),
@@ -154,6 +172,8 @@ fn controls(stepping: bool) -> impl Scene {
                 "Step forward",
             )),
         ]
+    } else if matches!(playback, Playback::Cards { .. }) {
+        Vec::new()
     } else {
         vec![Box::new(control_button(
             Control::Play,
@@ -161,15 +181,43 @@ fn controls(stepping: bool) -> impl Scene {
             "Play / pause",
         ))]
     };
+    let buttons: Vec<Box<dyn Scene>> = actions
+        .iter()
+        .enumerate()
+        .map(|(index, action)| Box::new(action_button(index, action.label)) as Box<dyn Scene>)
+        .collect();
     bsn! {
         Node { align_items: AlignItems::Center, column_gap: px(2) }
         Children [
+            {buttons}
+            --
             {steps}
             --
             @{control_button(Control::Reset, "rotate-ccw", "Restart")}
             --
             @{vertical_separator()}
         ]
+    }
+}
+
+/// A button of the block's actions.
+fn action_button(index: usize, label: &str) -> impl Scene + use<> {
+    bsn! {
+        @{text_button(Variant::Secondary, Size::Xs, label)}
+        on(move |activate: On<Activate>,
+                 parents: Query<&ChildOf>,
+                 groups: Query<(), With<MdCodeGroup>>,
+                 children: Query<&Children>,
+                 mut previews: Query<&mut PreviewRuntime>| {
+            let group = parents.iter_ancestors(activate.entity).find(|&e| groups.contains(e));
+            let host = group
+                .into_iter()
+                .flat_map(|g| children.iter_descendants(g))
+                .find(|&e| previews.contains(e));
+            if let Some(mut preview) = host.and_then(|e| previews.get_mut(e).ok()) {
+                preview.run_action(index);
+            }
+        })
     }
 }
 
@@ -336,7 +384,7 @@ mod tests {
 
     #[test]
     fn every_example_builds() {
-        for name in ["ecs", "mario"] {
+        for name in examples::NAMES {
             let example = examples::find(name).unwrap();
             let setup = (example.setup)(&World::new());
             let everything: String = example
