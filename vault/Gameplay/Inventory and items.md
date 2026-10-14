@@ -46,7 +46,7 @@ impl Item {
 }
 ```
 
-When designers should edit them without recompiling, load the same table from a file as an asset ([[Custom assets]], [[Asset crates#bevy_common_assets|bevy_common_assets]]):
+When designers should edit them without recompiling, load the same table from a file as an asset ([[Custom assets]], [[bevy_common_assets]]):
 
 ```rust
 use serde::Deserialize;

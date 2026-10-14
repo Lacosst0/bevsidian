@@ -55,11 +55,11 @@ Write the game so the **same systems** run on server and client wherever you can
 | Library | What it gives | Pick it when | Bevy 0.20 |
 |:--|:--|:--|:--|
 | [[bevy_replicon]] | replication + events, transport-agnostic | you want a clean, simple, modern base | **released** |
-| [[Netcode crates#lightyear\|lightyear]] | replication, prediction, interpolation, lag compensation | action games that need prediction | in progress |
+| [[lightyear]] | replication, prediction, interpolation, lag compensation | action games that need prediction | in progress |
 | [[bevy_renet]] | reliable channels over UDP | you want a transport and make the rest yourself | in progress |
-| [[Netcode crates#bevy_ggrs\|bevy_ggrs]] + [[Netcode crates#bevy_matchbox\|bevy_matchbox]] | rollback + WebRTC matchmaking | fighters, small peer-to-peer games | in progress |
+| [[bevy_ggrs]] + [[bevy_matchbox]] | rollback + WebRTC matchmaking | fighters, small peer-to-peer games | in progress |
 | [[bevy_http_client]] | HTTP requests | leaderboards, accounts, REST | **released** |
-| [[Netcode crates#bevy_steamworks\|bevy_steamworks]] | Steam lobbies, achievements | shipping on Steam | in progress |
+| [[bevy_steamworks]] | Steam lobbies, achievements | shipping on Steam | in progress |
 
 The table at the end of this note has the current version status.
 
@@ -81,14 +81,16 @@ WebSockets and WebTransport work in wasm; raw UDP does not. Pick a library and t
 
 Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
 
+Comparisons of crates that do similar jobs: [[Netcode crates]].
+
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
 | [[bevy_replicon]] | server-authoritative replication | released `0.45` |
-| [[Netcode crates#lightyear\|lightyear]] | replication + prediction + interpolation | pending `0.30` |
+| [[lightyear]] | replication + prediction + interpolation | pending `0.30` |
 | [[bevy_renet]] | UDP transport with channels | pending `5.0` |
-| [[Netcode crates#bevy_ggrs\|bevy_ggrs]] | rollback, peer to peer | pending `0.22` |
-| [[Netcode crates#bevy_matchbox\|bevy_matchbox]] | WebRTC peers + signalling | pending `0.14` (Bevy 0.18) |
-| [[Netcode crates#bevy_steamworks\|bevy_steamworks]] | Steam features | pending `0.17` |
+| [[bevy_ggrs]] | rollback, peer to peer | pending `0.22` |
+| [[bevy_matchbox]] | WebRTC peers + signalling | pending `0.14` (Bevy 0.18) |
+| [[bevy_steamworks]] | Steam features | pending `0.17` |
 | [[bevy_http_client]] | HTTP requests | released `0.12` |
 
 ## Next

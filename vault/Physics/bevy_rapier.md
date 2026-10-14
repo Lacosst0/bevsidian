@@ -100,7 +100,7 @@ For slopes, steps and "walk, don't slide", use the `KinematicCharacterController
 
 ## Fixed time step
 
-Rapier steps in `PostUpdate` by default, tied to frame time; configure `TimestepMode::Fixed` to be deterministic, and interpolate visuals ([[Avian#bevy_transform_interpolation|bevy_transform_interpolation]]).
+Rapier steps in `PostUpdate` by default, tied to frame time; configure `TimestepMode::Fixed` to be deterministic, and interpolate visuals ([[bevy_transform_interpolation]]).
 
 ## Compared to Avian
 

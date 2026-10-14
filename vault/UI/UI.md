@@ -61,9 +61,11 @@ That is the whole model: a root [`Node`] filling the screen, children inside it.
 
 Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
 
+Comparisons of crates that do similar jobs: [[UI crates]].
+
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
 | [[bevy_egui]] | immediate-mode UI for tools | released `0.43` |
-| [[UI crates#bevy_hui\|bevy_hui]] | UI in HTML-like files | released `0.8` |
-| [[UI crates#bevy_lunex\|bevy_lunex]] | retained layout engine, world-space UI | git |
+| [[bevy_hui]] | UI in HTML-like files | released `0.8` |
+| [[bevy_lunex]] | retained layout engine, world-space UI | git |
 | [[bevy_radioactive]] | reactive BSN: `watch`, `subscribe`, `hooks`, `view!` | git |

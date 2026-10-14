@@ -72,7 +72,7 @@ Visual meshes are usually too detailed for physics. Add simple colliders (box, c
 
 ## Level design tools
 
-For whole levels, [[3D authoring crates#bevy_trenchbroom|bevy_trenchbroom]] (Quake-style brushes, TrenchBroom editor) and [[3D authoring crates#bevy_skein|bevy_skein]] (Blender → Bevy components) put gameplay data inside the model file.
+For whole levels, [[bevy_trenchbroom]] (Quake-style brushes, TrenchBroom editor) and [[bevy_skein]] (Blender → Bevy components) put gameplay data inside the model file.
 
 ## Next
 

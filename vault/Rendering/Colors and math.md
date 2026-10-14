@@ -133,7 +133,7 @@ fn blend(from: Vec3, to: Vec3, t: f32) -> Vec3 {
 
 ## Random numbers
 
-Bevy has no built-in RNG type. Add `rand` (or [[Randomness#bevy_rand|bevy_rand]]); [[Randomness]] shows how:
+Bevy has no built-in RNG type. Add `rand` (or [[bevy_rand]]); [[Randomness]] shows how:
 
 ```toml
 rand = "0.10"

@@ -225,3 +225,5 @@ Cameras are entities: shake by changing `Transform` ([[Game feel]]), glow by add
 ## Next
 
 [[Colors and math]].
+
+Crates that add camera controls, and when you still need them: [[Camera crates]].

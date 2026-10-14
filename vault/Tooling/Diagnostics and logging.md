@@ -145,7 +145,7 @@ fn main() {
 
 ### Schedule data
 
-`schedule_data` draws or prints which systems run in which schedule, and how they are ordered; compare with [[Debug crates#bevy_mod_debugdump|bevy_mod_debugdump]].
+`schedule_data` draws or prints which systems run in which schedule, and how they are ordered; compare with [[bevy_mod_debugdump]].
 
 ### Remote protocol
 
@@ -165,7 +165,7 @@ Components must be reflected ([[Reflection]]) to be visible.
 
 ### Entity picking, debug UI, inspection
 
-For a click-to-inspect experience use [[Debug crates#bevy-inspector-egui|bevy-inspector-egui]]. For hovering and debugging picking itself, see the `debug_picking` example.
+For a click-to-inspect experience use [[bevy-inspector-egui]]. For hovering and debugging picking itself, see the `debug_picking` example.
 
 ## Next
 

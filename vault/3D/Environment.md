@@ -68,7 +68,7 @@ Bevy can render a physically based sky: the sun's position changes the colours f
 
 ## Water, terrain, trees
 
-Not built in. Use [[3D effect crates#bevy_water|bevy_water]], build a terrain mesh from noise ([[Meshes and materials]]), or import terrain as glTF ([[Models and glTF]]).
+Not built in. Use [[bevy_water]], build a terrain mesh from noise ([[Meshes and materials]]), or import terrain as glTF ([[Models and glTF]]).
 
 ## Next
 

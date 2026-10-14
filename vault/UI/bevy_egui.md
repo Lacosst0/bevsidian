@@ -79,7 +79,7 @@ Lots of people ship both: egui for developer tools, Bevy UI for the player.
 
 ## Related
 
-[[Debug crates#bevy-inspector-egui|bevy-inspector-egui]] shows and edits every component in the world, built on this crate.
+[[bevy-inspector-egui]] shows and edits every component in the world, built on this crate.
 
 ## Links
 

@@ -23,7 +23,7 @@ serde = { version = "1", features = ["derive"] }
 - **The same code runs** in single player, client, dedicated server and listen server.
 - Works with any transport (UDP, QUIC, WebRTC, Steam): pick a backend.
 - Fine control: per-client visibility, replication rules, serialization of any type.
-- Prediction and rollback are available as add-ons (`bevy_rewind` and others, see the README); for built-in prediction look at [[Netcode crates#lightyear|lightyear]].
+- Prediction and rollback are available as add-ons (`bevy_rewind` and others, see the README); for built-in prediction look at [[lightyear]].
 
 ## Set it up
 

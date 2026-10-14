@@ -42,11 +42,11 @@ fn what_is_it(world: &World, entity: Entity) {
 }
 ```
 
-Or use an inspector that shows the whole world and lets you edit it live: [[Debug crates#bevy-inspector-egui|bevy-inspector-egui]]. For external tools use the remote protocol ([[Diagnostics and logging#Dev tools|Dev tools]]).
+Or use an inspector that shows the whole world and lets you edit it live: [[bevy-inspector-egui]]. For external tools use the remote protocol ([[Diagnostics and logging#Dev tools|Dev tools]]).
 
 ## See what the schedule does
 
-Draw the system graph with [[Debug crates#bevy_mod_debugdump|bevy_mod_debugdump]], or print order with stepping. The stepping you see in this very site's previews (step one system at a time) is a built-in Bevy feature: `Stepping`.
+Draw the system graph with [[bevy_mod_debugdump]], or print order with stepping. The stepping you see in this very site's previews (step one system at a time) is a built-in Bevy feature: `Stepping`.
 
 ## Bugs with time and order
 
