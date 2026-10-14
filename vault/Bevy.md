@@ -20,10 +20,10 @@ Everything you need to make a game with **Bevy 0.20**, one small step at a time.
 | **Rendering** | cameras, transforms, colours | [[Rendering]] |
 | **2D** | sprites, animation, tilemaps | [[2D]] |
 | **3D** | meshes, lights, models | [[3D]] |
-| **UI** | menus, text, buttons | [[UI]] |
-| **Input** | keyboard, mouse, gamepad, touch | [[Input]] |
-| **Audio** | music and sound effects | [[Audio]] |
 | **Physics** | movement, collisions, engines | [[Physics]] |
+| **Audio** | music and sound effects | [[Audio]] |
+| **Input** | keyboard, mouse, gamepad, touch | [[Input]] |
+| **UI** | menus, text, buttons | [[UI]] |
 | **Gameplay** | AI, pathfinding, generation, inventory | [[Gameplay]] |
 | **Networking** | multiplayer | [[Networking]] |
 | **Tooling** | debugging, web, shipping | [[Tooling]] |

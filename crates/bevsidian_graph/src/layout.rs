@@ -28,8 +28,16 @@ const MAX_ROWS: usize = 6;
 /// Home positions for the notes of a tree: `parent[n]` is the note `n` grows from (`None`
 /// for the root), `ring[n]` the ring it sits on (1 is nearest the root: a note's ring need
 /// not be one more than its parent's, a branch may skip rings), `space[n]` the room it needs
-/// (its diameter, with its label). The root sits at the origin.
-pub fn tree(parent: &[Option<usize>], ring: &[usize], root: usize, space: &[f32]) -> Vec<Vec2> {
+/// (its diameter, with its label), and `order[n]` where it comes among its siblings (they
+/// go round the circle in that order, so notes listed together end up together). The root
+/// sits at the origin.
+pub fn tree(
+    parent: &[Option<usize>],
+    ring: &[usize],
+    order: &[usize],
+    root: usize,
+    space: &[f32],
+) -> Vec<Vec2> {
     let count = parent.len();
     let mut homes = vec![Vec2::ZERO; count];
     if count == 0 {
@@ -40,6 +48,9 @@ pub fn tree(parent: &[Option<usize>], ring: &[usize], root: usize, space: &[f32]
         if let Some(up) = up.filter(|_| child != root) {
             children[up].push(child);
         }
+    }
+    for kids in &mut children {
+        kids.sort_by_key(|&c| (order[c], c));
     }
     // Generations, from the root outwards.
     let mut generations = vec![vec![root]];
@@ -196,7 +207,8 @@ mod tests {
             Some(4),
         ];
         let ring = [0, 1, 1, 1, 2, 2, 2, 3];
-        let homes = tree(&parent, &ring, 0, &[80.0; 8]);
+        let order: Vec<usize> = (0..8).collect();
+        let homes = tree(&parent, &ring, &order, 0, &[80.0; 8]);
         assert_eq!(homes[0], Vec2::ZERO);
         for (child, up) in [(1, 0), (2, 0), (3, 0), (4, 1), (5, 1), (6, 2), (7, 4)] {
             assert!(
@@ -221,7 +233,8 @@ mod tests {
         parent.extend((0..30).map(|_| Some(1)));
         let mut ring = vec![0, 1];
         ring.extend([2; 30]);
-        let homes = tree(&parent, &ring, 0, &[80.0; 32]);
+        let order: Vec<usize> = (0..32).collect();
+        let homes = tree(&parent, &ring, &order, 0, &[80.0; 32]);
         for a in 0..32 {
             for b in (a + 1)..32 {
                 assert!(homes[a].distance(homes[b]) > 30.0, "{a} and {b}");

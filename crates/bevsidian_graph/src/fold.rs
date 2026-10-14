@@ -3,7 +3,9 @@
 //!
 //! A note holding folded notes shows how many with a "+N" badge and a dot around its disc
 //! for each (up to a dozen): a cluster with more inside. A click on it unfolds them, and they
-//! float out of it; a click on an unfolded note (with a "−" badge) folds them back in. A
+//! float out of it; a click on an unfolded note (with a "−" badge) folds them back in. An area
+//! goes one step further: after its deeper notes are folded back, a click folds its concepts
+//! away too ("+N" counts everything it holds), and one more shows them again. A
 //! double click opens the note. The note being read is always unfolded into view, and a
 //! followed path shows its steps whatever is folded.
 
@@ -38,14 +40,16 @@ const SHIFT_SLACK: f32 = 120.0;
 /// How close (world units) a folding note gets to its parent before it disappears.
 const TUCKED: f32 = 6.0;
 
-/// Which notes are shown: a note is shown when the note it grows from is, and either sits
-/// within [`SHOWN_RING`] or grows from an unfolded (`open`) note. Roots are always shown.
-pub fn shown(parent: &[Option<usize>], ring: &[usize], open: &[bool]) -> Vec<bool> {
+/// Which notes are shown: a note is shown when the note it grows from is, that note is not
+/// `shut` (everything below it folded away), and the note either sits within [`SHOWN_RING`] or
+/// grows from an unfolded (`open`) note. Roots are always shown.
+pub fn shown(parent: &[Option<usize>], ring: &[usize], open: &[bool], shut: &[bool]) -> Vec<bool> {
     fn visit(
         n: usize,
         parent: &[Option<usize>],
         ring: &[usize],
         open: &[bool],
+        shut: &[bool],
         memo: &mut [Option<bool>],
         depth: usize,
     ) -> bool {
@@ -56,7 +60,9 @@ pub fn shown(parent: &[Option<usize>], ring: &[usize], open: &[bool]) -> Vec<boo
             // A cycle cannot happen in a tree; stop anyway rather than recurse forever.
             Some(_) if depth > parent.len() => true,
             Some(p) => {
-                visit(p, parent, ring, open, memo, depth + 1) && (ring[n] <= SHOWN_RING || open[p])
+                visit(p, parent, ring, open, shut, memo, depth + 1)
+                    && !shut[p]
+                    && (ring[n] <= SHOWN_RING || open[p])
             }
             None => true,
         };
@@ -65,7 +71,7 @@ pub fn shown(parent: &[Option<usize>], ring: &[usize], open: &[bool]) -> Vec<boo
     }
     let mut memo = vec![None; parent.len()];
     (0..parent.len())
-        .map(|n| visit(n, parent, ring, open, &mut memo, 0))
+        .map(|n| visit(n, parent, ring, open, shut, &mut memo, 0))
         .collect()
 }
 
@@ -96,6 +102,24 @@ pub fn folded_counts(parent: &[Option<usize>], ring: &[usize]) -> Vec<usize> {
         }
     }
     folded
+}
+
+/// How many notes grow from each note, directly or not: what it holds when shut.
+pub fn held_counts(parent: &[Option<usize>]) -> Vec<usize> {
+    let count = parent.len();
+    let mut held = vec![0; count];
+    for n in 0..count {
+        let (mut at, mut steps) = (parent[n], 0);
+        while let Some(p) = at {
+            held[p] += 1;
+            at = parent[p];
+            steps += 1;
+            if steps > count {
+                break;
+            }
+        }
+    }
+    held
 }
 
 /// The badge on a note holding folded notes: "+N" while they are folded, "−" while shown.
@@ -235,16 +259,31 @@ pub(crate) fn fold_nodes(
         .collect();
     let ring: Vec<usize> = nodes.iter().map(|(_, n, ..)| n.ring).collect();
     let mut open: Vec<bool> = nodes.iter().map(|(_, n, ..)| n.open).collect();
+    let mut shut: Vec<bool> = nodes.iter().map(|(_, n, ..)| n.shut).collect();
+    let folds: Vec<usize> = nodes.iter().map(|(_, n, ..)| n.folds).collect();
 
     // Requests: a click on a note or its badge, "expand all" / "collapse all", and the note
     // being read (unfolded into view when it changes, or when the graph is rebuilt).
     let mut changed = false;
-    if let Some(toggled) = state.fold_toggle.take().and_then(index) {
-        open[toggled] = !open[toggled];
+    if let Some(t) = state.fold_toggle.take().and_then(index) {
+        // Folded notes unfold; unfolded ones fold back, and a note whose own ring is shown
+        // (an area) goes on to fold everything below it away, then back to the start.
+        let shows_rings = (0..parent.len()).any(|c| parent[c] == Some(t) && ring[c] <= SHOWN_RING);
+        if shut[t] {
+            shut[t] = false;
+        } else if open[t] {
+            open[t] = false;
+            shut[t] = shows_rings;
+        } else if folds[t] > 0 {
+            open[t] = true;
+        } else {
+            shut[t] = true;
+        }
         changed = true;
     }
     if let Some(all) = state.fold_all.take() {
         open.fill(all);
+        shut.fill(false);
         changed = true;
     }
     let current = nav.current.get_untracked();
@@ -252,13 +291,14 @@ pub(crate) fn fold_nodes(
         *last_current = Some((current, entities.len()));
         if let Some(mut at) = nodes.iter().position(|(_, n, ..)| n.note == current) {
             while let Some(p) = parent[at] {
-                changed |= !open[p];
+                changed |= !open[p] || shut[p];
                 open[p] = true;
+                shut[p] = false;
                 at = p;
             }
         }
     }
-    let visible = shown(&parent, &ring, &open);
+    let visible = shown(&parent, &ring, &open, &shut);
     let positions: Vec<Vec2> = nodes
         .iter()
         .map(|(_, _, t, _)| t.translation.truncate())
@@ -269,6 +309,7 @@ pub(crate) fn fold_nodes(
     for (i, (entity, mut node, mut transform, mut visibility)) in nodes.iter_mut().enumerate() {
         let new = seen.insert(entity);
         node.open = open[i];
+        node.shut = shut[i];
         let hide = if following {
             node.off_path
         } else {
@@ -343,7 +384,7 @@ pub(crate) fn fold_nodes(
     for (badge, child_of, mut visibility) in &mut badges {
         note_of_badge.insert(badge, child_of.parent());
         let shows = badge_of(child_of)
-            .is_some_and(|(_, n, ..)| !n.hidden && !n.tucking && !following && n.folds > 0);
+            .is_some_and(|(_, n, ..)| !n.hidden && !n.tucking && !following && n.foldable());
         visibility.set_if_neq(if shows {
             Visibility::Inherited
         } else {
@@ -352,7 +393,7 @@ pub(crate) fn fold_nodes(
     }
     for (child_of, mut visibility) in &mut stacks {
         let shows = badge_of(child_of).is_some_and(|(_, n, ..)| {
-            !n.hidden && !n.tucking && !following && n.folds > 0 && !n.open
+            !n.hidden && !n.tucking && !following && n.foldable() && n.folded()
         });
         visibility.set_if_neq(if shows {
             Visibility::Inherited
@@ -370,7 +411,7 @@ pub(crate) fn fold_nodes(
             continue;
         };
         // Folded: a white disc. Unfolded: a dark one with a light outline.
-        let wanted = match (outline, node.open) {
+        let wanted = match (outline, !node.folded()) {
             (false, true) => &paint.badge_open,
             (false, false) => &paint.badge_folded,
             (true, true) => &paint.ring_hovered,
@@ -384,8 +425,10 @@ pub(crate) fn fold_nodes(
         let Some((_, node, ..)) = node_of(child_of) else {
             continue;
         };
-        let (wanted, tint) = if node.open {
+        let (wanted, tint) = if !node.folded() {
             ("\u{2212}".to_owned(), color::FOREGROUND)
+        } else if node.shut {
+            (format!("+{}", node.holds), color::PRIMARY_FOREGROUND)
         } else {
             (format!("+{}", node.folds), color::PRIMARY_FOREGROUND)
         };
@@ -403,7 +446,7 @@ pub(crate) fn badge_at(
 ) -> Option<Entity> {
     nodes
         .iter()
-        .filter(|(_, _, n)| !n.hidden && !n.tucking && n.folds > 0)
+        .filter(|(_, _, n)| !n.hidden && !n.tucking && n.foldable())
         .find(|(_, t, n)| {
             let at = t.translation.truncate() + badge_offset(n.radius);
             at.distance(world) <= BADGE_RADIUS + 4.0
@@ -446,7 +489,9 @@ mod tests {
                     ring,
                     app: false,
                     folds,
+                    holds: folds,
                     open: false,
+                    shut: false,
                     tucking: false,
                     tuck_to: Vec2::ZERO,
                     home,
@@ -511,7 +556,7 @@ mod tests {
         let ring = [0, 1, 2, 3, 4, 4];
         let closed = [false; 6];
         assert_eq!(
-            shown(&parent, &ring, &closed),
+            shown(&parent, &ring, &closed, &[false; 6]),
             [true, true, true, false, false, false]
         );
         assert_eq!(folded_counts(&parent, &ring), [0, 1, 2, 1, 0, 0]);
@@ -519,16 +564,40 @@ mod tests {
         let mut open = closed;
         open[2] = true;
         assert_eq!(
-            shown(&parent, &ring, &open),
+            shown(&parent, &ring, &open, &[false; 6]),
             [true, true, true, true, false, false]
         );
         open[3] = true;
-        assert!(shown(&parent, &ring, &open)[4]);
+        assert!(shown(&parent, &ring, &open, &[false; 6])[4]);
         // Folding the concept again hides everything under it, unfolded or not.
         open[2] = false;
         assert_eq!(
-            shown(&parent, &ring, &open),
+            shown(&parent, &ring, &open, &[false; 6]),
             [true, true, true, false, false, false]
         );
+    }
+
+    #[test]
+    fn an_area_can_fold_its_concepts_away_too() {
+        // 0 hub → 1 area → 2 concept → 3 sub-concept.
+        let parent = [None, Some(0), Some(1), Some(2)];
+        let ring = [0, 1, 2, 3];
+        let none = [false; 4];
+        assert_eq!(
+            shown(&parent, &ring, &none, &none),
+            [true, true, true, false]
+        );
+        let mut shut = none;
+        shut[1] = true;
+        assert_eq!(
+            shown(&parent, &ring, &none, &shut),
+            [true, true, false, false]
+        );
+        // Shut wins over open: nothing under a shut note shows.
+        assert_eq!(
+            shown(&parent, &ring, &[true; 4], &shut),
+            [true, true, false, false]
+        );
+        assert_eq!(held_counts(&parent), [3, 2, 1, 0]);
     }
 }

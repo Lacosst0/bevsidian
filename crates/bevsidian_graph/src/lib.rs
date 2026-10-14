@@ -98,8 +98,12 @@ struct GraphNode {
     app: bool,
     /// How many notes it holds folded (see [`fold::folded_counts`]); 0 for none.
     folds: usize,
-    /// The notes it holds are unfolded.
+    /// How many notes grow from it, directly or not (see [`fold::held_counts`]).
+    holds: usize,
+    /// The notes it holds beyond the concepts' ring are unfolded.
     open: bool,
+    /// Everything it holds is folded away, even the concepts of an area.
+    shut: bool,
     /// Floating into its parent (to `tuck_to`) before it is folded away.
     tucking: bool,
     tuck_to: Vec2,
@@ -112,6 +116,19 @@ struct GraphNode {
     target: Option<Vec2>,
     /// Radius of its orbit: no other note comes closer (room for its disc and label).
     orbit: f32,
+}
+
+impl GraphNode {
+    /// Whether it has a badge: it holds notes and is not a root.
+    fn foldable(&self) -> bool {
+        self.holds > 0 && self.ring > 0
+    }
+
+    /// Whether what it holds is (partly) folded: shut, or holding unfolded notes beyond the
+    /// concepts.
+    fn folded(&self) -> bool {
+        self.shut || (!self.open && self.folds > 0)
+    }
 }
 
 #[derive(Component)]
@@ -291,10 +308,14 @@ fn spawn_nodes(
     *built = Some(vault.revision);
     let mut kept = std::collections::HashMap::new();
     let mut was_open = std::collections::HashSet::new();
+    let mut was_shut = std::collections::HashSet::new();
     for (entity, node, transform) in &old {
         kept.insert(node.note, transform.translation);
         if node.open {
             was_open.insert(node.note);
+        }
+        if node.shut {
+            was_shut.insert(node.note);
         }
         commands.entity(entity).despawn();
     }
@@ -320,6 +341,7 @@ fn spawn_nodes(
         .collect();
     let layout = home_positions(&vault, &shown);
     let folds = fold::folded_counts(&layout.parent, &layout.ring);
+    let holds = fold::held_counts(&layout.parent);
     // Entities first, so each node can name the node it grows from.
     let note_entities: Vec<Option<Entity>> = (0..vault.notes.len())
         .map(|i| shown.contains(&i).then(|| commands.spawn_empty().id()))
@@ -362,7 +384,9 @@ fn spawn_nodes(
                     ring: layout.ring[slot],
                     app: layout.app[slot],
                     folds: folds[slot],
+                    holds: holds[slot],
                     open: was_open.contains(&i),
+                    shut: was_shut.contains(&i),
                     tucking: false,
                     tuck_to: Vec2::ZERO,
                     home,
@@ -419,8 +443,8 @@ fn spawn_nodes(
                     Transform::from_xyz(0.0, -radius - 12.0, 0.0),
                     RenderLayers::layer(LAYER),
                 ));
-                if folds[slot] > 0 {
-                    fold::spawn_badge(node, radius, folds[slot], &state);
+                if holds[slot] > 0 && layout.ring[slot] > 0 {
+                    fold::spawn_badge(node, radius, holds[slot], &state);
                 }
             });
     }
@@ -549,7 +573,7 @@ fn spanning_tree(
     members: &[usize],
     ring: &[usize],
     root: usize,
-) -> Vec<Option<usize>> {
+) -> (Vec<Option<usize>>, Vec<usize>) {
     let slot = |id: NoteId| shown.iter().position(|&n| n == id);
     let folder = |n: usize| top_folder(vault, shown[n]);
     let out: Vec<Vec<usize>> = shown
@@ -564,6 +588,9 @@ fn spanning_tree(
         })
         .collect();
     let mut parent = vec![None; shown.len()];
+    // Where each note comes among its siblings: the order its parent links to them in.
+    let mut order: Vec<usize> = (shown.len()..2 * shown.len()).collect();
+    let mut counter = 0;
     let mut seen = vec![false; shown.len()];
     seen[root] = true;
     // A note that names its `parent:` hangs from it, wherever links would put it.
@@ -601,6 +628,8 @@ fn spanning_tree(
                 if !seen[to] && allowed {
                     seen[to] = true;
                     parent[to] = Some(from);
+                    order[to] = counter;
+                    counter += 1;
                     queue.push_back(to);
                 }
             }
@@ -616,7 +645,7 @@ fn spanning_tree(
             parent[n] = Some(index.unwrap_or(root));
         }
     }
-    parent
+    (parent, order)
 }
 
 /// Home positions of the `shown` notes (in that order). The course grows like a tree from the
@@ -664,12 +693,19 @@ fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
         let members: Vec<usize> = (0..shown.len())
             .filter(|&n| is_app_note(vault, shown[n]) == app)
             .collect();
-        let up = spanning_tree(vault, shown, &members, &ring, group_root);
+        let (up, sequence) = spanning_tree(vault, shown, &members, &ring, group_root);
         let local = |n: usize| members.iter().position(|&m| m == n).unwrap_or(0);
         let local_parent: Vec<Option<usize>> = members.iter().map(|&n| up[n].map(local)).collect();
         let local_ring: Vec<usize> = members.iter().map(|&n| ring[n]).collect();
         let local_space: Vec<f32> = members.iter().map(|&n| space[n]).collect();
-        let at = layout::tree(&local_parent, &local_ring, local(group_root), &local_space);
+        let local_order: Vec<usize> = members.iter().map(|&n| sequence[n]).collect();
+        let at = layout::tree(
+            &local_parent,
+            &local_ring,
+            &local_order,
+            local(group_root),
+            &local_space,
+        );
         for &n in &members {
             parent[n] = up[n];
         }
@@ -1463,7 +1499,7 @@ fn on_click(
     };
     // A note holding folded notes folds and unfolds on a click and opens on a double click
     // (which puts back what its first click folded); any other note opens on a click.
-    let foldable = state.path.is_empty() && node.folds > 0;
+    let foldable = state.path.is_empty() && node.foldable();
     let double = event.count >= 2 && state.last_click == Some(entity);
     state.last_click = Some(entity);
     if foldable {
@@ -1880,7 +1916,9 @@ mod tests {
                     ring: 0,
                     app: false,
                     folds: 0,
+                    holds: 0,
                     open: false,
+                    shut: false,
                     tucking: false,
                     tuck_to: Vec2::ZERO,
                     home: at,
@@ -2010,6 +2048,15 @@ mod tests {
         for area in ["ECS", "2D", "UI", "Networking"] {
             assert_eq!(layout.parent[named(area)], Some(hub), "{area}");
         }
+        // Areas that belong together sit together: 2D, 3D and Rendering side by side, far from
+        // the tooling.
+        let turn = |a: &str, b: &str| {
+            let d = (layout.homes[named(a)].to_angle() - layout.homes[named(b)].to_angle()).abs();
+            d.min(std::f32::consts::TAU - d)
+        };
+        assert!(turn("2D", "3D") < turn("2D", "Tooling"));
+        assert!(turn("2D", "3D") < turn("2D", "Networking"));
+        assert!(turn("Input", "UI") < turn("Input", "ECS"));
         // Rings: areas, concepts, sub-concepts (hung from a concept), libraries furthest out.
         let radius = |n: usize| layout.homes[n].length();
         let course: Vec<usize> = (0..shown.len())
