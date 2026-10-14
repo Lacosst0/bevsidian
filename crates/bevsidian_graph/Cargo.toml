@@ -1,6 +1,6 @@
 [package]
 name = "bevsidian_graph"
-description = "The Bevsidian vault drawn as a hand-made game map"
+description = "The Bevsidian vault drawn as a hand-made star map"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -19,12 +19,12 @@ use crate::{GraphNode, GraphState, GraphText, LAYER};
 pub const SHOWN_RANK: usize = 2;
 
 /// Radius of the badge on a note holding folded notes (world units).
-pub const BADGE_RADIUS: f32 = 11.0;
+pub const BADGE_RADIUS: f32 = 8.0;
 /// Where the badge sits: up and right of the note's centre, as a share of its radius on each
 /// axis (on its outline, at 45°).
 const BADGE_AT: f32 = 0.72;
 /// Size of the badge's text (world units).
-const BADGE_TEXT: f32 = 12.0;
+const BADGE_TEXT: f32 = 9.5;
 /// How close (world units) a folding note gets to its parent before it disappears.
 const TUCKED: f32 = 6.0;
 

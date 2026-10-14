@@ -30,7 +30,7 @@ triangle-alert trophy type upload user users video volume-2 wand-sparkles wrench
 arrow-down arrow-up arrow-up-right chevron-down circle-check circle-x corner-down-left ellipsis
 external-link eye file filter folder-open hash square-function text-select undo-2 waypoints
 chevrons-up-down chevrons-left-right fold-vertical unfold-vertical braces file-code blocks file-input bot swords route workflow shuffle save crosshair footprints dices backpack message-circle vibrate languages accessibility tree-deciduous
-diamond hexagon square octagon pentagon castle tent anchor sailboat waves mountain-snow signpost trees tree-palm skull landmark pickaxe radio-tower music sword scroll map-pin pencil-ruler ship tower-control flag-triangle-right
+sparkle moon-star telescope satellite diamond hexagon square octagon pentagon castle tent anchor sailboat waves mountain-snow signpost trees tree-palm skull landmark pickaxe radio-tower music sword scroll map-pin pencil-ruler ship tower-control flag-triangle-right
 """.split()
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent

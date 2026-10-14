@@ -21,7 +21,7 @@ An Obsidian-like documentation vault for Bevy, written in Bevy 0.20 (BSN scenes,
 
 ## The map
 
-The graph is a hand-drawn game map: `vault/Map.md` places every note (and the map's land,
+The graph is a hand-drawn star map: `vault/Map.md` places every note (and the map's nebulae,
 labels and landmarks); routes are the notes in `vault/Paths/` (`quest: main|feature|mastery`).
 Add a new note to the map too, beside its region (the workspace test lists missing ones and
 notes placed too close together).

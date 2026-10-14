@@ -22,8 +22,8 @@ theme (Geist, neutral greys, white primary buttons) with one orange accent for l
 | `Kit.dc.html` | Tokens, components, ECS identity | `crates/bevsidian_ui` |
 
 Where the app and a mockup differ, the app follows real data and behaviour: the graph is now a
-hand-made game map (see `vault/Map.md`: shapes per kind of note, roads per route, land, region
-names and landmarks, with the map tokens `MAP_*` in `color.rs`) with a quest log, a checklist
+hand-made star map (see `vault/Map.md`: notes as stars with an outline per kind, constellation
+lines per route, background stars, nebulae, a celestial grid, region names and landmarks, with the map tokens `MAP_*` in `color.rs`) with a quest log, a checklist
 and an edit bar instead of the mockup's filter card and tag nodes, the switcher lists notes only, and settings keep steppers for text
 size and scroll speed (any value in range) with a segmented frame-rate limit.
 

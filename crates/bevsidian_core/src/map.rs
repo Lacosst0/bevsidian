@@ -7,10 +7,10 @@
 //! ```text
 //! # A note: its name, where it sits, and optionally its shape and size.
 //! Hello Bevy            @     0, -420   diamond large
-//! # Objects: a region's name (with a caption), a landmark (a Lucide icon) and a piece of land.
+//! # Objects: a region's name (with a caption), a landmark (a Lucide icon) and a nebula.
 //! label: Pixel Plains | 2D   @ -1500,  420   size 30
 //! landmark: tree-pine        @ -1320,  640   size 48
-//! land:                      @ -1500,  300   r 700
+//! nebula:                    @ -1500,  300   r 700
 //! ```
 //!
 //! Lines starting with `#` are comments. The graph edits the map in place (see [`set_place`],
@@ -104,8 +104,8 @@ pub enum MapObject {
     },
     /// A Lucide icon drawn as map art: trees, mountains, a castle.
     Landmark { icon: String, at: Vec2, size: f32 },
-    /// A disc of land; overlapping discs merge into one coastline.
-    Land { at: Vec2, radius: f32 },
+    /// A cloud of nebula, `radius` across, fading out to its edge (`land:` in older maps).
+    Nebula { at: Vec2, radius: f32 },
 }
 
 impl MapObject {
@@ -113,7 +113,7 @@ impl MapObject {
         match self {
             MapObject::Label { at, .. }
             | MapObject::Landmark { at, .. }
-            | MapObject::Land { at, .. } => *at,
+            | MapObject::Nebula { at, .. } => *at,
         }
     }
 
@@ -121,14 +121,14 @@ impl MapObject {
         match self {
             MapObject::Label { at, .. }
             | MapObject::Landmark { at, .. }
-            | MapObject::Land { at, .. } => *at = to,
+            | MapObject::Nebula { at, .. } => *at = to,
         }
     }
 }
 
 pub const LABEL_SIZE: f32 = 30.0;
 pub const LANDMARK_SIZE: f32 = 48.0;
-pub const LAND_RADIUS: f32 = 400.0;
+pub const NEBULA_RADIUS: f32 = 400.0;
 
 /// The parsed map of the vault.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -228,10 +228,10 @@ fn parse_line(line: &str) -> Option<Entry> {
             size: number("size").unwrap_or(LANDMARK_SIZE),
         }));
     }
-    if object("land").is_some() {
-        return Some(Entry::Object(MapObject::Land {
+    if object("nebula").is_some() || object("land").is_some() {
+        return Some(Entry::Object(MapObject::Nebula {
             at,
-            radius: number("r").unwrap_or(LAND_RADIUS),
+            radius: number("r").unwrap_or(NEBULA_RADIUS),
         }));
     }
     if left.is_empty() {
@@ -301,9 +301,9 @@ pub fn object_line(object: &MapObject) -> String {
             }
             line
         }
-        MapObject::Land { at, radius } => format!(
+        MapObject::Nebula { at, radius } => format!(
             "{:<30}@ {}   r {}",
-            "land:",
+            "nebula:",
             coords(*at),
             radius.round() as i32
         ),
@@ -413,7 +413,7 @@ mod tests {
                     at: Vec2::new(3.0, 4.0),
                     size: LANDMARK_SIZE
                 },
-                MapObject::Land {
+                MapObject::Nebula {
                     at: Vec2::new(-1500.0, 300.0),
                     radius: 700.0
                 },
@@ -476,12 +476,13 @@ mod tests {
         let source = "# Empty";
         let added = add_object(
             source,
-            &MapObject::Land {
+            &MapObject::Nebula {
                 at: Vec2::ZERO,
                 radius: 10.0,
             },
         );
         assert_eq!(WorldMap::parse(0, &added).objects.len(), 1);
         assert!(added.starts_with("# Empty\n\n```map\n"));
+        assert!(added.contains("nebula:"), "written with its current name");
     }
 }

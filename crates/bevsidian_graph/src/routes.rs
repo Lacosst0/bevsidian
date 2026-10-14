@@ -1,7 +1,7 @@
-//! Routes on the map: the reading paths drawn as roads.
+//! Routes on the map: the reading paths drawn as constellation lines.
 //!
 //! The main quest (`quest: main`) starts at the hub; every other route starts at the stop of
-//! the main quest nearest its first step (or at the hub), so roads branch off the ring road
+//! the main quest nearest its first step (or at the hub), so lines branch off the ring
 //! instead of all crossing the capital. The map shows the main quest, the routes chosen in
 //! its checklist and the route being followed: their steps are always on the map (whatever is
 //! folded), and every other note only when unfolded, or with the whole map shown.
@@ -13,7 +13,7 @@ use bevsidian_core::{
     vault::{NoteId, Quest, StepKind, Vault, VaultData},
 };
 
-use crate::{GraphLabel, GraphNode, GraphState};
+use crate::{GraphLabel, GraphLabelName, GraphNode, GraphState, label_text};
 
 /// A road's two notes (lower id first), and the routes that take it, with how.
 pub type RoadEnds = (NoteId, NoteId, Vec<(NoteId, StepKind)>);
@@ -109,7 +109,8 @@ pub(crate) fn choose_routes(
     vault: Res<Vault>,
     mut state: ResMut<GraphState>,
     mut nodes: Query<(&mut GraphNode, &Children)>,
-    mut labels: Query<&mut Text2d, With<GraphLabel>>,
+    labels: Query<&Children, With<GraphLabel>>,
+    mut names: Query<&mut TextSpan, With<GraphLabelName>>,
     mut last: Local<Option<(Option<Vec<NoteId>>, Option<NoteId>, bool, u64, usize)>>,
 ) {
     let data = vault.get_untracked();
@@ -149,13 +150,14 @@ pub(crate) fn choose_routes(
         node.forced = node.rank == 0 || forced.contains(&node.note);
         let step = steps.iter().position(|&s| s == node.note);
         node.step = step;
-        let name = &data.notes[node.note].name;
-        let label = step.map_or_else(|| name.clone(), |step| format!("{}. {name}", step + 1));
+        let label = label_text(&data.notes[node.note].name, step);
         for &child in children {
-            if let Ok(mut text) = labels.get_mut(child)
-                && text.0 != label
-            {
-                text.0.clone_from(&label);
+            for &span in labels.get(child).into_iter().flatten() {
+                if let Ok(mut text) = names.get_mut(span)
+                    && text.0 != label
+                {
+                    text.0.clone_from(&label);
+                }
             }
         }
     }

@@ -92,7 +92,7 @@ pub(crate) fn edit_map(
     if let Some(dragged) = state.dragging
         && things
             .get(dragged)
-            .is_ok_and(|(_, t, _)| matches!(t.object, MapObject::Land { .. }))
+            .is_ok_and(|(_, t, _)| matches!(t.object, MapObject::Nebula { .. }))
     {
         state.ground_dirty = true;
     }
@@ -154,7 +154,9 @@ pub(crate) fn edit_map(
                     MapObject::Landmark { size, .. } => {
                         *size = (map::LANDMARK_SIZE * factor).round();
                     }
-                    MapObject::Land { radius, .. } => *radius = (map::LAND_RADIUS * factor).round(),
+                    MapObject::Nebula { radius, .. } => {
+                        *radius = (map::NEBULA_RADIUS * factor).round();
+                    }
                 }
                 edited = Some((
                     map::set_object(source, index, &object),

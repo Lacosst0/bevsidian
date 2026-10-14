@@ -75,22 +75,38 @@ pub const WARNING_SOFT: Color = Color::srgba(0.984, 0.749, 0.141, 0.02);
 pub const FIND_MATCH: Color = Color::srgba(0.984, 0.749, 0.141, 0.09);
 pub const FIND_CURRENT: Color = Color::srgba(0.984, 0.573, 0.235, 0.3);
 
-/// The graph's map, all opaque (they are painted over one another, not blended): the sea
-/// is [`BACKGROUND`] dotted with [`CARD`].
-/// `#0f0f0f`: the shallows around the land.
-pub const MAP_SHALLOWS: Color = Color::srgb(0.059, 0.059, 0.059);
-/// `#2b2b2b`: the coastline.
-pub const MAP_COAST: Color = Color::srgb(0.169, 0.169, 0.169);
-/// `#131313`: land.
-pub const MAP_LAND: Color = Color::srgb(0.075, 0.075, 0.075);
-/// `#5c5c5c`: the roads of the routes shown.
-pub const MAP_ROAD: Color = Color::srgb(0.361, 0.361, 0.361);
-/// `#2a2a2a`: the other roads, with the whole map shown.
-pub const MAP_ROAD_FAINT: Color = Color::srgb(0.165, 0.165, 0.165);
-/// `#333333`: trails to notes no road reaches.
-pub const MAP_TRAIL: Color = Color::srgb(0.2, 0.2, 0.2);
-/// `#383838`: landmarks drawn on the land.
-pub const MAP_INK: Color = Color::srgb(0.22, 0.22, 0.22);
+/// The graph's star map. The sky is [`BACKGROUND`]; these are opaque except the glows and
+/// the nebulae, which add light over it.
+/// `#121212`: the celestial grid (circles and spokes around the capital).
+pub const MAP_GRID: Color = Color::srgb(0.071, 0.071, 0.071);
+/// The faintest and brightest stars of the background field.
+pub const MAP_FIELD_FAINT: Color = Color::srgb(0.3, 0.3, 0.3);
+pub const MAP_FIELD_BRIGHT: Color = Color::srgb(0.85, 0.85, 0.85);
+/// A nebula's middle: white over the sky (CSS: white 8 %).
+pub const MAP_NEBULA: Color = Color::srgba(1.0, 1.0, 1.0, 0.009);
+/// Behind a note's name: the sky, nearly opaque, so lines do not show between its letters.
+pub const MAP_PLATE: Color = Color::srgba(0.039, 0.039, 0.039, 0.7);
+/// `#3d2613`: the glow under the followed route's line (the link colour, dimmed over the sky).
+pub const MAP_ROUTE_GLOW: Color = Color::srgb(0.24, 0.15, 0.075);
+/// `#f5f5f4`: a note's star once read.
+pub const MAP_STAR: Color = Color::srgb(0.961, 0.961, 0.957);
+/// `#7a7a7a`: a note's star before it is read.
+pub const MAP_STAR_DIM: Color = Color::srgb(0.478, 0.478, 0.478);
+/// The glow around a read star, an unread one and the one being read (the middle of the
+/// glow; it fades to nothing).
+pub const MAP_GLOW: Color = Color::srgba(1.0, 1.0, 1.0, 0.11);
+pub const MAP_GLOW_DIM: Color = Color::srgba(1.0, 1.0, 1.0, 0.03);
+pub const MAP_GLOW_LINK: Color = Color::srgba(0.984, 0.573, 0.235, 0.3);
+/// `#3a3a3a`: the outline of a note's shape.
+pub const MAP_RING: Color = Color::srgb(0.227, 0.227, 0.227);
+/// `#6b6b6b`: the lines of the routes shown.
+pub const MAP_ROAD: Color = Color::srgb(0.42, 0.42, 0.42);
+/// `#363636`: the other lines, with the whole map shown.
+pub const MAP_ROAD_FAINT: Color = Color::srgb(0.21, 0.21, 0.21);
+/// `#2e2e2e`: trails to notes no line reaches.
+pub const MAP_TRAIL: Color = Color::srgb(0.18, 0.18, 0.18);
+/// `#333333`: landmarks drawn in the sky.
+pub const MAP_INK: Color = Color::srgb(0.2, 0.2, 0.2);
 /// `#595959`: the names of regions.
 pub const MAP_INK_STRONG: Color = Color::srgb(0.35, 0.35, 0.35);
 /// `#7c4a21`: a hovered note's links, the link colour dimmed over the page.

@@ -1,5 +1,6 @@
-//! The outlines notes are drawn in: one unit-sized mesh per [`Shape`], scaled to a note's
-//! radius (once for its outline, once, a little smaller, for its fill).
+//! What a note is drawn with: a star (a bright core in a soft glow, with diffraction spikes
+//! for the brightest), and the hairline outline of its [`Shape`] around it. Meshes are unit
+//! sized and scaled to each note.
 
 use bevy::{asset::RenderAssetUsages, mesh::PrimitiveTopology, prelude::*};
 
@@ -30,42 +31,95 @@ pub fn outline(shape: Shape) -> Vec<Vec2> {
     }
 }
 
-/// A filled shape: a fan of triangles from its centre (every shape here is star-shaped around
-/// it, so the fan covers it exactly).
-pub fn mesh(shape: Shape) -> Mesh {
-    let corners = outline(shape);
-    let mut positions = vec![[0.0, 0.0, 0.0]];
-    positions.extend(corners.iter().map(|c| [c.x, c.y, 0.0]));
-    let count = corners.len() as u32;
+/// The hairline outline of a shape of radius 1, `width` thick (inside the radius).
+pub fn ring(shape: Shape, width: f32) -> Mesh {
+    let outer = outline(shape);
+    let scale = 1.0 - width;
+    let count = outer.len() as u32;
+    let mut positions: Vec<[f32; 3]> = outer.iter().map(|c| [c.x, c.y, 0.0]).collect();
+    positions.extend(outer.iter().map(|c| [c.x * scale, c.y * scale, 0.0]));
     let indices: Vec<u32> = (0..count)
-        .flat_map(|i| [0, 1 + i, 1 + (i + 1) % count])
+        .flat_map(|i| {
+            let next = (i + 1) % count;
+            [i, next, count + i, next, count + next, count + i]
+        })
         .collect();
-    let normals = vec![[0.0, 0.0, 1.0]; positions.len()];
-    let uvs = vec![[0.5, 0.5]; positions.len()];
-    Mesh::new(
+    flat(positions, indices, None)
+}
+
+/// A soft glow of radius 1: opaque white in the middle, fading to nothing at the edge (the
+/// material's colour tints it and sets how strong it is).
+pub fn glow() -> Mesh {
+    const RINGS: usize = 6;
+    const SIDES: usize = 40;
+    let mut positions = vec![[0.0, 0.0, 0.0]];
+    let mut colors = vec![[1.0, 1.0, 1.0, 1.0]];
+    for ring in 1..=RINGS {
+        let r = ring as f32 / RINGS as f32;
+        // Fades like a star's light: fast near the core, a long faint tail.
+        let alpha = (1.0 - r).powi(3);
+        for side in 0..SIDES {
+            let p = Vec2::from_angle(side as f32 * std::f32::consts::TAU / SIDES as f32) * r;
+            positions.push([p.x, p.y, 0.0]);
+            colors.push([1.0, 1.0, 1.0, alpha]);
+        }
+    }
+    let ring_start = |ring: usize| (1 + (ring - 1) * SIDES) as u32;
+    let mut indices = Vec::new();
+    for side in 0..SIDES as u32 {
+        let next = (side + 1) % SIDES as u32;
+        indices.extend([0, 1 + side, 1 + next]);
+    }
+    for ring in 1..RINGS {
+        let (inner, outer) = (ring_start(ring), ring_start(ring + 1));
+        for side in 0..SIDES as u32 {
+            let next = (side + 1) % SIDES as u32;
+            indices.extend([
+                inner + side,
+                outer + side,
+                outer + next,
+                inner + side,
+                outer + next,
+                inner + next,
+            ]);
+        }
+    }
+    flat(positions, indices, Some(colors))
+}
+
+/// Diffraction spikes of length 1: four thin points, bright at the centre, fading to their
+/// tips (two long ones across, two shorter up and down… as a telescope draws a bright star).
+pub fn spikes() -> Mesh {
+    let mut positions = vec![[0.0, 0.0, 0.0]];
+    let mut colors = vec![[1.0, 1.0, 1.0, 1.0]];
+    let mut indices = Vec::new();
+    for (i, length) in [1.0_f32, 0.7, 1.0, 0.7].into_iter().enumerate() {
+        let direction = Vec2::from_angle(i as f32 * std::f32::consts::FRAC_PI_2);
+        let side = direction.perp() * 0.035;
+        let base = positions.len() as u32;
+        for (p, alpha) in [(side, 0.8), (direction * length, 0.0), (-side, 0.8)] {
+            positions.push([p.x, p.y, 0.0]);
+            colors.push([1.0, 1.0, 1.0, alpha]);
+        }
+        indices.extend([0, base, base + 1, 0, base + 1, base + 2]);
+    }
+    flat(positions, indices, Some(colors))
+}
+
+fn flat(positions: Vec<[f32; 3]>, indices: Vec<u32>, colors: Option<Vec<[f32; 4]>>) -> Mesh {
+    let count = positions.len();
+    let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-    .with_inserted_indices(bevy::mesh::Indices::U32(indices))
-}
-
-/// How far the fill sits inside the outline, for an outline `width` wide: the inset that
-/// gives the same width along each side of a polygon (its sides are closer to the centre than
-/// its corners).
-pub fn inset(shape: Shape, width: f32) -> f32 {
-    let sides = match shape {
-        Shape::Circle => return width,
-        Shape::Diamond | Shape::Square => 4.0,
-        Shape::Hexagon => 6.0,
-        Shape::Pentagon => 5.0,
-        Shape::Octagon => 8.0,
-        // The star's inner corners make its sides steep.
-        Shape::Star => 2.4,
-    };
-    width / (std::f32::consts::PI / sides).cos()
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; count])
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.5, 0.5]; count])
+    .with_inserted_indices(bevy::mesh::Indices::U32(indices));
+    if let Some(colors) = colors {
+        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    }
+    mesh
 }
 
 #[cfg(test)]
@@ -73,13 +127,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_shape_is_a_closed_fan() {
+    fn every_outline_is_a_closed_band() {
         for shape in Shape::ALL {
-            let mesh = mesh(shape);
             let corners = outline(shape).len();
-            assert_eq!(mesh.count_vertices(), corners + 1, "{shape:?}");
-            assert_eq!(mesh.indices().unwrap().len(), corners * 3, "{shape:?}");
-            assert!(inset(shape, 2.0) >= 2.0);
+            let ring = ring(shape, 0.1);
+            assert_eq!(ring.count_vertices(), corners * 2, "{shape:?}");
+            assert_eq!(ring.indices().unwrap().len(), corners * 6, "{shape:?}");
         }
+    }
+
+    #[test]
+    fn glows_fade_out_and_spikes_have_four_points() {
+        let glow = glow();
+        let Some(bevy::mesh::VertexAttributeValues::Float32x4(colors)) =
+            glow.attribute(Mesh::ATTRIBUTE_COLOR)
+        else {
+            panic!("a glow has vertex colours");
+        };
+        assert!(
+            (colors[0][3] - 1.0).abs() < f32::EPSILON,
+            "bright in the middle"
+        );
+        assert!(
+            colors.last().unwrap()[3].abs() < f32::EPSILON,
+            "gone at the edge"
+        );
+        assert_eq!(spikes().indices().unwrap().len(), 4 * 6);
     }
 }

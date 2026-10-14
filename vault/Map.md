@@ -4,9 +4,9 @@ map: true
 ---
 # Map
 
-Where everything sits on the map (`Ctrl+G`). Bevy is the capital in the middle; the main quest, [[Your first game]], is the ring road around it, and every other route on [[Bevy]] leaves from the ring for its own region.
+Where everything sits on the map (`Ctrl+G`). Bevy is the brightest star, in the middle; the main quest, [[Your first game]], is the ring of stars around it, and every other route on [[Bevy]] leaves from the ring for its own region of the sky.
 
-Edit the map with the pencil under the zoom buttons: drag notes and objects, change a note's shape, add landmarks and labels. Changes are saved here, in the block below, which you can also edit by hand.
+Edit the map with the pencil under the zoom buttons: drag notes and objects, change a note's shape, add landmarks, labels and nebulae. Changes are saved here, in the block below, which you can also edit by hand.
 
 ## How to write it
 
@@ -14,16 +14,18 @@ One line per thing on the map. Coordinates are `x, y`: `x` to the right, `y` up,
 
 - **A note**: its name, `@`, where it sits, then optionally a shape (`circle`, `diamond`, `hexagon`, `square`, `pentagon`, `octagon`, `star`) and `small` or `large`. Without a shape, the hub is an octagon, an area's index note a hexagon, a crate a square and any other note a circle.
 - **`label:`** a region's name, with an optional caption after `|`, and `size N`.
-- **`landmark:`** a [Lucide](https://lucide.dev/icons) icon drawn as map art, with `size N`.
-- **`land:`** a disc of land, `r N` across; overlapping discs share one coastline.
+- **`landmark:`** a [Lucide](https://lucide.dev/icons) icon drawn faintly in the sky, with `size N`.
+- **`nebula:`** a soft cloud of light, `r N` across, fading to its edge (older maps say `land:`).
 
 Lines starting with `#` are comments. A note left out of the map is put beside the note it grows from.
 
+Every note is a star: dim until you have read it, lit after. Its shape is a thin outline around it.
+
 | Shape | Means |
 |:--|:--|
-| octagon | the capital |
+| octagon | the capital, the brightest star |
 | hexagon | a region's town: an area's index |
-| circle | a lesson |
+| circle | a lesson (a plain star; the circle shows when hovered) |
 | diamond | a milestone: you have built something |
 | star | the goal at the end of a road |
 | square | a crate: a library |
@@ -214,50 +216,46 @@ label: Controller Crossing | Input @ -1420, -560
 label: Collision Canyon | Physics @ -1120, -1280
 
 # ── Landmarks ───────────────────────────────────────────────────
-landmark: castle              @    -10,    330   size 56
-landmark: tent                @    170,   -820   size 40
-landmark: flag                @   -120,   -760   size 32
-landmark: anchor              @    760,  -1820   size 40
-landmark: sailboat            @    500,  -2240   size 56
-landmark: sailboat            @   -900,  -1500   size 40
-landmark: waves               @    700,  -2160   size 48
-landmark: waves               @   1900,   1200   size 48
-landmark: waves               @  -1900,  -1000   size 48
-landmark: waves               @    900,    200   size 40
+landmark: crown               @    -10,    330   size 52
+landmark: telescope           @    170,   -830   size 40
+landmark: sparkle             @   -120,   -770   size 28
+landmark: satellite           @    780,  -1840   size 40
+landmark: moon-star           @    560,  -2260   size 56
+landmark: sparkle             @   -900,  -1500   size 32
+landmark: sparkle             @    700,  -2140   size 24
+landmark: sparkles            @   1900,   1200   size 40
+landmark: sparkle             @  -1900,  -1000   size 30
+landmark: orbit               @    900,    200   size 40
 landmark: music               @   1420,  -1820   size 40
 landmark: sparkles            @   1760,  -1060   size 44
-landmark: mountain-snow       @   2000,    -60   size 72
-landmark: mountain            @   2380,    260   size 56
-landmark: mountain            @   1700,    250   size 48
-landmark: radio-tower         @   1340,    480   size 44
-landmark: signpost            @   -820,   -330   size 40
+landmark: shapes              @   2000,    -60   size 56
+landmark: sun                 @   2380,    260   size 48
+landmark: sparkle             @   1700,    250   size 26
+landmark: satellite           @   1340,    480   size 44
+landmark: sparkle             @   -820,   -330   size 26
 landmark: gamepad-2           @  -1860,   -280   size 40
-landmark: pickaxe             @   -840,   -960   size 40
-landmark: mountain            @  -1300,   -960   size 48
-landmark: trees               @   -940,   1060   size 52
-landmark: tree-pine           @   -240,   1420   size 44
-landmark: tree-pine           @   -860,   1960   size 48
-landmark: tree-deciduous      @   -500,   2060   size 44
+landmark: atom                @   -840,   -960   size 40
+landmark: sparkle             @  -1300,   -960   size 30
+landmark: moon-star           @   -940,   1060   size 44
+landmark: sparkle             @   -240,   1420   size 26
+landmark: tree-pine           @   -860,   1960   size 40
+landmark: sparkle             @   -500,   2060   size 28
 landmark: dices               @  -1340,   1420   size 40
 landmark: hammer              @    700,   1860   size 40
-landmark: crown               @    260,   2240   size 40
-landmark: tree-palm           @   1720,   1720   size 48
-landmark: shapes              @  -1880,    700   size 44
+landmark: crown               @    260,   2240   size 36
+landmark: sparkles            @   1720,   1720   size 40
+landmark: sparkle             @  -1880,    700   size 30
 
-# ── Land ────────────────────────────────────────────────────────
-land:                         @      0,      0   r 1050
-land:                         @   -250,  -1150   r 520
-land:                         @      0,  -1750   r 640
-land:                         @    850,  -1350   r 620
-land:                         @   1450,   -700   r 640
-land:                         @   1800,    100   r 700
-land:                         @   1100,   1250   r 650
-land:                         @    150,   1600   r 700
-land:                         @   -700,   1550   r 720
-land:                         @  -1250,   1250   r 520
-land:                         @  -1300,    700   r 680
-land:                         @  -1350,   -200   r 650
-land:                         @  -1000,   -850   r 520
-land:                         @   1560,    700   r 420
-land:                         @   1100,    450   r 420
+# ── Nebulae ─────────────────────────────────────────────────────
+nebula:                       @    -80,     60   r 760
+nebula:                       @   -150,  -1650   r 640
+nebula:                       @    900,  -1350   r 560
+nebula:                       @   1500,   -650   r 520
+nebula:                       @   1850,    150   r 620
+nebula:                       @   1350,   1050   r 640
+nebula:                       @    200,   1650   r 600
+nebula:                       @   -750,   1600   r 680
+nebula:                       @  -1350,    800   r 620
+nebula:                       @  -1350,   -250   r 560
+nebula:                       @  -1050,   -900   r 440
 ```

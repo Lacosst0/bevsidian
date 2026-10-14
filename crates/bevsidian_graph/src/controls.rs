@@ -103,7 +103,7 @@ pub(crate) struct EditToggle;
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub(crate) struct Legend;
 
-/// What the map's shapes and roads mean, in its corner.
+/// What the map's stars, shapes and lines mean, in its corner.
 pub fn legend() -> impl Scene {
     fn row(sample: Box<dyn Scene>, text: &str) -> impl Scene + use<> {
         let sample = vec![sample];
@@ -124,7 +124,7 @@ pub fn legend() -> impl Scene {
         let piece = |_| -> Box<dyn Scene> {
             let node = Node {
                 width: px(width),
-                height: px(if round { 4.0 } else { 3.0 }),
+                height: px(if round { 3.0 } else { 1.5 }),
                 border_radius: BorderRadius::all(px(if round { 2.0 } else { 0.0 })),
                 ..default()
             };
@@ -152,17 +152,14 @@ pub fn legend() -> impl Scene {
             TextColor(color::PRIMARY_FOREGROUND)
         ]
     });
-    let tick: Box<dyn Scene> = Box::new(bsn! {
-        Node {
-            width: px(14),
-            height: px(14),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            border_radius: BorderRadius::MAX,
-        }
-        BackgroundColor(color::SUCCESS)
-        Children [ @{icon("check", 10.0, color::BACKGROUND)} ]
-    });
+    // A star: lit once read, dim before.
+    let star = |tint: Color, size: f32| -> Box<dyn Scene> {
+        Box::new(bsn! {
+            Node { width: px(size), height: px(size), border_radius: BorderRadius::MAX }
+            BackgroundColor(tint)
+        })
+    };
+    let (lit, dim) = (star(color::MAP_STAR, 7.0), star(color::MAP_STAR_DIM, 5.0));
     let shadow = shadow::popover();
     bsn! {
         Node {
@@ -181,9 +178,13 @@ pub fn legend() -> impl Scene {
         Pickable::IGNORE
         shadow
         Children [
-            @{row(shape("hexagon"), "Region: an area's town")}
+            @{row(lit, "Star you have read")}
             --
-            @{row(shape("circle"), "Lesson")}
+            @{row(dim, "Star still to read")}
+            --
+            @{separator()} Node { margin: UiRect::vertical(px(3)) }
+            --
+            @{row(shape("hexagon"), "Region: an area's town")}
             --
             @{row(shape("diamond"), "Milestone")}
             --
@@ -193,15 +194,14 @@ pub fn legend() -> impl Scene {
             --
             @{separator()} Node { margin: UiRect::vertical(px(3)) }
             --
-            @{row(road(1, 24.0, false), "Main road")}
+            @{row(road(1, 24.0, false), "Route")}
             --
             @{row(road(3, 6.0, false), "Side quest")}
             --
             @{row(road(4, 4.0, true), "Secret")}
             --
             @{row(badge, "Holds folded notes")}
-            --
-            @{row(tick, "Visited")}
+
         ]
     }
 }
@@ -234,12 +234,12 @@ pub(crate) struct ScaleChoice(Scale);
 
 /// Landmarks offered by the edit bar.
 const LANDMARKS: [(&str, &str); 6] = [
-    ("tree-pine", "Add a forest"),
-    ("mountain", "Add a mountain"),
-    ("castle", "Add a castle"),
-    ("tent", "Add a camp"),
-    ("flag", "Add a flag"),
-    ("waves", "Add waves"),
+    ("sparkle", "Add a sparkle"),
+    ("moon-star", "Add a moon"),
+    ("sun", "Add a sun"),
+    ("orbit", "Add an orbit"),
+    ("telescope", "Add a telescope"),
+    ("satellite", "Add a satellite"),
 ];
 
 fn request(
@@ -310,9 +310,9 @@ pub fn edit_bar() -> impl Scene {
         at: Vec2::ZERO,
         size: bevsidian_core::map::LABEL_SIZE,
     };
-    let land = MapObject::Land {
+    let nebula = MapObject::Nebula {
         at: Vec2::ZERO,
-        radius: bevsidian_core::map::LAND_RADIUS,
+        radius: bevsidian_core::map::NEBULA_RADIUS,
     };
     let shadow = shadow::popover();
     bsn! {
@@ -357,9 +357,9 @@ pub fn edit_bar() -> impl Scene {
                     Tooltip::new("Add a region's name")
                     on(request(EditRequest::Add(region)))
                     --
-                    @{icon_text_button(Variant::Ghost, Size::Sm, "map", "Land")}
-                    Tooltip::new("Add a piece of land")
-                    on(request(EditRequest::Add(land)))
+                    @{icon_text_button(Variant::Ghost, Size::Sm, "cloud", "Nebula")}
+                    Tooltip::new("Add a nebula")
+                    on(request(EditRequest::Add(nebula)))
                     --
                     @{vertical_separator()} Node { margin: UiRect::horizontal(px(4)), height: px(20) }
                     --
@@ -460,7 +460,7 @@ pub(crate) fn show_legend(
             let (size, normal) = match &t.object {
                 MapObject::Label { size, .. } => (*size, bevsidian_core::map::LABEL_SIZE),
                 MapObject::Landmark { size, .. } => (*size, bevsidian_core::map::LANDMARK_SIZE),
-                MapObject::Land { radius, .. } => (*radius, bevsidian_core::map::LAND_RADIUS),
+                MapObject::Nebula { radius, .. } => (*radius, bevsidian_core::map::NEBULA_RADIUS),
             };
             if size < normal * 0.95 {
                 Scale::Small
@@ -488,7 +488,7 @@ pub(crate) fn show_legend(
         (_, Some(t)) => match &t.object {
             MapObject::Label { text, .. } => format!("Label: {text}"),
             MapObject::Landmark { icon, .. } => format!("Landmark: {icon}"),
-            MapObject::Land { .. } => "Land".to_owned(),
+            MapObject::Nebula { .. } => "Nebula".to_owned(),
         },
         _ => String::new(),
     };

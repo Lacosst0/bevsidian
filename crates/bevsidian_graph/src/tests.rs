@@ -166,6 +166,7 @@ fn a_folded_note_unfolds_out_of_its_parent_and_folds_back_in() {
             GraphNode {
                 note,
                 radius: 20.0,
+                shape: Shape::Circle,
                 rank,
                 forced: rank == 0,
                 step: None,
