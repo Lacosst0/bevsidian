@@ -1,119 +1,215 @@
 //! Where notes belong in the graph, before the simulation polishes it.
 //!
-//! - [`radial`]: the whole vault radiating from its hub. Notes sit on rings by link distance
-//!   from the hub; each note's subtree gets a slice of the circle sized by how many notes it
-//!   holds, so branches point outwards and stay together. A ring too crowded for its notes
-//!   splits into staggered bands (neighbours alternate between them), so the graph grows
-//!   with the square root of the notes rather than in proportion.
+//! - [`clusters`]: the whole vault as clusters of related notes (a folder each) packed
+//!   around the hub's cluster in the middle, biggest first, each near the clusters it links
+//!   to. A cluster is a sunflower around its centre note (its index), the best-linked notes
+//!   closest, and a note linking out of its cluster sits on the side facing where it links.
 //! - [`line`]: a reading path in a straight line, its core steps in order and its optional
 //!   and extra steps hanging above and below the step they branch from.
 
-use std::{collections::VecDeque, f32::consts::TAU};
+use std::f32::consts::TAU;
 
 use bevsidian_core::vault::StepKind;
 use bevy::math::Vec2;
 
-/// Distance between rings (world units).
-pub const RING_GAP: f32 = 230.0;
-/// Distance between the bands a crowded ring splits into.
-pub const BAND_GAP: f32 = 105.0;
+/// Distance between neighbouring clusters, and between the middle cluster and the others.
+pub const CLUSTER_GAP: f32 = 70.0;
+/// Distance between a cluster's notes, as a share of the room they need: the simulation
+/// pushes apart the few that end up too close.
+const PACKING: f32 = 0.8;
 /// Distance between consecutive core steps of a path.
 pub const STEP_GAP: f32 = 190.0;
 /// Distance between the rows of steps hanging off a path.
 pub const BRANCH_GAP: f32 = 150.0;
 
-/// Home positions for `count` nodes linked by `links` (undirected, by index), radiating from
-/// `root` at the origin. `space[i]` is the room node `i` needs (its diameter, with its label).
-/// Nodes the root cannot reach go on an outer ring.
-pub fn radial(count: usize, links: &[(usize, usize)], root: usize, space: &[f32]) -> Vec<Vec2> {
+/// Directions tried for each cluster.
+const DIRECTIONS: usize = 96;
+/// How much being near linked clusters counts against being near the middle.
+const AFFINITY: f32 = 0.5;
+
+/// The golden angle: consecutive sunflower seeds turn by it, so none line up.
+const GOLDEN: f32 = 2.399_963;
+
+/// The centre of each group: the member with most links inside it (the earliest on a tie).
+pub fn centres(groups: &[usize], links: &[(usize, usize)]) -> Vec<usize> {
+    let group_count = groups.iter().max().map_or(0, |g| g + 1);
+    let mut inner = vec![0_usize; groups.len()];
+    for &(a, b) in links {
+        if a != b && groups[a] == groups[b] {
+            inner[a] += 1;
+            inner[b] += 1;
+        }
+    }
+    let mut centres = vec![usize::MAX; group_count];
+    for (node, &group) in groups.iter().enumerate() {
+        let best = centres[group];
+        if best == usize::MAX || inner[node] > inner[best] {
+            centres[group] = node;
+        }
+    }
+    centres
+}
+
+/// Home positions for the nodes in `groups` (a group index per node), linked by `links`
+/// (undirected, by index). `root`'s group sits in the middle with `root` at the origin; every
+/// other group is a cluster around its [`centres`], packed around the middle. `space[i]` is the
+/// room node `i` needs (its diameter, with its label).
+pub fn clusters(
+    groups: &[usize],
+    links: &[(usize, usize)],
+    root: usize,
+    space: &[f32],
+) -> Vec<Vec2> {
+    let count = groups.len();
+    if count == 0 {
+        return Vec::new();
+    }
+    let group_count = groups.iter().max().map_or(0, |g| g + 1);
+    let middle = groups[root.min(count - 1)];
+    let mut centre = centres(groups, links);
+    centre[middle] = root.min(count - 1);
+    let mut members = vec![Vec::new(); group_count];
+    for (node, &group) in groups.iter().enumerate() {
+        members[group].push(node);
+    }
+    // Links between groups, and inside them.
+    let mut between = vec![vec![0_usize; group_count]; group_count];
+    let mut inner = vec![0_usize; count];
+    for &(a, b) in links {
+        let (ga, gb) = (groups[a], groups[b]);
+        if a == b {
+            continue;
+        }
+        if ga == gb {
+            inner[a] += 1;
+            inner[b] += 1;
+        } else {
+            between[ga][gb] += 1;
+            between[gb][ga] += 1;
+        }
+    }
+    // Each cluster's sunflower: seed spacing and how far it reaches.
+    let spacing: Vec<f32> = members
+        .iter()
+        .map(|nodes| {
+            let needed: f32 = nodes.iter().map(|&n| space[n]).sum();
+            PACKING * needed / nodes.len().max(1) as f32
+        })
+        .collect();
+    let reach: Vec<f32> = (0..group_count)
+        .map(|g| {
+            // The outermost seat, and room for a note there.
+            spacing[g] * (members[g].len().saturating_sub(1) as f32).sqrt()
+                + spacing[g] / PACKING / 2.0
+        })
+        .collect();
+    // Pack the clusters around the middle, biggest first: each as close to the middle as
+    // it fits, near the clusters it links to.
+    let mut order: Vec<usize> = (0..group_count)
+        .filter(|&g| g != middle && !members[g].is_empty())
+        .collect();
+    order.sort_by_key(|&g| (std::cmp::Reverse(members[g].len()), g));
+    let mut middle_at = vec![Vec2::ZERO; group_count];
+    let mut placed = vec![middle];
+    for g in order {
+        let linked: f32 = placed.iter().map(|&p| between[g][p] as f32).sum();
+        let best = (0..DIRECTIONS)
+            .map(|i| {
+                let direction = Vec2::from_angle(TAU * i as f32 / DIRECTIONS as f32);
+                let at = direction * nearest_free(direction, reach[g], &placed, &middle_at, &reach);
+                // Average distance to the clusters it links to, by how much it links.
+                let apart: f32 = placed
+                    .iter()
+                    .map(|&p| between[g][p] as f32 * at.distance(middle_at[p]))
+                    .sum::<f32>()
+                    / linked.max(1.0);
+                (at, at.length() + AFFINITY * apart)
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .map_or(Vec2::ZERO, |(at, _)| at);
+        middle_at[g] = best;
+        placed.push(g);
+    }
+    // Seats in each sunflower: the centre in the middle, the best-linked closest, and a note
+    // linking out on the side facing where it links.
+    let mut homes = vec![Vec2::ZERO; count];
     let mut neighbours = vec![Vec::new(); count];
     for &(a, b) in links {
-        if a != b && a < count && b < count {
+        if a != b {
             neighbours[a].push(b);
             neighbours[b].push(a);
         }
     }
-    for list in &mut neighbours {
-        list.sort_unstable();
-        list.dedup();
-    }
-    // Breadth-first from the root: depth and the parent each note hangs from.
-    let mut depth = vec![usize::MAX; count];
-    let mut children = vec![Vec::new(); count];
-    let mut order = Vec::with_capacity(count);
-    let mut queue = VecDeque::new();
-    if root < count {
-        depth[root] = 0;
-        queue.push_back(root);
-    }
-    while let Some(node) = queue.pop_front() {
-        order.push(node);
-        for &next in &neighbours[node] {
-            if depth[next] == usize::MAX {
-                depth[next] = depth[node] + 1;
-                children[node].push(next);
-                queue.push_back(next);
-            }
-        }
-    }
-    // The unreachable hang from the root, one ring further out than anything else.
-    let outer = order.iter().map(|&n| depth[n]).max().unwrap_or(0) + 1;
-    if root < count {
-        for (node, d) in depth.iter_mut().enumerate() {
-            if *d == usize::MAX {
-                *d = outer;
-                children[root].push(node);
-                order.push(node);
-            }
-        }
-    }
-    // Leaves under each note (deepest first), for the size of its slice.
-    let mut weight = vec![1.0_f32; count];
-    for &node in order.iter().rev() {
-        let below: f32 = children[node].iter().map(|&c| weight[c]).sum();
-        weight[node] = below.max(1.0);
-    }
-    // Slices of the circle, from the root outwards.
-    let mut angle = vec![0.0_f32; count];
-    let mut slice = vec![(0.0_f32, TAU); count];
-    for &node in &order {
-        let (start, width) = slice[node];
-        angle[node] = start + width / 2.0;
-        let total: f32 = children[node].iter().map(|&c| weight[c]).sum();
-        let mut at = start;
-        for &child in &children[node] {
-            let share = width * weight[child] / total.max(1.0);
-            slice[child] = (at, share);
-            at += share;
-        }
-    }
-    // Each ring starts a gap beyond the last; if its notes do not fit around it side by
-    // side, it splits into bands further out, which take turns going round.
-    let deepest = depth.iter().copied().max().unwrap_or(0);
-    let mut radius = vec![0.0_f32; count];
-    let mut outer = 0.0_f32;
-    for d in 1..=deepest {
-        let mut ring: Vec<usize> = (0..count).filter(|&n| depth[n] == d).collect();
-        if ring.is_empty() {
+    for g in 0..group_count {
+        let mut nodes = members[g].clone();
+        if nodes.is_empty() {
             continue;
         }
-        ring.sort_by(|&a, &b| angle[a].total_cmp(&angle[b]));
-        let base = outer + RING_GAP;
-        let needed: f32 = ring.iter().map(|&n| space[n]).sum();
-        let capacity =
-            |bands: usize| -> f32 { (0..bands).map(|b| TAU * (base + b as f32 * BAND_GAP)).sum() };
-        let mut bands = 1;
-        while capacity(bands) < needed && bands < ring.len() {
-            bands += 1;
+        nodes.sort_by_key(|&n| (n != centre[g], std::cmp::Reverse(inner[n]), n));
+        let seats: Vec<Vec2> = (0..nodes.len())
+            .map(|k| Vec2::from_angle(k as f32 * GOLDEN) * spacing[g] * (k as f32).sqrt())
+            .collect();
+        let outer = seats.iter().map(|s| s.length()).fold(1.0, f32::max);
+        let mut free = vec![true; seats.len()];
+        for &node in &nodes {
+            // Where its links outside the cluster go, and how many of its links do.
+            let outside: Vec<Vec2> = neighbours[node]
+                .iter()
+                .filter(|&&n| groups[n] != g)
+                .map(|&n| (middle_at[groups[n]] - middle_at[g]).normalize_or_zero())
+                .collect();
+            let pull = outside.iter().copied().sum::<Vec2>() / neighbours[node].len().max(1) as f32;
+            let facing = pull.normalize_or_zero();
+            let strength = pull.length();
+            let seat = (0..seats.len())
+                .filter(|&k| free[k])
+                .min_by(|&a, &b| {
+                    let cost = |k: usize| {
+                        let seat: Vec2 = seats[k];
+                        let away = 1.0 - seat.normalize_or_zero().dot(facing);
+                        seat.length() / outer + away * strength
+                    };
+                    cost(a).total_cmp(&cost(b))
+                })
+                .unwrap_or(0);
+            free[seat] = false;
+            homes[node] = middle_at[g] + seats[seat];
         }
-        for (i, &n) in ring.iter().enumerate() {
-            radius[n] = base + (i % bands) as f32 * BAND_GAP;
-        }
-        outer = base + (bands - 1) as f32 * BAND_GAP;
     }
-    (0..count)
-        .map(|n| Vec2::from_angle(angle[n]) * radius[n])
-        .collect()
+    homes
+}
+
+/// The smallest distance along `direction` (a unit vector) where a circle of radius `reach`
+/// stays [`CLUSTER_GAP`] clear of every `placed` cluster.
+fn nearest_free(
+    direction: Vec2,
+    reach: f32,
+    placed: &[usize],
+    centres: &[Vec2],
+    reaches: &[f32],
+) -> f32 {
+    // Each placed cluster rules out an interval of distances along the ray.
+    let mut blocked: Vec<(f32, f32)> = placed
+        .iter()
+        .filter_map(|&p| {
+            let (centre, clear) = (centres[p], reach + reaches[p] + CLUSTER_GAP);
+            let along = direction.dot(centre);
+            let discriminant = along * along - centre.length_squared() + clear * clear;
+            (discriminant > 0.0).then(|| {
+                let half = discriminant.sqrt();
+                (along - half, along + half)
+            })
+        })
+        .collect();
+    blocked.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut distance = 0.0_f32;
+    for (from, to) in blocked {
+        if from > distance {
+            break;
+        }
+        distance = distance.max(to);
+    }
+    distance
 }
 
 /// Positions for the steps of a path, in their order: core steps left to right on one line
@@ -148,34 +244,59 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rings_go_outwards_from_the_root() {
-        // 0 is the root; 1 and 2 hang from it, 3 from 1; 4 is unreachable.
-        let homes = radial(5, &[(0, 1), (0, 2), (1, 3)], 0, &[80.0; 5]);
+    fn groups_cluster_around_the_middle() {
+        // Group 0: the root (0) and 1. Group 1: 2, its centre, with 3, 4, 7 and 8.
+        // Group 2: 5 and 6.
+        let groups = [0, 0, 1, 1, 1, 2, 2, 1, 1];
+        let links = [
+            (0, 2),
+            (0, 5),
+            (2, 3),
+            (2, 4),
+            (2, 7),
+            (2, 8),
+            (5, 6),
+            (4, 6),
+        ];
+        assert_eq!(centres(&groups, &links), [0, 2, 5]);
+        let homes = clusters(&groups, &links, 0, &[80.0; 9]);
         assert_eq!(homes[0], Vec2::ZERO);
-        let r = |i: usize| homes[i].length();
-        assert!((r(1) - r(2)).abs() < 0.01, "same ring");
-        assert!(r(3) > r(1) + RING_GAP - 0.01, "a ring further out");
-        assert!(r(4) > r(3), "the unreachable outside everything");
-        // 3 lies in 1's slice: closer to 1 than to 2.
-        assert!(homes[3].distance(homes[1]) < homes[3].distance(homes[2]));
+        assert!(
+            (homes[1].length() - PACKING * 80.0).abs() < 0.01,
+            "next to the root"
+        );
+        // Each note is nearer its own centre than the other cluster's.
+        for (node, own, other) in [(3, 2, 5), (4, 2, 5), (6, 5, 2), (8, 2, 5)] {
+            assert!(homes[node].distance(homes[own]) < homes[node].distance(homes[other]));
+        }
+        // 4 links into the other cluster: it sits on the side facing it.
+        for other in [7, 8] {
+            assert!(homes[4].distance(homes[5]) < homes[other].distance(homes[5]));
+        }
+        // No two notes on the same spot; clusters well clear of each other.
+        for a in 0..9 {
+            for b in (a + 1)..9 {
+                assert!(homes[a].distance(homes[b]) > 30.0, "{a} and {b}");
+            }
+        }
+        assert!(homes[2].distance(homes[5]) > CLUSTER_GAP);
     }
 
     #[test]
-    fn crowded_rings_split_into_bands() {
-        let links: Vec<_> = (1..60).map(|i| (0, i)).collect();
-        let homes = radial(60, &links, 0, &[100.0; 60]);
-        let mut radii: Vec<f32> = homes[1..].iter().map(|h| h.length().round()).collect();
-        radii.sort_by(f32::total_cmp);
-        radii.dedup();
-        assert!(radii.len() > 1, "more than one band: {radii:?}");
-        let around: f32 = radii.iter().map(|r| r * TAU).sum();
-        assert!(around >= 59.0 * 100.0, "room for every note");
+    fn linked_groups_sit_side_by_side() {
+        // Four groups of two around a lone root; 1 and 3 link, 2 and 4 do not link at all.
+        let groups = [0, 1, 1, 2, 2, 3, 3, 4, 4];
+        let links = [(1, 2), (5, 6), (3, 4), (7, 8), (1, 5), (2, 6)];
+        let homes = clusters(&groups, &links, 0, &[60.0; 9]);
+        let angle = |n: usize| homes[n].to_angle();
+        let apart = |a: usize, b: usize| {
+            let d = (angle(a) - angle(b)).rem_euclid(TAU);
+            d.min(TAU - d)
+        };
         assert!(
-            radii[0] == RING_GAP,
-            "the first band where a lone ring would be"
+            apart(1, 5) < apart(1, 3).max(apart(1, 7)),
+            "linked neighbours"
         );
-        // Neighbours by angle take turns between bands.
-        assert!((homes[1].length() - homes[2].length()).abs() > 1.0);
     }
 
     #[test]

@@ -80,7 +80,7 @@ struct GraphNode {
     neighbors: Vec<Entity>,
     /// Off the reading path being followed: not drawn, simulated or picked.
     hidden: bool,
-    /// Where it belongs in the whole graph (see [`layout::radial`]); it drifts back there.
+    /// Where it belongs in the whole graph (see [`layout::clusters`]); it drifts back there.
     home: Vec2,
     /// Its place on the followed path's line (see [`layout::line`]).
     target: Option<Vec2>,
@@ -114,8 +114,10 @@ pub struct GraphState {
     image: Handle<Image>,
     /// Links, one per direction: the springs of the simulation.
     edges: Vec<(Entity, Entity)>,
-    /// The lines drawn, one per connected pair.
-    lines: Vec<(Entity, Entity, Connection)>,
+    /// The lines drawn, one per connected pair, and whether the whole graph shows it: only
+    /// lines inside a cluster and from the hub to cluster centres do, the others only for
+    /// the hovered note (they would tangle the clusters together).
+    lines: Vec<(Entity, Entity, Connection, bool)>,
     /// The steps of the reading path being followed, in order (empty when none is).
     path: Vec<Entity>,
     /// The lines of that path: core steps in a chain, optional and extra ones hanging off.
@@ -268,7 +270,7 @@ fn spawn_nodes(
     let shown: Vec<NoteId> = (0..vault.notes.len())
         .filter(|&i| vault.path(i).is_none())
         .collect();
-    let homes = home_positions(&vault, &shown);
+    let layout = home_positions(&vault, &shown);
     let note_count = vault.notes.len();
     let mut note_entities = Vec::with_capacity(note_count);
     for (i, note) in vault.notes.iter().enumerate() {
@@ -276,7 +278,7 @@ fn spawn_nodes(
             note_entities.push(None);
             continue;
         };
-        let home = homes[slot];
+        let home = layout.homes[slot];
         let degree = note.outgoing.len()
             + note
                 .backlinks
@@ -360,9 +362,16 @@ fn spawn_nodes(
         }
     }
     state.edges = edges;
+    let slot = |id: NoteId| shown.iter().position(|&n| n == id);
     state.lines = connections(&vault)
         .into_iter()
-        .filter_map(|(a, b, kind)| Some((note_entities[a]?, note_entities[b]?, kind)))
+        .filter_map(|(a, b, kind)| {
+            let (sa, sb) = (slot(a)?, slot(b)?);
+            // Inside a cluster, and the spokes from the hub to each cluster's centre.
+            let spoke = |hub: usize, centre: usize| hub == layout.root && layout.centres[centre];
+            let overview = layout.groups[sa] == layout.groups[sb] || spoke(sa, sb) || spoke(sb, sa);
+            Some((note_entities[a]?, note_entities[b]?, kind, overview))
+        })
         .collect();
     state.anchor = None;
     if kept.is_empty() {
@@ -383,9 +392,21 @@ fn orbit(radius: f32, name: &str) -> f32 {
 /// Room around a note's disc that others keep out of.
 const ORBIT_MARGIN: f32 = 22.0;
 
-/// Home positions of the `shown` notes (in that order): radiating from the hub
-/// (`hub: true`), or else from the best-linked note.
-fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Vec<Vec2> {
+/// Where the shown notes go in the whole graph.
+struct Layout {
+    /// Home of each shown note, in the order given.
+    homes: Vec<Vec2>,
+    /// Its cluster (its top folder).
+    groups: Vec<usize>,
+    /// Whether it is its cluster's centre.
+    centres: Vec<bool>,
+    /// The hub's place in the order given.
+    root: usize,
+}
+
+/// Home positions of the `shown` notes (in that order): a cluster per top folder around the
+/// hub's (`hub: true`, or else the best-linked note).
+fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
     let slot = |id: NoteId| shown.iter().position(|&n| n == id);
     let mut links = Vec::new();
     for (a, &id) in shown.iter().enumerate() {
@@ -407,11 +428,33 @@ fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Vec<Vec2> {
             .max_by_key(|&a| links.iter().filter(|&&(x, y)| x == a || y == a).count())
             .unwrap_or(0)
     });
+    let mut folders: Vec<&str> = Vec::new();
+    let groups: Vec<usize> = shown
+        .iter()
+        .map(|&id| {
+            let folder = vault.notes[id].folder.split('/').next().unwrap_or("");
+            folders
+                .iter()
+                .position(|&f| f == folder)
+                .unwrap_or_else(|| {
+                    folders.push(folder);
+                    folders.len() - 1
+                })
+        })
+        .collect();
     let space: Vec<f32> = shown
         .iter()
         .map(|&id| 2.0 * orbit(20.0, &vault.notes[id].name))
         .collect();
-    layout::radial(shown.len(), &links, root, &space)
+    let homes = layout::clusters(&groups, &links, root, &space);
+    let centre = layout::centres(&groups, &links);
+    let centres = (0..shown.len()).map(|n| centre[groups[n]] == n).collect();
+    Layout {
+        homes,
+        groups,
+        centres,
+        root,
+    }
 }
 
 /// Icon colours.
@@ -592,6 +635,7 @@ fn simulate(
         positions.iter().position(|(p, ..)| *p == e)
     };
     let mut forces = Vec::new();
+    let mut homes = Vec::new();
     for (entity, node, transform) in &nodes {
         if node.hidden {
             continue;
@@ -599,6 +643,7 @@ fn simulate(
         let at = transform.translation.truncate();
         let fixed = state.dragging == Some(entity) || (node.pinned && !following);
         positions.push((entity, at, node.orbit, fixed));
+        homes.push(node.home);
         forces.push(if following {
             Vec2::ZERO
         } else {
@@ -610,8 +655,11 @@ fn simulate(
             let (Some(i), Some(j)) = (index(&positions, a), index(&positions, b)) else {
                 continue;
             };
+            // Springs as long as the link at home: at rest they pull nothing out of place,
+            // and a dragged note brings its neighbours along.
+            let rest = homes[i].distance(homes[j]);
             let delta = positions[j].1 - positions[i].1;
-            let f = delta.normalize_or_zero() * (delta.length() - layout::RING_GAP) * LINK_PULL;
+            let f = delta.normalize_or_zero() * (delta.length() - rest) * LINK_PULL;
             forces[i] += f;
             forces[j] -= f;
         }
@@ -982,11 +1030,14 @@ fn draw_edges(
     } else {
         &[]
     };
-    for &(a, b, kind) in lines {
+    for &(a, b, kind, overview) in lines {
+        let highlighted = focus.is_some_and(|f| f == a || f == b);
+        if !overview && !highlighted {
+            continue;
+        }
         let (Ok((ta, na)), Ok((tb, nb))) = (nodes.get(a), nodes.get(b)) else {
             continue;
         };
-        let highlighted = focus.is_some_and(|f| f == a || f == b);
         // Many lines cross the whole graph: thin and faint, except a hovered note's.
         let (color, width) = if highlighted {
             (color::LINK, half)

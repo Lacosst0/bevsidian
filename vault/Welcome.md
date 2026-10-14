@@ -12,7 +12,7 @@ tags: [start-here]
 
 ## Start here
 
-Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the graph (`Ctrl+G`) to see it: Bevy in the middle, one branch per area.
+Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the graph (`Ctrl+G`) to see it: Bevy in the middle, one cluster per area around it.
 
 1. [[Bevy]]: the map of all areas.
 2. [[Your first game]]: the fastest path to something playable.
