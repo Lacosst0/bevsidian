@@ -23,7 +23,7 @@ const RING_GAP: f32 = 110.0;
 /// side.
 const ROW_GAP: f32 = 64.0;
 /// Most staggered rows a generation of one branch may need before the ring moves outwards.
-const MAX_ROWS: usize = 8;
+const MAX_ROWS: usize = 4;
 
 /// Home positions for the notes of a tree: `parent[n]` is the note `n` grows from (`None`
 /// for the root, and for notes that are not part of the tree), `space[n]` the room it needs
@@ -75,37 +75,56 @@ pub fn tree(parent: &[Option<usize>], root: usize, space: &[f32]) -> Vec<Vec2> {
             }
         }
     }
-    let mut outer = space[root] / 2.0;
-    for generation in generations.iter().skip(1) {
-        // The ring: far enough out that no branch needs more than MAX_ROWS rows.
-        let mut radius = outer + RING_GAP;
-        let rows = |radius: f32| -> Vec<(usize, usize)> {
-            let mut parents: Vec<usize> = generation.iter().filter_map(|&n| parent[n]).collect();
-            parents.dedup();
-            parents
-                .into_iter()
-                .map(|p| {
-                    let widest = children[p].iter().map(|&c| space[c]).fold(1.0, f32::max);
-                    let fits = ((wedge[p].1 * radius / widest).floor() as usize).max(1);
-                    (p, children[p].len().div_ceil(fits))
-                })
-                .collect()
-        };
-        while rows(radius).iter().any(|&(_, r)| r > MAX_ROWS) {
-            radius *= 1.1;
-        }
-        let rows = rows(radius);
-        let mut deepest = 0;
-        for (p, count) in rows {
-            deepest = deepest.max(count);
+    // Generations sit at evenly spaced radii. The spacing is the smallest at which every
+    // generation fits (no branch needs more than MAX_ROWS rows) and the generations, with
+    // their staggered rows, do not run into each other.
+    let rows_at = |generation: &[usize], radius: f32| -> Vec<(usize, usize)> {
+        let mut parents: Vec<usize> = generation.iter().filter_map(|&n| parent[n]).collect();
+        parents.dedup();
+        parents
+            .into_iter()
+            .map(|p| {
+                let widest = children[p].iter().map(|&c| space[c]).fold(1.0, f32::max);
+                let fits = ((wedge[p].1 * radius / widest).floor() as usize).max(1);
+                (p, children[p].len().div_ceil(fits))
+            })
+            .collect()
+    };
+    let half = |rows: usize| rows.saturating_sub(1) as f32 * ROW_GAP / 2.0;
+    let fits = |step: f32| {
+        let deepest: Vec<usize> = generations
+            .iter()
+            .enumerate()
+            .skip(1)
+            .map(|(d, generation)| {
+                rows_at(generation, d as f32 * step)
+                    .iter()
+                    .map(|&(_, r)| r)
+                    .max()
+                    .unwrap_or(1)
+            })
+            .collect();
+        deepest.iter().all(|&r| r <= MAX_ROWS)
+            && deepest
+                .windows(2)
+                .all(|w| half(w[0]) + half(w[1]) + RING_GAP <= step)
+            && step >= space[root] / 2.0 + RING_GAP
+    };
+    let mut step = RING_GAP;
+    while !fits(step) && step < 20_000.0 {
+        step *= 1.05;
+    }
+    for (d, generation) in generations.iter().enumerate().skip(1) {
+        let radius = d as f32 * step;
+        for (p, count) in rows_at(generation, radius) {
             for (k, &c) in children[p].iter().enumerate() {
                 let (start, width) = wedge[c];
                 let angle = start + width / 2.0;
                 let row = if count > 1 { k % count } else { 0 };
-                homes[c] = Vec2::from_angle(angle) * (radius + row as f32 * ROW_GAP);
+                let offset = (row as f32 - (count - 1) as f32 / 2.0) * ROW_GAP;
+                homes[c] = Vec2::from_angle(angle) * (radius + offset);
             }
         }
-        outer = radius + deepest.saturating_sub(1) as f32 * ROW_GAP + 30.0;
     }
     homes
 }
