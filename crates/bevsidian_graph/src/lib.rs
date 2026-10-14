@@ -80,6 +80,7 @@ pub fn plugin(app: &mut App) {
             Update,
             (
                 motion,
+                limit_zoom,
                 frame,
                 pinch_zoom,
                 camera_motion,
@@ -203,6 +204,9 @@ pub struct GraphState {
     pan_velocity: Vec2,
     /// Camera position and zoom being eased towards (zoom buttons, "Fit").
     camera_goal: Option<(Vec2, f32)>,
+    /// Farthest the camera zooms out (its scale): the notes shown with room around them,
+    /// worked out by [`limit_zoom`] (0 until then).
+    farthest: f32,
     /// Distance between two fingers in the previous frame of a pinch.
     pinch: Option<f32>,
     /// Some note is still floating.
@@ -247,6 +251,15 @@ struct NodeMeshes {
 }
 
 impl GraphState {
+    /// How far out the camera may zoom (its largest scale).
+    fn max_scale(&self) -> f32 {
+        if self.farthest > 0.0 {
+            self.farthest
+        } else {
+            MAX_SCALE
+        }
+    }
+
     /// Whether anything on the map still needs frames.
     pub fn animating(&self) -> bool {
         self.moving
@@ -1283,7 +1296,8 @@ fn on_scroll(
     state.camera_goal = None;
     state.framing = false;
     let factor = (1.0 - event.y.signum() * 0.12).clamp(0.5, 1.5);
-    zoom_around(&mut transform, &mut projection, anchor, factor);
+    let farthest = state.max_scale();
+    zoom_around(&mut transform, &mut projection, anchor, factor, farthest);
 }
 
 /// Like [`to_world`], for a camera query with mutable access.
@@ -1308,17 +1322,67 @@ fn ortho_scale(projection: &Projection) -> f32 {
     }
 }
 
-const MIN_SCALE: f32 = 0.25;
+/// Closest the camera zooms in (its scale: a world unit is two pixels), and the farthest out
+/// before the map's size is known.
+const MIN_SCALE: f32 = 0.5;
 const MAX_SCALE: f32 = 9.0;
 /// Closest zoom "fit" goes to.
 const FIT_MIN_SCALE: f32 = 0.8;
+/// How much farther out than the notes shown the camera may zoom, and the farthest zoom
+/// however few they are.
+const ZOOM_OUT_ROOM: f32 = 1.4;
+const FARTHEST_LEAST: f32 = 1.5;
 
-/// Zooms by `factor` (< 1 zooms in) keeping the world point `anchor` fixed on screen.
-fn zoom_around(transform: &mut Transform, projection: &mut Projection, anchor: Vec2, factor: f32) {
+/// Keeps the camera from zooming out much past the notes shown: works out the farthest zoom
+/// from where they sit and the viewport's size, and brings the camera back in when fewer
+/// notes show or the viewport grows.
+fn limit_zoom(
+    mut state: ResMut<GraphState>,
+    nodes: Query<&GraphNode>,
+    viewport: Query<&ComputedNode, With<GraphViewport>>,
+    camera: Query<(&Transform, &Projection), With<GraphCamera>>,
+) {
+    let Ok(viewport) = viewport.single() else {
+        return;
+    };
+    let size = viewport.size();
+    if size.min_element() < 1.0 {
+        return;
+    }
+    let Some(bounds) = nodes
+        .iter()
+        .filter(|n| !n.hidden)
+        .map(|n| Rect::from_center_half_size(n.home, FIT_ROOM))
+        .reduce(|a, b| a.union(b))
+    else {
+        return;
+    };
+    let farthest =
+        ((bounds.size() / size).max_element() * ZOOM_OUT_ROOM).clamp(FARTHEST_LEAST, MAX_SCALE);
+    state.farthest = farthest;
+    if let Some((_, scale)) = &mut state.camera_goal {
+        *scale = scale.min(farthest);
+    } else if let Ok((transform, projection)) = camera.single()
+        && ortho_scale(projection) > farthest + 0.001
+    {
+        // Ease back in rather than jump.
+        state.camera_goal = Some((transform.translation.truncate(), farthest));
+    }
+}
+
+/// Zooms by `factor` (< 1 zooms in) keeping the world point `anchor` fixed on screen, no
+/// closer than [`MIN_SCALE`] and no farther than `farthest`.
+fn zoom_around(
+    transform: &mut Transform,
+    projection: &mut Projection,
+    anchor: Vec2,
+    factor: f32,
+    farthest: f32,
+) {
     let Projection::Orthographic(o) = projection else {
         return;
     };
-    let scale = (o.scale * factor).clamp(MIN_SCALE, MAX_SCALE);
+    let scale = (o.scale * factor).clamp(MIN_SCALE, farthest.max(MIN_SCALE));
     let applied = scale / o.scale;
     o.scale = scale;
     let camera = transform.translation.truncate();
@@ -1348,7 +1412,14 @@ fn pinch_zoom(
         && let Some(anchor) = viewport_to_world((a + b) / 2.0, viewport, &nodes_ui, &camera)
         && let Ok((_, mut transform, mut projection)) = camera.single_mut()
     {
-        zoom_around(&mut transform, &mut projection, anchor, previous / distance);
+        let farthest = state.max_scale();
+        zoom_around(
+            &mut transform,
+            &mut projection,
+            anchor,
+            previous / distance,
+            farthest,
+        );
     }
     state.pinch = Some(distance);
     state.dragging = None;
@@ -1393,6 +1464,9 @@ fn camera_motion(
     }
 }
 
+/// Room kept around each note when framing: the note and its name above.
+const FIT_ROOM: Vec2 = Vec2::new(90.0, 60.0);
+
 /// Camera position and zoom that show these notes (at their homes: where they are going).
 fn fit<'a>(
     nodes: impl Iterator<Item = (&'a Transform, &'a GraphNode)>,
@@ -1400,8 +1474,7 @@ fn fit<'a>(
 ) -> (Vec2, f32) {
     let mut bounds: Option<Rect> = None;
     for (_, node) in nodes.filter(|(_, n)| !n.hidden) {
-        // Leave room for the note and its label below.
-        let r = Rect::from_center_half_size(node.home, Vec2::new(90.0, 60.0));
+        let r = Rect::from_center_half_size(node.home, FIT_ROOM);
         bounds = Some(bounds.map_or(r, |b| b.union(r)));
     }
     let Some(bounds) = bounds else {

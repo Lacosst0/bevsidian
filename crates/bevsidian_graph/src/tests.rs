@@ -201,3 +201,78 @@ fn a_note_that_appears_floats_home() {
         "and settles at its place"
     );
 }
+
+#[test]
+fn zoom_stops_at_its_limits() {
+    let mut transform = Transform::default();
+    let mut projection = Projection::Orthographic(OrthographicProjection::default_2d());
+    for _ in 0..40 {
+        zoom_around(
+            &mut transform,
+            &mut projection,
+            Vec2::new(100.0, 50.0),
+            0.5,
+            4.0,
+        );
+    }
+    assert!(
+        (ortho_scale(&projection) - MIN_SCALE).abs() < 1e-5,
+        "no closer than the limit"
+    );
+    for _ in 0..40 {
+        zoom_around(
+            &mut transform,
+            &mut projection,
+            Vec2::new(100.0, 50.0),
+            2.0,
+            4.0,
+        );
+    }
+    assert!(
+        (ortho_scale(&projection) - 4.0).abs() < 1e-5,
+        "no farther than the map allows"
+    );
+
+    // The farthest zoom follows the size of the map.
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .init_resource::<GraphState>()
+        .add_systems(Update, limit_zoom);
+    let viewport = ComputedNode {
+        size: Vec2::new(1000.0, 800.0),
+        ..default()
+    };
+    app.world_mut().spawn((GraphViewport, viewport));
+    app.world_mut().spawn((
+        GraphCamera,
+        Transform::default(),
+        Projection::Orthographic(OrthographicProjection {
+            scale: 9.0,
+            ..OrthographicProjection::default_2d()
+        }),
+    ));
+    for x in [-1000.0, 1000.0] {
+        app.world_mut().spawn(GraphNode {
+            note: 0,
+            radius: 20.0,
+            rank: 2,
+            forced: false,
+            step: None,
+            hidden: false,
+            home: Vec2::new(x, 0.0),
+            arriving: false,
+        });
+    }
+    app.update();
+    let farthest = app.world().resource::<GraphState>().farthest;
+    assert!(
+        (farthest - 2180.0 / 1000.0 * ZOOM_OUT_ROOM).abs() < 1e-3,
+        "{farthest}"
+    );
+    let goal = app.world().resource::<GraphState>().camera_goal;
+    assert_eq!(
+        goal,
+        Some((Vec2::ZERO, farthest)),
+        "the camera eases back in"
+    );
+}

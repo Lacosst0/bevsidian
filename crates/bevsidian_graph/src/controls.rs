@@ -10,8 +10,8 @@ use bevsidian_core::{
 use bevsidian_ui::prelude::*;
 
 use crate::{
-    GraphCamera, GraphNode, GraphState, GraphViewport, MAX_SCALE, MIN_SCALE, edit::EditRequest,
-    fit, ortho_scale, world::MapThing,
+    GraphCamera, GraphNode, GraphState, GraphViewport, MIN_SCALE, edit::EditRequest, fit,
+    ortho_scale, world::MapThing,
 };
 
 /// Zoom buttons over the map (the only way to zoom on touch screens): one bordered group of
@@ -37,7 +37,7 @@ pub fn zoom_controls() -> impl Scene {
                     .unwrap_or((transform.translation.truncate(), ortho_scale(projection)));
                 state.pan_velocity = Vec2::ZERO;
                 state.framing = false;
-                state.camera_goal = Some((position, (scale * factor).clamp(MIN_SCALE, MAX_SCALE)));
+                state.camera_goal = Some((position, (scale * factor).clamp(MIN_SCALE, state.max_scale())));
             })
         }
     }
