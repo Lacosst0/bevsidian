@@ -29,6 +29,7 @@ use bevsidian_core::{
 };
 use bevsidian_ui::{Size, Tooltip, Variant, caption, color, icon_button, radius, shadow};
 
+mod fold;
 mod layout;
 
 const LAYER: usize = 1;
@@ -42,6 +43,7 @@ pub fn plugin(app: &mut App) {
             (
                 spawn_nodes,
                 follow_path,
+                fold::fold_nodes,
                 show_legend,
                 attach_viewport,
                 toggle_camera,
@@ -72,6 +74,7 @@ struct GraphCamera;
 
 /// A note in the graph, drawn as its icon with its name below.
 #[derive(Component)]
+#[allow(clippy::struct_excessive_bools)] // Independent states of one note, not a mode.
 struct GraphNode {
     note: NoteId,
     velocity: Vec2,
@@ -79,8 +82,23 @@ struct GraphNode {
     /// The hub: it stays in the middle.
     pinned: bool,
     neighbors: Vec<Entity>,
-    /// Off the reading path being followed: not drawn, simulated or picked.
+    /// Not drawn, simulated or picked: off the followed path, or folded away (see [`fold`]).
     hidden: bool,
+    /// Off the reading path being followed.
+    off_path: bool,
+    /// The note it grows from in the tree (`None` for a root).
+    parent: Option<Entity>,
+    /// Its ring: 0 for the hub, further out for notes deeper in the tree.
+    ring: usize,
+    /// In the app's own tree, beside the course's.
+    app: bool,
+    /// How many notes it holds folded (see [`fold::folded_counts`]); 0 for none.
+    folds: usize,
+    /// The notes it holds are unfolded.
+    open: bool,
+    /// Floating into its parent (to `tuck_to`) before it is folded away.
+    tucking: bool,
+    tuck_to: Vec2,
     /// Its place in the whole graph: first from [`layout::tree`], then wherever it was
     /// last pushed or dropped. It floats there when the graph opens or a path is left.
     home: Vec2,
@@ -145,6 +163,12 @@ pub struct GraphState {
     alpha: f32,
     /// The node last dragged: while the graph settles, nodes far from it barely move.
     anchor: Option<Entity>,
+    /// A note to fold or unfold, and a request to unfold (`true`) or fold every note.
+    fold_toggle: Option<Entity>,
+    fold_all: Option<bool>,
+    /// How far right of the course's tree the app's is, and how far it reaches.
+    app_shift: f32,
+    app_reach: f32,
     /// Shared node mesh and materials.
     circle: Handle<Mesh>,
     paint: NodePaint,
@@ -158,6 +182,11 @@ struct NodePaint {
     ring_hovered: Handle<ColorMaterial>,
     current_fill: Handle<ColorMaterial>,
     current_ring: Handle<ColorMaterial>,
+    /// The badge of a note holding folded notes, and of one whose notes are unfolded.
+    badge_folded: Handle<ColorMaterial>,
+    badge_open: Handle<ColorMaterial>,
+    /// The rings around a note holding folded notes, inner first.
+    stack: [Handle<ColorMaterial>; 2],
 }
 
 impl GraphState {
@@ -178,6 +207,8 @@ struct Press {
     node: Option<Entity>,
     /// Whether the pointer moved far enough to count as a drag (then it never clicks).
     moved: bool,
+    /// It pressed the node's fold badge.
+    badge: bool,
 }
 
 /// How far (logical px) a press may move and still count as a click.
@@ -233,6 +264,12 @@ fn setup(
         ring_hovered: materials.add(color::MUTED_FOREGROUND),
         current_fill: materials.add(color::LINK),
         current_ring: materials.add(color::LINK_RING),
+        badge_folded: materials.add(color::FOREGROUND),
+        badge_open: materials.add(color::CARD),
+        stack: [
+            materials.add(color::SUBTLE_FOREGROUND),
+            materials.add(color::DISABLED_FOREGROUND),
+        ],
     };
     state.circle = meshes.add(Circle::new(1.0));
 }
@@ -241,6 +278,7 @@ fn setup(
 /// Notes keep their place.
 fn spawn_nodes(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
     vault: Res<Vault>,
     mut state: ResMut<GraphState>,
     old: Query<(Entity, &GraphNode, &Transform)>,
@@ -252,8 +290,12 @@ fn spawn_nodes(
     }
     *built = Some(vault.revision);
     let mut kept = std::collections::HashMap::new();
+    let mut was_open = std::collections::HashSet::new();
     for (entity, node, transform) in &old {
         kept.insert(node.note, transform.translation);
+        if node.open {
+            was_open.insert(node.note);
+        }
         commands.entity(entity).despawn();
     }
     state.hovered = None;
@@ -277,11 +319,13 @@ fn spawn_nodes(
         .filter(|&i| vault.path(i).is_none())
         .collect();
     let layout = home_positions(&vault, &shown);
-    let note_count = vault.notes.len();
-    let mut note_entities = Vec::with_capacity(note_count);
+    let folds = fold::folded_counts(&layout.parent, &layout.ring);
+    // Entities first, so each node can name the node it grows from.
+    let note_entities: Vec<Option<Entity>> = (0..vault.notes.len())
+        .map(|i| shown.contains(&i).then(|| commands.spawn_empty().id()))
+        .collect();
     for (i, note) in vault.notes.iter().enumerate() {
-        let Some(slot) = shown.iter().position(|&n| n == i) else {
-            note_entities.push(None);
+        let (Some(slot), Some(id)) = (shown.iter().position(|&n| n == i), note_entities[i]) else {
             continue;
         };
         let home = layout.homes[slot];
@@ -302,8 +346,10 @@ fn spawn_nodes(
         let radius = if hub { radius * 1.6 } else { radius };
         let pinned = hub || note.name == "Welcome";
         let icon_size = (radius * 0.9).round();
-        let id = commands
-            .spawn((
+        let parent = layout.parent[slot].and_then(|p| note_entities[shown[p]]);
+        commands
+            .entity(id)
+            .insert((
                 GraphNode {
                     note: i,
                     velocity: Vec2::ZERO,
@@ -311,6 +357,14 @@ fn spawn_nodes(
                     pinned,
                     neighbors: Vec::new(),
                     hidden: false,
+                    off_path: false,
+                    parent,
+                    ring: layout.ring[slot],
+                    app: layout.app[slot],
+                    folds: folds[slot],
+                    open: was_open.contains(&i),
+                    tucking: false,
+                    tuck_to: Vec2::ZERO,
                     home,
                     arriving: kept.is_empty(),
                     target: None,
@@ -365,9 +419,10 @@ fn spawn_nodes(
                     Transform::from_xyz(0.0, -radius - 12.0, 0.0),
                     RenderLayers::layer(LAYER),
                 ));
-            })
-            .id();
-        note_entities.push(Some(id));
+                if folds[slot] > 0 {
+                    fold::spawn_badge(node, radius, &state, &mut meshes);
+                }
+            });
     }
     let slot = |id: NoteId| shown.iter().position(|&n| n == id);
     let mut edges = Vec::new();
@@ -415,6 +470,8 @@ fn spawn_nodes(
             state.lines.push((ea, eb, Connection::Mutual, true));
         }
     }
+    state.app_shift = layout.app_shift;
+    state.app_reach = layout.app_reach;
     state.anchor = None;
     if kept.is_empty() {
         state.alpha = 1.0;
@@ -441,6 +498,13 @@ const ORBIT_MARGIN: f32 = 22.0;
 struct Layout {
     /// Home of each shown note, in the order given.
     homes: Vec<Vec2>,
+    /// The ring each one sits on (0 for the roots).
+    ring: Vec<usize>,
+    /// Whether it is in the app's tree, how far that tree is moved right of the course's,
+    /// and how far it reaches from its root.
+    app: Vec<bool>,
+    app_shift: f32,
+    app_reach: f32,
     /// The note each one grows from (`None` for the hub), in the order given.
     parent: Vec<Option<usize>>,
 }
@@ -613,20 +677,37 @@ fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
     }
     // The app's tree sits beside the course's, clear of it.
     let reach = |at: &[Vec2]| at.iter().map(|p| p.length()).fold(0.0, f32::max);
-    let shift = match grown.as_slice() {
-        [(_, course), (_, app)] => reach(course) + reach(app) + APP_GAP,
-        _ => 0.0,
+    let (shift, app_reach) = match grown.as_slice() {
+        [(_, course), (_, app)] => (reach(course) + reach(app) + APP_GAP, reach(app)),
+        _ => (0.0, 0.0),
     };
     for (index, (members, at)) in grown.iter().enumerate() {
         for (&n, &p) in members.iter().zip(at) {
             homes[n] = if index == 0 { p } else { p + Vec2::X * shift };
         }
     }
-    Layout { homes, parent }
+    let mut ring = ring;
+    for (n, up) in parent.iter().enumerate() {
+        if up.is_none() {
+            ring[n] = 0;
+        }
+    }
+    let app = (0..shown.len())
+        .map(|n| grown.len() > 1 && is_app_note(vault, shown[n]))
+        .collect();
+    Layout {
+        homes,
+        ring,
+        parent,
+        app,
+        app_shift: shift,
+        app_reach,
+    }
 }
 
-/// Distance between the course's tree and the app's, beyond their reaches.
-const APP_GAP: f32 = 1800.0;
+/// Distance between the course's tree and the app's, beyond their reaches (the course's
+/// reach as far as it is unfolded: the app's tree floats closer or further, see `fold`).
+const APP_GAP: f32 = 600.0;
 
 /// Icon colours.
 const NOTE_COLOR: Color = color::BODY;
@@ -701,7 +782,7 @@ fn follow_path(
     nav: Res<Nav>,
     vault: Res<Vault>,
     mut state: ResMut<GraphState>,
-    mut nodes: Query<(Entity, &mut GraphNode, &mut Visibility, &Children)>,
+    mut nodes: Query<(Entity, &mut GraphNode, &Children)>,
     mut labels: Query<&mut Text2d, With<GraphLabel>>,
     // The path shown, and the vault revision whose nodes showed it (nodes are rebuilt when
     // the vault changes).
@@ -719,19 +800,15 @@ fn follow_path(
     let steps = shown.map(|p| p.steps.as_slice()).unwrap_or_default();
     let places = shown.map(|p| layout::line(&p.kinds)).unwrap_or_default();
     let mut ordered = vec![None; steps.len()];
-    for (entity, mut node, mut visibility, children) in &mut nodes {
+    for (entity, mut node, children) in &mut nodes {
         let step = steps.iter().position(|&s| s == node.note);
         // Leaving a path: its steps float back to where they were.
         if changed && steps.is_empty() && node.target.is_some() {
             node.arriving = true;
         }
-        node.hidden = !steps.is_empty() && step.is_none();
+        // Shown or hidden by `fold::fold_nodes`.
+        node.off_path = !steps.is_empty() && step.is_none();
         node.target = step.and_then(|step| places.get(step).copied());
-        visibility.set_if_neq(if node.hidden {
-            Visibility::Hidden
-        } else {
-            Visibility::Inherited
-        });
         if let Some(step) = step {
             ordered[step] = Some(entity);
         }
@@ -818,8 +895,9 @@ fn simulate(
         if node.hidden {
             continue;
         }
-        let fixed = state.dragging == Some(entity) || (node.pinned && !following);
-        let pushing = !following && !node.arriving;
+        // A pinned note stays put, unless its home moved (the app's tree floating aside).
+        let fixed = state.dragging == Some(entity) || (node.pinned && !following && !node.arriving);
+        let pushing = !following && !node.arriving && !node.tucking;
         positions.push((
             entity,
             transform.translation.truncate(),
@@ -876,6 +954,10 @@ fn simulate(
         let next = if let (true, Some(target)) = (following, node.target) {
             node.velocity = Vec2::ZERO;
             at.lerp(target, ease(PATH_EASE))
+        } else if node.tucking {
+            node.velocity = Vec2::ZERO;
+            arriving = true;
+            at.lerp(node.tuck_to, ease(PATH_EASE))
         } else if node.arriving && !fixed {
             node.velocity = Vec2::ZERO;
             let next = at.lerp(node.home, ease(ARRIVE_EASE));
@@ -895,7 +977,7 @@ fn simulate(
         transform.translation.x = next.x;
         transform.translation.y = next.y;
         // Off a path, a note's home is wherever it floats to.
-        if !following && !node.arriving {
+        if !following && !node.arriving && !node.tucking {
             node.home = next;
         }
     }
@@ -1225,6 +1307,9 @@ fn draw_edges(
         let (Ok((ta, na)), Ok((tb, nb))) = (nodes.get(a), nodes.get(b)) else {
             continue;
         };
+        if na.hidden || nb.hidden {
+            continue;
+        }
         // Many lines cross the whole graph: thin and faint, except a hovered note's.
         let (color, width) = if highlighted {
             (color::LINK, half)
@@ -1279,7 +1364,7 @@ fn pick(world: Vec2, nodes: &Query<(Entity, &Transform, &GraphNode)>) -> Option<
     nodes
         .iter()
         .filter(|(_, t, n)| {
-            !n.hidden && t.translation.truncate().distance(world) <= n.radius + 12.0
+            !n.hidden && !n.tucking && t.translation.truncate().distance(world) <= n.radius + 12.0
         })
         .min_by(|a, b| {
             let da = a.1.translation.truncate().distance(world);
@@ -1338,11 +1423,16 @@ fn on_press(
     if event.button != PointerButton::Primary {
         return;
     }
-    // Touch has no hover, so pick here as well.
-    let node = to_world(event.pointer.position, event.entity, &nodes_ui, &camera)
-        .and_then(|world| pick(world, &nodes));
+    // Touch has no hover, so pick here as well. A badge wins over the note under it.
+    let world = to_world(event.pointer.position, event.entity, &nodes_ui, &camera);
+    let badge = world.and_then(|world| fold::badge_at(world, &nodes));
+    let node = badge.or_else(|| world.and_then(|world| pick(world, &nodes)));
     state.hovered = node;
-    state.press = Some(Press { node, moved: false });
+    state.press = Some(Press {
+        node,
+        moved: false,
+        badge: badge.is_some(),
+    });
     state.pan_velocity = Vec2::ZERO;
     state.camera_goal = None;
     state.framing = false;
@@ -1357,7 +1447,7 @@ fn on_release(event: On<PointerRelease>, mut state: ResMut<GraphState>) {
 
 fn on_click(
     event: On<PointerClick>,
-    state: Res<GraphState>,
+    mut state: ResMut<GraphState>,
     nodes: Query<&GraphNode>,
     nav: Res<Nav>,
 ) {
@@ -1368,11 +1458,20 @@ fn on_click(
     let Some(Press {
         node: Some(entity),
         moved: false,
+        badge,
     }) = state.press
     else {
         return;
     };
-    if let Ok(node) = nodes.get(entity) {
+    let Ok(node) = nodes.get(entity) else {
+        return;
+    };
+    // The badge folds and unfolds; a note holding folded notes unfolds them first, and
+    // opens on the next click.
+    let following = !state.path.is_empty();
+    if !following && node.folds > 0 && (badge || !node.open) {
+        state.fold_toggle = Some(entity);
+    } else {
         nav.open(node.note, None);
     }
 }
@@ -1591,8 +1690,19 @@ fn fit_all(
 }
 
 /// Zoom buttons over the graph (the only way to zoom on touch screens): one bordered group of
-/// zoom in, zoom out and fit.
+/// zoom in, zoom out and fit, then unfold and fold every note.
 pub fn zoom_controls() -> impl Scene {
+    fn fold_button(icon: &'static str, tip: &'static str, all: bool) -> impl Scene {
+        bsn! {
+            @{icon_button(Variant::Ghost, Size::Icon, icon)}
+            Tooltip::new(tip)
+            Node { border: UiRect::top(px(1.0)), border_radius: BorderRadius::ZERO }
+            BorderColor::all(color::BORDER)
+            on(move |_: On<bevy::ui_widgets::Activate>, mut state: ResMut<GraphState>| {
+                state.fold_all = Some(all);
+            })
+        }
+    }
     fn button(icon: &'static str, tip: &'static str, factor: f32, first: bool) -> impl Scene {
         bsn! {
             @{icon_button(Variant::Ghost, Size::Icon, icon)}
@@ -1643,6 +1753,10 @@ pub fn zoom_controls() -> impl Scene {
             @{button("minus", "Zoom out", 1.25, false)}
             --
             @{button("maximize", "Fit to screen", 0.0, false)}
+            --
+            @{fold_button("unfold-vertical", "Expand all", true)}
+            --
+            @{fold_button("fold-vertical", "Collapse all", false)}
         ]
     }
 }
@@ -1688,6 +1802,23 @@ pub fn legend() -> impl Scene {
         };
         Box::new(bsn! { node BackgroundColor(color::MUTED_FOREGROUND) })
     }
+    // A note holding folded notes: the "+N" badge.
+    let badge: Vec<Box<dyn Scene>> = vec![Box::new(bsn! {
+        Node {
+            width: px(18),
+            height: px(18),
+            margin: UiRect::horizontal(Val::Auto),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX,
+        }
+        BackgroundColor(color::FOREGROUND)
+        Children [
+            Text::new("+")
+            @{bevsidian_ui::insert(bevsidian_ui::font(bevsidian_ui::size::XS, FontWeight::SEMIBOLD))}
+            TextColor(color::PRIMARY_FOREGROUND)
+        ]
+    })];
     let shadow = shadow::popover();
     bsn! {
         Node {
@@ -1710,6 +1841,8 @@ pub fn legend() -> impl Scene {
             @{row((0..3).map(|_| piece(6.0, false)).collect(), "Linked one way", false)}
             --
             @{row((0..4).map(|_| piece(4.0, true)).collect(), "Shared tag", false)}
+            --
+            @{row(badge, "Holds folded notes: click to open", false)}
             --
             @{row(vec![piece(24.0, false)], "Core step", true)}
             --
@@ -1744,6 +1877,14 @@ mod tests {
                     pinned: false,
                     neighbors: Vec::new(),
                     hidden: false,
+                    off_path: false,
+                    parent: None,
+                    ring: 0,
+                    app: false,
+                    folds: 0,
+                    open: false,
+                    tucking: false,
+                    tuck_to: Vec2::ZERO,
                     home: at,
                     arriving: false,
                     target: None,
@@ -1858,13 +1999,13 @@ mod tests {
             at
         };
         // Every note reaches one of the two roots, and the app's notes only the welcome note.
-        for n in 0..shown.len() {
-            let app = is_app_note(&vault, shown[n]);
+        for (n, &id) in shown.iter().enumerate() {
+            let app = is_app_note(&vault, id);
             assert_eq!(
                 root_of(n),
                 if app { welcome } else { hub },
                 "{}",
-                vault.notes[shown[n]].name
+                vault.notes[id].name
             );
         }
         // The areas hang straight off the hub.
@@ -1883,7 +2024,7 @@ mod tests {
                 .filter(|&n| keep(n))
                 .map(radius)
                 .collect();
-            assert!(!radii.is_empty());
+            assert_ne!(radii, Vec::<f32>::new());
             (
                 radii.iter().copied().fold(f32::MAX, f32::min),
                 radii.iter().copied().fold(0.0, f32::max),
@@ -1911,13 +2052,13 @@ mod tests {
         }
         // The app's tree is clear of the course's.
         let course_reach = course.iter().map(|&n| radius(n)).fold(0.0, f32::max);
-        for n in 0..shown.len() {
-            if is_app_note(&vault, shown[n]) {
+        for (n, &id) in shown.iter().enumerate() {
+            if is_app_note(&vault, id) {
                 assert!(layout.homes[n].x - layout.homes[welcome].x < 600.0);
                 assert!(
                     layout.homes[n].distance(Vec2::ZERO) > course_reach,
                     "{}",
-                    vault.notes[shown[n]].name
+                    vault.notes[id].name
                 );
             }
         }
