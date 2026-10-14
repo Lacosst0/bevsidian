@@ -13,7 +13,7 @@ use bevy::prelude::*;
 
 use bevsidian_core::{
     nav::{Nav, View},
-    vault::StepKind,
+    vault::{NoteId, StepKind},
 };
 use bevsidian_ui::color;
 
@@ -27,6 +27,9 @@ pub struct Line {
     pub a: Entity,
     pub b: Entity,
     pub uses: Vec<Use>,
+    /// The route whose bullet sits in the middle of the line, and the note on its near side:
+    /// the line is the route's colour only past the bullet.
+    pub start: Option<(NoteId, Entity)>,
 }
 
 /// The mesh holding every line as quads.
@@ -53,7 +56,7 @@ const GAP_PX: f32 = 4.0;
 /// Depths, back to front: the followed route's glow, lines, a hovered note's lines, the
 /// followed route, a hovered note's links.
 /// How far a route not shown fades toward the sky with the whole map.
-const WHOLE_DIM: f32 = 0.45;
+pub(crate) const WHOLE_DIM: f32 = 0.45;
 const Z_GLOW: f32 = 0.0;
 const Z_LINE: f32 = 0.01;
 const Z_HOVERED: f32 = 0.02;
@@ -141,7 +144,10 @@ fn stronger(a: StepKind, b: StepKind) -> StepKind {
 /// How a line looks now, if it shows.
 pub(crate) struct Look {
     kind: StepKind,
+    route: NoteId,
     tint: Color,
+    /// The tint up to a route's bullet (grey, as the main quest it leaves).
+    lead: Color,
     /// It is the followed route's.
     followed: bool,
     /// Its reading order runs from the line's `a` to its `b`.
@@ -175,7 +181,9 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
     if let Some(u) = pick(&|u| Some(u.route) == state.followed) {
         return Some(Look {
             kind: u.kind,
+            route: u.route,
             tint: colour(&u),
+            lead: color::MAP_LINE,
             followed: true,
             forward: u.forward,
         });
@@ -186,7 +194,9 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
     {
         return Some(Look {
             kind: u.kind,
+            route: u.route,
             tint: colour(&u),
+            lead: color::MAP_LINE,
             followed: false,
             forward: u.forward,
         });
@@ -195,6 +205,8 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
         // Every route in its colour, dimmed under the ones shown.
         return pick(&|_| true).map(|u| Look {
             kind: u.kind,
+            route: u.route,
+            lead: color::MAP_LINE_FAINT,
             tint: if main(&u) {
                 color::MAP_LINE_FAINT
             } else {
@@ -261,6 +273,15 @@ pub(crate) fn draw_lines(
             continue;
         };
         let ends = if look.forward { (from, to) } else { (to, from) };
+        // A route's first line: grey up to its bullet, its colour past it.
+        let lead = line
+            .start
+            .filter(|&(route, _)| route == look.route && look.tint != look.lead)
+            .map(|(_, near)| {
+                let middle = a.lerp(b, 0.5);
+                let near_end = if near == line.a { from } else { to };
+                (near_end, middle)
+            });
         let hovered = focus.is_some_and(|f| f == line.a || f == line.b);
         let mut tint = look.tint;
         if hovered && !look.followed && tint == color::MAP_LINE_FAINT {
@@ -283,6 +304,20 @@ pub(crate) fn draw_lines(
         } else {
             (SIDE_PX, if hovered { Z_HOVERED } else { Z_LINE })
         };
+        if let Some((near_end, middle)) = lead {
+            let far_end = if near_end == from { to } else { from };
+            stroke(
+                &mut out,
+                (near_end, middle),
+                look.kind,
+                (width, px),
+                z,
+                look.lead,
+            );
+            stroke(&mut out, (middle, far_end), look.kind, (width, px), z, tint);
+            // The bullet marks where it goes; no arrow under it.
+            continue;
+        }
         stroke(&mut out, ends, look.kind, (width, px), z, tint);
         if look.kind == StepKind::Core && ends.0.distance(ends.1) > ARROW_ROOM_PX * px {
             arrow(

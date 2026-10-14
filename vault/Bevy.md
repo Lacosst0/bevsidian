@@ -66,7 +66,7 @@ A route is a list of notes to read in order, drawn on the map as a line of stars
 | dashed | a *side quest*: useful, skip if you are in a hurry |
 | dotted | a *secret*: extras for the curious |
 
-Each route has its own colour, and a round bullet with its icon where it leaves the main quest (grey), like the lines of a metro map.
+Each route has its own colour, on its line and around its notes, and a round bullet with its icon where it leaves the main quest (grey), like the lines of a metro map.
 
 Every note is a shape with its icon inside, dim until you have read it. The shape says what it is: a hexagon is an area's index, a diamond a milestone where you have built something, a star the goal at the end of a route, a pentagon a comparison of crates, a square a crate and a circle a lesson. [[Map]] holds where everything sits; edit it in the app with the map's pencil button.
 

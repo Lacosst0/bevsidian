@@ -155,9 +155,12 @@ struct GraphIcon;
 #[derive(Component)]
 struct GraphFill;
 
-/// The outline of a note's shape.
+/// The outline of a note's shape: hairline, or bolder in a route's colour.
 #[derive(Component)]
-struct GraphRing;
+struct GraphRing {
+    thin: Handle<Mesh>,
+    bold: Handle<Mesh>,
+}
 
 /// A route's bullet: a disc in the route's colour with its icon, on the line where the route
 /// begins (as metro maps mark each line), so routes tell apart by more than colour.
@@ -185,6 +188,8 @@ pub struct GraphState {
     lines: Vec<lines::Line>,
     /// The colour of each route's lines.
     colors: HashMap<NoteId, Color>,
+    /// The routes (but the main quest) each note is a step of, in vault order.
+    note_routes: HashMap<NoteId, Vec<NoteId>>,
     /// The routes shown (their path notes), the one followed, and whether the whole map is.
     active: Vec<NoteId>,
     followed: Option<NoteId>,
@@ -238,8 +243,10 @@ struct NodePaint {
     ring_hovered: Handle<ColorMaterial>,
     ring_current: Handle<ColorMaterial>,
     plate: Handle<ColorMaterial>,
-    /// Each route's colour, for its bullet.
+    /// Each route's colour, for its bullet and its notes' outlines, and dimmed (with the
+    /// whole map, for the routes not shown).
     routes: HashMap<NoteId, Handle<ColorMaterial>>,
+    routes_dim: HashMap<NoteId, Handle<ColorMaterial>>,
 }
 
 /// Shared meshes of the notes.
@@ -247,6 +254,7 @@ struct NodePaint {
 struct NodeMeshes {
     fills: HashMap<Shape, Handle<Mesh>>,
     rings: HashMap<Shape, Handle<Mesh>>,
+    bold_rings: HashMap<Shape, Handle<Mesh>>,
     plate: Handle<Mesh>,
 }
 
@@ -376,6 +384,7 @@ fn setup(
         ring_current: materials.add(color::LINK),
         plate: materials.add(color::MAP_PLATE),
         routes: HashMap::default(),
+        routes_dim: HashMap::default(),
     };
     state.circle = meshes.add(Circle::new(1.0));
     state.meshes = NodeMeshes {
@@ -386,6 +395,10 @@ fn setup(
         rings: Shape::ALL
             .into_iter()
             .map(|shape| (shape, meshes.add(shapes::ring(shape, RING_WIDTH))))
+            .collect(),
+        bold_rings: Shape::ALL
+            .into_iter()
+            .map(|shape| (shape, meshes.add(shapes::ring(shape, BOLD_RING_WIDTH))))
             .collect(),
         plate: meshes.add(Rectangle::new(1.0, 1.0)),
     };
@@ -476,6 +489,12 @@ fn spawn_nodes(
         let icon_size = (radius * icon_share(shape)).round();
         let fill = state.meshes.fills.get(&shape).cloned().unwrap_or_default();
         let ring = state.meshes.rings.get(&shape).cloned().unwrap_or_default();
+        let bold = state
+            .meshes
+            .bold_rings
+            .get(&shape)
+            .cloned()
+            .unwrap_or_default();
         let (backing, fill_paint, ring_paint, plate_paint) = (
             state.meshes.plate.clone(),
             state.paint.fill.clone(),
@@ -504,18 +523,22 @@ fn spawn_nodes(
             ))
             .with_children(|node| {
                 node.spawn((
-                    GraphRing,
+                    GraphRing {
+                        thin: ring.clone(),
+                        bold,
+                    },
                     Mesh2d(ring),
                     MeshMaterial2d(ring_paint),
-                    Transform::from_xyz(0.0, 0.0, -0.2).with_scale(Vec3::splat(radius)),
+                    Transform::from_xyz(0.0, 0.0, -0.1).with_scale(Vec3::splat(radius)),
                     RenderLayers::layer(LAYER),
                 ));
                 node.spawn((
                     GraphFill,
                     Mesh2d(fill),
                     MeshMaterial2d(fill_paint),
-                    Transform::from_xyz(0.0, 0.0, -0.1)
-                        .with_scale(Vec3::splat(radius * (1.0 - RING_WIDTH))),
+                    // Under the outline, which may be bold.
+                    Transform::from_xyz(0.0, 0.0, -0.2)
+                        .with_scale(Vec3::splat(radius * (1.0 - RING_WIDTH / 2.0))),
                     RenderLayers::layer(LAYER),
                 ));
                 node.spawn((
@@ -560,14 +583,21 @@ fn spawn_nodes(
     }
     let place = |id: NoteId| layout.slot(id).map(|s| layout.homes[s]);
     let drawn = routes::lines(&vault, &place, layout.notes[layout.root]);
+    let starts = &drawn.starts;
     state.lines = drawn
         .lines
-        .into_iter()
+        .iter()
         .filter_map(|(a, b, uses)| {
+            // The route whose bullet sits on this line, and the note on its near side.
+            let start = starts
+                .iter()
+                .find(|&&(_, from, to)| (from, to) == (*a, *b) || (from, to) == (*b, *a))
+                .and_then(|&(route, from, _)| Some((route, entity_of(from)?)));
             Some(lines::Line {
-                a: entity_of(a)?,
-                b: entity_of(b)?,
-                uses,
+                a: entity_of(*a)?,
+                b: entity_of(*b)?,
+                uses: uses.clone(),
+                start,
             })
         })
         .collect();
@@ -576,9 +606,33 @@ fn spawn_nodes(
         .iter()
         .map(|p| (p.note, route_color(&vault, p.note)))
         .collect();
+    state.note_routes.clear();
+    for path in vault
+        .paths
+        .iter()
+        .filter(|p| p.quest != bevsidian_core::vault::Quest::Main)
+    {
+        let tint = state.colors[&path.note];
+        state
+            .paint
+            .routes
+            .entry(path.note)
+            .or_insert_with(|| materials.add(tint));
+        state
+            .paint
+            .routes_dim
+            .entry(path.note)
+            .or_insert_with(|| materials.add(tint.mix(&color::BACKGROUND, lines::WHOLE_DIM)));
+        for &step in &path.steps {
+            let routes = state.note_routes.entry(step).or_default();
+            if !routes.contains(&path.note) {
+                routes.push(path.note);
+            }
+        }
+    }
     // A bullet where each route but the main quest begins.
     let bullet = state.circle.clone();
-    for (route, a, b) in drawn.starts {
+    for &(route, a, b) in &drawn.starts {
         let (Some(ea), Some(eb)) = (entity_of(a), entity_of(b)) else {
             continue;
         };
@@ -623,16 +677,21 @@ fn spawn_nodes(
     }
 }
 
-/// A route bullet's radius and icon size (world units).
-const BULLET_RADIUS: f32 = 15.0;
-const BULLET_ICON: f32 = 17.0;
+/// A route bullet's radius and icon size (world units), and its least radius on screen
+/// (pixels).
+const BULLET_RADIUS: f32 = 30.0;
+const BULLET_ICON: f32 = 32.0;
+const BULLET_PX: f32 = 13.0;
 
 /// Places the route bullets on their lines, and shows those of the routes shown.
 fn place_bullets(
     state: Res<GraphState>,
     nodes: Query<(&Transform, &GraphNode), Without<RouteBullet>>,
     mut bullets: Query<(&RouteBullet, &mut Transform, &mut Visibility)>,
+    camera: Query<&Projection, With<GraphCamera>>,
 ) {
+    let scale = camera.single().map_or(1.0, ortho_scale);
+    let size = Vec3::splat((scale * BULLET_PX / BULLET_RADIUS).max(1.0));
     for (bullet, mut transform, mut visibility) in &mut bullets {
         let ends = (nodes.get(bullet.on.0), nodes.get(bullet.on.1));
         let shows = state.active.contains(&bullet.route) || state.whole;
@@ -651,6 +710,9 @@ fn place_bullets(
         transform.translation.x = at.x;
         transform.translation.y = at.y;
         // Zoomed out, a bullet keeps a size on screen, like the notes.
+        if transform.scale != size {
+            transform.scale = size;
+        }
         visibility.set_if_neq(Visibility::Inherited);
     }
 }
@@ -761,6 +823,7 @@ const LABEL_GAP: f32 = 8.0;
 const PICK_SLOP: f32 = 12.0;
 /// Width of a shape's outline, as a share of its radius.
 const RING_WIDTH: f32 = 0.08;
+const BOLD_RING_WIDTH: f32 = 0.16;
 
 /// Shows the render target in a freshly spawned viewport node and wires pointer input.
 fn attach_viewport(
@@ -955,7 +1018,10 @@ fn style_nodes(
         (Without<GraphIcon>, Without<GraphNode>),
     >,
     mut icons: Query<&mut TextColor, (With<GraphIcon>, Without<GraphLabel>)>,
-    mut rings: Query<&mut MeshMaterial2d<ColorMaterial>, (With<GraphRing>, Without<GraphFill>)>,
+    mut rings: Query<
+        (&GraphRing, &mut Mesh2d, &mut MeshMaterial2d<ColorMaterial>),
+        Without<GraphFill>,
+    >,
     mut fills: Query<&mut MeshMaterial2d<ColorMaterial>, (With<GraphFill>, Without<GraphRing>)>,
     camera: Query<&Projection, With<GraphCamera>>,
 ) {
@@ -1004,15 +1070,34 @@ fn style_nodes(
                 1 => on_screen >= TOWN_NAMES_PX,
                 _ => on_screen >= NAMES_PX,
             };
+        // The route it is a step of: the followed one, else one shown, else (with the whole
+        // map) any, dimmed.
+        let routes = state
+            .note_routes
+            .get(&node.note)
+            .map_or(&[][..], Vec::as_slice);
+        let route = routes
+            .iter()
+            .find(|&&r| Some(r) == state.followed)
+            .or_else(|| routes.iter().find(|r| state.active.contains(r)))
+            .and_then(|r| paint.routes.get(r))
+            .or_else(|| {
+                (state.whole || state.editing)
+                    .then(|| routes.first().and_then(|r| paint.routes_dim.get(r)))
+                    .flatten()
+            });
         let ring = if is_current || selected {
             &paint.ring_current
         } else if focused || node.rank == 0 {
             &paint.ring_hovered
+        } else if let Some(route) = route {
+            route
         } else if lit {
             &paint.ring_lit
         } else {
             &paint.ring
         };
+        let bold = route.is_some() || is_current || selected;
         let fill = if is_current {
             &paint.fill_current
         } else {
@@ -1045,8 +1130,12 @@ fn style_nodes(
                 });
             } else if let Ok(mut color) = icons.get_mut(child) {
                 color.set_if_neq(TextColor(icon));
-            } else if let Ok(mut material) = rings.get_mut(child) {
+            } else if let Ok((meshes, mut mesh, mut material)) = rings.get_mut(child) {
                 set(&mut material, ring);
+                let wanted = if bold { &meshes.bold } else { &meshes.thin };
+                if mesh.0 != *wanted {
+                    mesh.0 = wanted.clone();
+                }
             } else if let Ok(mut material) = fills.get_mut(child) {
                 set(&mut material, fill);
             }

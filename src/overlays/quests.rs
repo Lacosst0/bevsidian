@@ -10,6 +10,7 @@ use bevsidian_core::{
     nav::{Nav, View},
     vault::{NoteId, Quest, Vault},
 };
+use bevsidian_graph::route_color;
 use bevsidian_ui::prelude::*;
 
 pub fn plugin(app: &mut App) {
@@ -48,6 +49,8 @@ pub fn quest_dialog(nav: Nav, vault: Vault) -> impl Scene {
 struct Choice {
     note: NoteId,
     icon: char,
+    /// The route's colour on the map.
+    tint: Color,
     label: String,
     ticked: Signal<bool>,
 }
@@ -64,6 +67,7 @@ fn panel(nav: Nav, vault: Vault) -> impl Scene {
                 Choice {
                     note: p.note,
                     icon: data.notes[p.note].icon,
+                    tint: route_color(&data, p.note),
                     label: p.label.clone(),
                     ticked: signal(move || ticked),
                 }
@@ -156,7 +160,8 @@ fn group(choices: Vec<Choice>, title: &str) -> impl Scene + use<> {
     }
 }
 
-/// One route: its checkbox, icon and what it gives the game.
+/// One route: its checkbox, icon (in the route's colour on the map) and what it gives the
+/// game.
 fn choice(choice: Choice) -> Box<dyn Scene> {
     let toggle = choice.ticked.clone();
     Box::new(bsn! {
@@ -166,7 +171,7 @@ fn choice(choice: Choice) -> Box<dyn Scene> {
         Children [
             @{checkbox(choice.ticked.clone())}
             --
-            @{item_icon_char(choice.icon)}
+            @{icon_char(choice.icon, 16.0, choice.tint)}
             --
             @{item_label(&choice.label)}
         ]
