@@ -30,6 +30,7 @@ bevy_ui_commonmark.workspace = true
 bevsidian_core.workspace = true
 bevsidian_ui.workspace = true
 bevy_radioactive.workspace = true
+bevy_ui_textselect.workspace = true
 bevy_ui_touchscroll.workspace = true
 
 [lints]

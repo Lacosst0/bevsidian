@@ -57,9 +57,9 @@ pub use text::{block_text, slice_text};
 /// Common imports.
 pub mod prelude {
     pub use crate::{
-        ClearSelection, ClickableSpan, CopySelection, CopyText, Modifiers, PreserveSelection,
-        SelectAll, SelectableText, SelectionGroup, SelectionStyle, TextPoint, TextSelectPlugin,
-        TextSelection, TextSpanClick,
+        ClearSelection, ClickableSpan, CopySelection, CopyText, Modifiers, NoTextSelection,
+        PreserveSelection, SelectAll, SelectableText, SelectionGroup, SelectionStyle, TextPoint,
+        TextSelectPlugin, TextSelection, TextSpanClick,
     };
 }
 
@@ -139,6 +139,12 @@ pub struct SelectionGroup;
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct CopyText(pub String);
+
+/// Pressing this entity or its descendants never starts a text selection, even though a
+/// press beside text otherwise does (e.g. a game view whose drags move things).
+#[derive(Component, Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct NoTextSelection;
 
 /// Pressing this entity or its descendants keeps the current selection (e.g. a context
 /// menu or toolbar whose buttons act on the selection). Other presses outside text clear it.
@@ -410,7 +416,44 @@ impl Blocks<'_, '_> {
 
     /// The block of `group` under or vertically nearest to the pointer.
     fn nearest_block(&self, group: Entity, pointer: Vec2) -> Option<Entity> {
-        let blocks = self.blocks_of(group);
+        self.nearest_of(self.blocks_of(group), pointer)
+            .map(|(_, block)| block)
+    }
+
+    /// Where a press outside text starts a selection: the group around the pressed entity,
+    /// or (pressing beside it, e.g. in a page's margin) the group inside it nearest the
+    /// pointer; and that group's block nearest the pointer.
+    fn start_beside_text(&self, entity: Entity, pointer: Vec2) -> Option<(Entity, Entity)> {
+        let around = std::iter::once(entity)
+            .chain(self.parents.iter_ancestors(entity))
+            .find(|e| self.groups.contains(*e));
+        let groups = if let Some(group) = around {
+            vec![group]
+        } else {
+            // The outermost groups inside the pressed entity.
+            let mut found = Vec::new();
+            let mut stack = vec![entity];
+            while let Some(e) = stack.pop() {
+                if self.groups.contains(e) {
+                    found.push(e);
+                } else if let Ok(children) = self.children.get(e) {
+                    stack.extend(children.iter());
+                }
+            }
+            found
+        };
+        groups
+            .into_iter()
+            .filter_map(|group| {
+                let (score, block) = self.nearest_of(self.blocks_of(group), pointer)?;
+                Some((score, group, block))
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, group, block)| (group, block))
+    }
+
+    /// The block under or vertically nearest to the pointer, and how far it is (a score).
+    fn nearest_of(&self, blocks: Vec<Entity>, pointer: Vec2) -> Option<(f32, Entity)> {
         let mut best: Option<(f32, Entity)> = None;
         for block in blocks {
             let Some((rect, scale, ui_scale)) = self.global_rect(block) else {
@@ -437,7 +480,7 @@ impl Blocks<'_, '_> {
                 best = Some((score, block));
             }
         }
-        best.map(|(_, b)| b)
+        best
     }
 
     /// The span entity containing `index`.
@@ -588,6 +631,7 @@ fn pointer_selection(
     keys: Res<ButtonInput<KeyCode>>,
     blocks: Blocks,
     preserving: Query<(), With<PreserveSelection>>,
+    barriers: Query<(), Or<(With<NoTextSelection>, With<bevy::ui_widgets::Button>)>>,
     mut commands: Commands,
 ) {
     let PointerQueue {
@@ -619,11 +663,30 @@ fn pointer_selection(
         }
         let Some(block) = blocks.block_of(press.entity) else {
             // Pressing outside text clears the selection, except in UI that acts on it.
-            let preserve = std::iter::once(press.entity)
-                .chain(blocks.parents.iter_ancestors(press.entity))
-                .any(|e| preserving.contains(e));
+            let pressed =
+                || std::iter::once(press.entity).chain(blocks.parents.iter_ancestors(press.entity));
+            let preserve = pressed().any(|e| preserving.contains(e));
             if selection.anchor.is_some() && !preserve {
                 selection.clear();
+            }
+            // Beside text (between paragraphs, in a margin), a drag still selects, from
+            // the nearest text; buttons and the like keep their presses.
+            if press.count == 1
+                && !preserve
+                && !pressed().any(|e| barriers.contains(e))
+                && let Some((group, block)) =
+                    blocks.start_beside_text(press.entity, press.pointer.position)
+                && let Some(index) = blocks.index_at(block, press.pointer.position)
+            {
+                let point = TextPoint { block, index };
+                if shift_pressed(&keys) && selection.group == Some(group) {
+                    selection.focus = Some(point);
+                } else {
+                    selection.group = Some(group);
+                    selection.anchor = Some(point);
+                    selection.focus = Some(point);
+                }
+                selection.dragging = Some(press.pointer.id);
             }
             continue;
         };

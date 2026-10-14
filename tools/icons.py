@@ -29,7 +29,7 @@ speaker sprout star step-back step-forward sun table target terminal text tree-p
 triangle-alert trophy type upload user users video volume-2 wand-sparkles wrench x zap
 arrow-down arrow-up arrow-up-right chevron-down circle-check circle-x corner-down-left ellipsis
 external-link eye file filter folder-open hash square-function text-select undo-2 waypoints
-braces file-code blocks file-input bot swords route workflow shuffle save crosshair footprints dices backpack message-circle vibrate languages accessibility tree-deciduous
+chevrons-up-down chevrons-left-right braces file-code blocks file-input bot swords route workflow shuffle save crosshair footprints dices backpack message-circle vibrate languages accessibility tree-deciduous
 """.split()
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent

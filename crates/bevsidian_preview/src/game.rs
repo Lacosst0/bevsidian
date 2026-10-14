@@ -15,6 +15,7 @@ use bevy::{
     sprite::Anchor,
     ui::UiGlobalTransform,
 };
+use bevy_ui_textselect::NoTextSelection;
 use bevy_ui_touchscroll::{OwnsDrags, TouchScroll};
 
 use crate::{WorldPreview, runtime::PreviewRuntime};
@@ -49,6 +50,8 @@ pub(crate) fn game_frame(
         on(drag_start)
         on(drag)
         on(drag_end)
+        // Its presses are the game's, not the start of a text selection.
+        NoTextSelection
     };
     if interactive {
         Box::new(bsn! { @{frame} OwnsDrags })

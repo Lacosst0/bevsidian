@@ -3,6 +3,10 @@ export async function boot(start) {
   const loading = document.getElementById("loading");
   const status = document.getElementById("status");
   const canvas = document.getElementById("bevy");
+  // A wheel press autoscrolls inside the app: keep the browser's own autoscroll out of it.
+  canvas.addEventListener("mousedown", (event) => {
+    if (event.button === 1) event.preventDefault();
+  });
   status.textContent = "Starting Bevy…";
   try {
     await start();

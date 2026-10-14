@@ -45,6 +45,8 @@ pub const ICONS: &[(&str, char)] = &[
     ("chevron-down", '\u{e071}'),
     ("chevron-left", '\u{e072}'),
     ("chevron-right", '\u{e073}'),
+    ("chevrons-left-right", '\u{e292}'),
+    ("chevrons-up-down", '\u{e210}'),
     ("circle", '\u{e07a}'),
     ("circle-check", '\u{e225}'),
     ("circle-help", '\u{e082}'),

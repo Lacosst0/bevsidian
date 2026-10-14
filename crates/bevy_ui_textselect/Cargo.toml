@@ -13,6 +13,7 @@ categories = ["game-development", "gui"]
 bevy = { workspace = true, features = [
     "std",
     "bevy_ui",
+    "bevy_ui_widgets",
     "bevy_text",
     "bevy_window",
     "bevy_picking",

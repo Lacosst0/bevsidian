@@ -474,6 +474,7 @@ dependencies = [
  "bevy",
  "bevy_radioactive",
  "bevy_ui_commonmark",
+ "bevy_ui_textselect",
  "bevy_ui_touchscroll",
 ]
 

@@ -10,6 +10,10 @@
 //!   handlers check [`TouchScroll::gesture_scrolled`].
 //! - Wheel, keyboard and "scroll into view" jumps are eased ([`SmoothScroll`]), and the wheel
 //!   distance is scaled by [`ScrollSpeed`].
+//! - Pressing the mouse wheel starts autoscroll, as in browsers: the page scrolls towards the
+//!   pointer, faster the further it is from where the wheel was pressed. Holding the wheel
+//!   scrolls until it is let go; a quick click scrolls until the next press (or `Escape`).
+//!   [`TouchScroll::autoscroll`] tells where to draw its marker.
 
 use bevy::{
     picking::events::{PointerDrag, PointerDragEnd, PointerDragStart},
@@ -30,7 +34,10 @@ impl Plugin for TouchScrollPlugin {
             .add_observer(on_press)
             .add_observer(add_smooth_scroll)
             .add_observer(boost_wheel)
-            .add_systems(Update, (touch_momentum, release_scrolled_buttons))
+            .add_systems(
+                Update,
+                (touch_momentum, autoscroll, release_scrolled_buttons),
+            )
             .add_systems(
                 PostUpdate,
                 smooth_scroll.before(bevy::ui::UiSystems::Layout),
@@ -67,6 +74,34 @@ pub struct TouchScroll {
     frames: FrameClock,
     /// Time on the fling's curve shown this frame.
     fling_time: f64,
+    /// Middle-button autoscroll in progress.
+    autoscroll: Option<Autoscroll>,
+}
+
+/// A middle-button autoscroll.
+#[derive(Clone, Copy, Debug)]
+struct Autoscroll {
+    target: Entity,
+    /// Where the wheel was pressed (logical window px).
+    origin: Vec2,
+    /// The axes the target scrolls along.
+    axes: BVec2,
+    /// When the wheel was pressed (real seconds).
+    pressed_at: f64,
+    /// The wheel is still held down.
+    holding: bool,
+    /// The pointer left the dead zone while the wheel was held: letting go ends the scroll.
+    moved: bool,
+}
+
+/// Distance (logical px) from the autoscroll's origin within which nothing scrolls.
+pub const AUTOSCROLL_DEAD_ZONE: f32 = 12.0;
+/// A wheel press shorter than this (s), without moving, keeps autoscrolling once let go.
+const AUTOSCROLL_CLICK: f64 = 0.3;
+
+/// Autoscroll speed (px/s) at `distance` px past the dead zone: slow near it, quick far out.
+fn autoscroll_speed(distance: f32) -> f32 {
+    distance * 5.0 + distance * distance * 0.03
 }
 
 impl TouchScroll {
@@ -77,9 +112,19 @@ impl TouchScroll {
         self.scrolled
     }
 
-    /// Whether a finger is scrolling or a fling is coasting (frames are needed).
+    /// Whether a finger is scrolling, a fling is coasting or autoscroll runs (frames are
+    /// needed).
     pub fn busy(&self) -> bool {
-        self.pending.is_some() || self.active.is_some() || self.coasting.is_some()
+        self.pending.is_some()
+            || self.active.is_some()
+            || self.coasting.is_some()
+            || self.autoscroll.is_some()
+    }
+
+    /// The running autoscroll: where the wheel was pressed (logical window px) and the axes
+    /// it scrolls, for drawing its marker.
+    pub fn autoscroll(&self) -> Option<(Vec2, BVec2)> {
+        self.autoscroll.map(|a| (a.origin, a.axes))
     }
 }
 
@@ -334,16 +379,106 @@ fn touch_drag_start(
 pub const TOUCH_SLOP: f32 = 8.0;
 
 /// A new press starts a gesture that has not scrolled. A finger landing on a fling stops it,
-/// like on Android; that touch is not a tap either.
-fn on_press(press: On<bevy::picking::events::PointerPress>, mut scroll: ResMut<TouchScroll>) {
+/// like on Android; that touch is not a tap either. A press during autoscroll only ends it;
+/// a wheel press over a scroll area starts it.
+fn on_press(
+    press: On<bevy::picking::events::PointerPress>,
+    time: Res<Time<Real>>,
+    parents: Query<&ChildOf>,
+    areas: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
+    mut scroll: ResMut<TouchScroll>,
+) {
     if press.entity != press.original_event_target() {
         return;
     }
     scroll.scrolled = false;
+    if scroll.autoscroll.take().is_some() {
+        scroll.scrolled = true;
+        return;
+    }
     if press.pointer.id.is_touch() && scroll.coasting.take().is_some() {
         scroll.fling = None;
         scroll.scrolled = true;
     }
+    if press.button != bevy::picking::pointer::PointerButton::Middle || press.pointer.id.is_touch()
+    {
+        return;
+    }
+    // The nearest area that scrolls down, else sideways.
+    let Some(target) = scroll_target(press.entity, Vec2::Y, &parents, &areas)
+        .or_else(|| scroll_target(press.entity, Vec2::X, &parents, &areas))
+    else {
+        return;
+    };
+    let Ok((node, computed, _)) = areas.get(target) else {
+        return;
+    };
+    let overflow = computed.content_size() - computed.size();
+    scroll.autoscroll = Some(Autoscroll {
+        target,
+        origin: press.pointer.position,
+        axes: BVec2::new(
+            node.overflow.x == OverflowAxis::Scroll && overflow.x > 1.0,
+            node.overflow.y == OverflowAxis::Scroll && overflow.y > 1.0,
+        ),
+        pressed_at: time.elapsed_secs_f64(),
+        holding: true,
+        moved: false,
+    });
+    scroll.coasting = None;
+    scroll.fling = None;
+    // Not a click: a button under the wheel lets go without activating.
+    scroll.scrolled = true;
+}
+
+/// Scrolls the autoscroll's area towards the pointer, and ends it when the held wheel is let
+/// go (after moving or holding it), on `Escape`, or when the area goes away.
+fn autoscroll(
+    time: Res<Time<Real>>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    speed: Res<ScrollSpeed>,
+    windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut scroll: ResMut<TouchScroll>,
+    mut areas: Query<(&Node, &ComputedNode, &mut ScrollPosition)>,
+) {
+    let Some(mut auto) = scroll.autoscroll else {
+        return;
+    };
+    if keys.just_pressed(KeyCode::Escape) || !areas.contains(auto.target) {
+        scroll.autoscroll = None;
+        return;
+    }
+    let offset = windows
+        .single()
+        .ok()
+        .and_then(Window::cursor_position)
+        .map_or(Vec2::ZERO, |cursor| cursor - auto.origin);
+    if offset.length() > AUTOSCROLL_DEAD_ZONE {
+        auto.moved = true;
+    }
+    if auto.holding && !mouse.pressed(MouseButton::Middle) {
+        auto.holding = false;
+        let click = !auto.moved && time.elapsed_secs_f64() - auto.pressed_at < AUTOSCROLL_CLICK;
+        if !click {
+            scroll.autoscroll = None;
+            return;
+        }
+    }
+    let axis = |d: f32, on: bool| {
+        if on {
+            d.signum() * autoscroll_speed((d.abs() - AUTOSCROLL_DEAD_ZONE).max(0.0))
+        } else {
+            0.0
+        }
+    };
+    let velocity = Vec2::new(axis(offset.x, auto.axes.x), axis(offset.y, auto.axes.y));
+    apply_scroll(
+        auto.target,
+        velocity * speed.0 * time.delta_secs().min(0.1),
+        &mut areas,
+    );
+    scroll.autoscroll = Some(auto);
 }
 
 /// Buttons pressed by a touch that turned into a scroll let go without activating (Bevy's
@@ -551,8 +686,9 @@ fn smooth_scroll(
     // Frame-rate independent exponential easing (~90% of the way in 0.12 s).
     let t = 1.0 - (-19.0 * time.delta_secs().min(0.1)).exp();
     for (entity, computed, mut position, mut smooth) in &mut areas {
-        let touching =
-            touch.active.is_some_and(|(e, _)| e == entity) || touch.coasting == Some(entity);
+        let touching = touch.active.is_some_and(|(e, _)| e == entity)
+            || touch.coasting == Some(entity)
+            || touch.autoscroll.is_some_and(|a| a.target == entity);
         if position.0 != smooth.shown {
             // Someone else moved it: that is the new target.
             if touching {
