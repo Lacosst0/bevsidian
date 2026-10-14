@@ -19,7 +19,7 @@ Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**
 4. [[BSN]]: Bevy 0.20's scene notation.
 5. [[Bevsidian]]: how this app itself is built (optional).
 
-Or pick a route: [[A 2D game]], [[A 3D game]], [[Building UI]], [[Multiplayer]], [[Understanding ECS]], [[Ship it]] and more on [[Bevy]]. On the map, solid lines are a route, dashed ones side quests and dotted ones secrets.
+Or pick a route: [[A 2D game]], [[A 3D game]], [[Building UI]], [[Multiplayer]], [[Understanding ECS]], [[Ship it]] and more on [[Bevy]]. On the map, every route has its colour: solid lines are the route, dashed ones side quests and dotted ones secrets.
 
 ## How links work
 

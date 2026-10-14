@@ -4,7 +4,7 @@ use bevy::{prelude::*, ui_widgets::Activate};
 use bevy_radioactive::view::{memo, signal, view};
 
 use bevsidian_core::{Nav, Vault, vault::Quest};
-use bevsidian_graph::{GraphViewport, edit_bar, hover_hint, legend, zoom_controls};
+use bevsidian_graph::{GraphViewport, edit_bar, hover_hint, legend, route_color, zoom_controls};
 use bevsidian_ui::prelude::*;
 
 pub fn graph_page(nav: Nav, vault: Vault) -> impl Scene {
@@ -20,8 +20,9 @@ pub fn graph_page(nav: Nav, vault: Vault) -> impl Scene {
 /// The routes on the map, in a card that folds down to its header (folded at first on
 /// phones): the main quest and the routes chosen in the checklist, each with how many of its
 /// steps the reader has visited. Choosing one follows it (its line lights up, its steps are
-/// numbered and each of its notes links to the next); "Choose features" reopens the
-/// checklist and "Whole map" shows every note and line. Hidden when the vault has no routes.
+/// numbered and each of its notes links to the next); each wears its colour on the map.
+/// "Choose features" reopens the checklist and "Whole map" shows every note and line.
+/// Hidden when the vault has no routes.
 fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
     let rows = {
         let (vault, quests) = (vault.clone(), nav.quests.clone());
@@ -33,7 +34,8 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                 .filter(|p| p.quest == Quest::Main || chosen.contains(&p.note))
                 .map(|p| {
                     let note = &data.notes[p.note];
-                    (p.note, note.icon, note.name.clone(), p.steps.clone())
+                    let tint = route_color(&data, p.note);
+                    (p.note, note.icon, tint, note.name.clone(), p.steps.clone())
                 })
                 .collect::<Vec<_>>()
         })
@@ -113,7 +115,7 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                             --
                             #[key(entry.0)]
                             for entry in $rows {
-                                let (note, icon, name, steps) = entry;
+                                let (note, icon, tint, name, steps) = entry;
                                 let (choose, fold, visited) = (nav.path.clone(), fold.clone(), nav.visited.clone());
                                 let total = steps.len();
                                 @{item()}
@@ -126,7 +128,8 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                                     fold.set(false);
                                 })
                                 Children [
-                                    @{item_icon_char(icon)}
+                                    // In the route's colour on the map.
+                                    @{icon_char(icon, 16.0, tint)}
                                     --
                                     @{item_label(&name)}
                                     --

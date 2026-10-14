@@ -1,7 +1,6 @@
 //! The hint at the bottom of the graph while a note is hovered: its name and what a click
-//! and a double click do (a note holding folded notes folds on a click and opens on a double
-//! click; any other note opens on a click; while editing the map, a click chooses it). Not
-//! shown on touch screens, which have no hover.
+//! does (opens it; while editing the map, chooses it). Not shown on touch screens, which have
+//! no hover.
 
 use bevy::{prelude::*, text::FontWeight};
 
@@ -14,14 +13,12 @@ use crate::{GraphNode, GraphState};
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub(crate) struct HintBar;
 
-/// The parts of the hint that change: the note's name, what a click does, and the double
-/// click part (shown only for notes holding folded notes).
+/// The parts of the hint that change: the note's name and what a click does.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum HintPart {
     #[default]
     Name,
     Click,
-    Double,
 }
 
 /// A key-like chip ("Click"), as in shadcn/ui's `Kbd`.
@@ -81,16 +78,6 @@ pub fn hover_hint() -> impl Scene {
                 HintPart::Click
                 @{insert(font(size::SM, FontWeight::NORMAL))}
                 TextColor(color::MUTED_FOREGROUND)
-                --
-                Node { column_gap: px(8), align_items: AlignItems::Center }
-                HintPart::Double
-                Children [
-                    @{chip("Double-click")}
-                    --
-                    Text::new("open")
-                    @{insert(font(size::SM, FontWeight::NORMAL))}
-                    TextColor(color::MUTED_FOREGROUND)
-                ]
             ]
         ]
     }
@@ -103,15 +90,15 @@ pub(crate) fn show_hint(
     state: Res<GraphState>,
     nodes: Query<&GraphNode>,
     mut bars: Query<&mut Node, With<HintBar>>,
-    mut parts: Query<(&HintPart, Option<&mut Text>, Option<&mut Node>), Without<HintBar>>,
-    mut last: Local<Option<(Entity, bool, bool)>>,
+    mut parts: Query<(&HintPart, &mut Text), Without<HintBar>>,
+    mut last: Local<Option<(Entity, bool)>>,
 ) {
     let hovered = state
         .hovered
         .filter(|_| state.dragging.is_none() && !nav.touch.get_untracked())
         .and_then(|e| nodes.get(e).ok().map(|n| (e, n)));
     let editing = nav.map_edit.get_untracked();
-    let key = hovered.map(|(e, n)| (e, n.open, editing));
+    let key = hovered.map(|(e, _)| (e, editing));
     if *last == key && !bars.is_empty() {
         return;
     }
@@ -126,35 +113,19 @@ pub(crate) fn show_hint(
     let Some((_, node)) = hovered else {
         return;
     };
-    let foldable = !editing && node.folds > 0;
     let name = vault.get_untracked().notes[node.note].name.clone();
-    let click = match (foldable, node.open) {
-        _ if editing => "choose it; drag it to move it".to_owned(),
-        (false, _) => "open".to_owned(),
-        (true, false) => format!("show {} more", node.folds),
-        (true, true) => format!("fold {} away", node.folds),
+    let click = if editing {
+        "choose it; drag it to move it"
+    } else {
+        "open"
     };
-    for (part, text, layout) in &mut parts {
-        match part {
-            HintPart::Name => {
-                if let Some(mut text) = text {
-                    text.0.clone_from(&name);
-                }
-            }
-            HintPart::Click => {
-                if let Some(mut text) = text {
-                    text.0.clone_from(&click);
-                }
-            }
-            HintPart::Double => {
-                if let Some(mut layout) = layout {
-                    layout.display = if foldable {
-                        Display::Flex
-                    } else {
-                        Display::None
-                    };
-                }
-            }
+    for (part, mut text) in &mut parts {
+        let wanted = match part {
+            HintPart::Name => name.as_str(),
+            HintPart::Click => click,
+        };
+        if text.0 != wanted {
+            wanted.clone_into(&mut text.0);
         }
     }
 }

@@ -1,6 +1,5 @@
-//! The tree the map folds along: every note hangs from one other, up to the hub. Notes beyond
-//! the concepts (sub-concepts and crates) fold into the note they hang from, and a note the
-//! map leaves out is placed beside it.
+//! Which note grows from which: every note hangs from one other, up to the hub, and a note
+//! the map leaves out is placed beside the note it hangs from.
 
 use bevy::math::Vec2;
 
@@ -159,7 +158,7 @@ pub fn place_the_rest(placed: &[Option<Vec2>], parent: &[Option<usize>]) -> Vec<
 }
 
 /// How far from its parent a note the map leaves out is placed.
-const UNPLACED_GAP: f32 = 170.0;
+const UNPLACED_GAP: f32 = 130.0;
 
 #[cfg(test)]
 mod tests {

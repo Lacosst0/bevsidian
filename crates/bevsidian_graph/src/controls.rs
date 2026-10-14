@@ -1,4 +1,4 @@
-//! The map's controls: the zoom buttons (with folding and the map editor's toggle), the
+//! The map's controls: the zoom buttons (with the map editor's toggle), the
 //! legend and the edit bar.
 
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
@@ -15,19 +15,8 @@ use crate::{
 };
 
 /// Zoom buttons over the map (the only way to zoom on touch screens): one bordered group of
-/// zoom in, zoom out and fit, unfold and fold every note, and edit the map.
+/// zoom in, zoom out and fit, and edit the map.
 pub fn zoom_controls() -> impl Scene {
-    fn fold_button(icon: &'static str, tip: &'static str, all: bool) -> impl Scene {
-        bsn! {
-            @{icon_button(Variant::Ghost, Size::Icon, icon)}
-            Tooltip::new(tip)
-            Node { border: UiRect::top(px(1.0)), border_radius: BorderRadius::ZERO }
-            BorderColor::all(color::BORDER)
-            on(move |_: On<Activate>, mut state: ResMut<GraphState>| {
-                state.fold_all = Some(all);
-            })
-        }
-    }
     fn zoom_button(icon: &'static str, tip: &'static str, factor: f32, first: bool) -> impl Scene {
         bsn! {
             @{icon_button(Variant::Ghost, Size::Icon, icon)}
@@ -91,10 +80,6 @@ pub fn zoom_controls() -> impl Scene {
             --
             @{fit_button()}
             --
-            @{fold_button("unfold-vertical", "Expand all", true)}
-            --
-            @{fold_button("fold-vertical", "Collapse all", false)}
-            --
             @{icon_button(Variant::Ghost, Size::Icon, "pencil-ruler")}
             EditToggle
             Tooltip::new("Edit the map")
@@ -113,7 +98,7 @@ pub(crate) struct EditToggle;
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub(crate) struct Legend;
 
-/// What the map's stars, shapes and lines mean, in its corner.
+/// What the map's notes, shapes and lines mean, in its corner.
 pub fn legend() -> impl Scene {
     fn row(sample: Box<dyn Scene>, text: &str) -> impl Scene + use<> {
         let sample = vec![sample];
@@ -146,30 +131,23 @@ pub fn legend() -> impl Scene {
             Children [ {pieces} ]
         })
     }
-    // A note holding folded notes: the "+N" badge.
-    let badge: Box<dyn Scene> = Box::new(bsn! {
+    // A note: lit once read, dim before.
+    let note = |tint: Color| -> Box<dyn Scene> { Box::new(icon("circle", 14.0, tint)) };
+    let (read, unread) = (note(color::BODY), note(color::DISABLED_FOREGROUND));
+    // A route's bullet: its icon on a disc of its colour.
+    let route = color::MAP_ROUTES[0];
+    let bullet: Box<dyn Scene> = Box::new(bsn! {
         Node {
-            width: px(18),
-            height: px(18),
+            width: px(16),
+            height: px(16),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             border_radius: BorderRadius::MAX,
         }
-        BackgroundColor(color::FOREGROUND)
-        Children [
-            Text::new("+")
-            @{insert(font(size::XS, FontWeight::SEMIBOLD))}
-            TextColor(color::PRIMARY_FOREGROUND)
-        ]
+        BackgroundColor(route)
+        Children [ @{icon("shapes", 10.0, color::BACKGROUND)} ]
     });
-    // A star: lit once read, dim before.
-    let star = |tint: Color, size: f32| -> Box<dyn Scene> {
-        Box::new(bsn! {
-            Node { width: px(size), height: px(size), border_radius: BorderRadius::MAX }
-            BackgroundColor(tint)
-        })
-    };
-    let (lit, dim) = (star(color::MAP_STAR, 7.0), star(color::MAP_STAR_DIM, 5.0));
+    let arrow: Box<dyn Scene> = Box::new(icon("chevron-right", 14.0, color::MUTED_FOREGROUND));
     let shadow = shadow::popover();
     bsn! {
         Node {
@@ -188,9 +166,9 @@ pub fn legend() -> impl Scene {
         Pickable::IGNORE
         shadow
         Children [
-            @{row(lit, "Star you have read")}
+            @{row(read, "Note you have read")}
             --
-            @{row(dim, "Star still to read")}
+            @{row(unread, "Note still to read")}
             --
             @{separator()} Node { margin: UiRect::vertical(px(3)) }
             --
@@ -212,7 +190,9 @@ pub fn legend() -> impl Scene {
             --
             @{row(line(4, 4.0, true), "Secret")}
             --
-            @{row(badge, "Holds folded notes")}
+            @{row(arrow, "Reading order")}
+            --
+            @{row(bullet, "Where a route begins")}
         ]
     }
 }

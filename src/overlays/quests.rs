@@ -1,6 +1,6 @@
 //! "What's in your game?": the map's checklist. The reader ticks the features their game has
 //! (and what else they want to get better at); the map then shows the main quest and the
-//! roads to those features, and folds the rest away. It opens the first time the map
+//! roads to those features, and leaves the rest out until the whole map is shown. It opens the first time the map
 //! is shown, and from the map's quest log.
 
 use bevy::{prelude::*, ui_widgets::Activate};
@@ -101,7 +101,7 @@ fn panel(nav: Nav, vault: Vault) -> impl Scene {
             Children [
                 @{dialog_header("What's in your game?", move || close.map_setup.set(false))}
                 --
-                @{muted("Tick what your game has. The map shows the routes to build it, starting from Bevy; everything else waits, folded, one click away.")}
+                @{muted("Tick what your game has. The map shows the routes to build it, starting from Bevy; everything else waits on the whole map, one click away.")}
             ]
             --
             @{group(features, "Your game has")}

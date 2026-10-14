@@ -63,16 +63,6 @@ fn every_note_of_the_course_is_on_the_map() {
     for app in ["Welcome", "Bevsidian", "UI kit"] {
         assert!(!layout.notes.contains(&vault.find(app).unwrap()), "{app}");
     }
-    // Every note hangs from the hub, through notes of the map.
-    for slot in 0..layout.notes.len() {
-        let (mut at, mut steps) = (slot, 0);
-        while let Some(up) = layout.parent[at] {
-            at = up;
-            steps += 1;
-            assert!(steps < 8, "{} is too deep or loops", name(slot));
-        }
-        assert_eq!(at, layout.root, "{}", name(slot));
-    }
 }
 
 #[test]
@@ -83,7 +73,7 @@ fn notes_on_the_map_do_not_crowd_each_other() {
         for b in (a + 1)..layout.notes.len() {
             let apart = layout.homes[a].distance(layout.homes[b]);
             assert!(
-                apart > 110.0,
+                apart > 100.0,
                 "{} and {} are {apart} apart",
                 vault.notes[layout.notes[a]].name,
                 vault.notes[layout.notes[b]].name
@@ -124,26 +114,34 @@ fn every_route_is_a_quest_on_the_map() {
     let layout = home_positions(&vault);
     let place = |id: NoteId| layout.slot(id).map(|s| layout.homes[s]);
     let hub = layout.notes[layout.root];
-    let lines = routes::lines(&vault, &place, hub);
+    let drawn = routes::lines(&vault, &place, hub);
     let main = main[0].note;
-    for (a, b, uses) in &lines {
+    for (a, b, uses) in &drawn.lines {
         assert!(place(*a).is_some() && place(*b).is_some());
         if *a == hub || *b == hub {
-            assert!(uses.iter().all(|(r, _)| *r == main), "{uses:?}");
+            assert!(uses.iter().all(|u| u.route == main), "{uses:?}");
         }
-        // No line is longer than half the map.
+        // No line runs across the map.
         let length = place(*a).unwrap().distance(place(*b).unwrap());
         assert!(
-            length < 1300.0,
+            length < 1000.0,
             "{} to {} is {length} long",
             vault.notes[*a].name,
             vault.notes[*b].name
         );
     }
+    // Every route but the main quest has a bullet where it begins.
+    for path in vault.paths.iter().filter(|p| p.quest != Quest::Main) {
+        assert!(
+            drawn.starts.iter().any(|(route, ..)| *route == path.note),
+            "{} has no bullet",
+            vault.notes[path.note].name
+        );
+    }
 }
 
 #[test]
-fn a_folded_note_unfolds_out_of_its_parent_and_folds_back_in() {
+fn a_note_that_appears_floats_home() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         // Every update is one 60 Hz frame.
@@ -152,23 +150,16 @@ fn a_folded_note_unfolds_out_of_its_parent_and_folds_back_in() {
         ))
         .insert_resource(Nav::new(99))
         .init_resource::<GraphState>()
-        .add_systems(Update, (fold::fold_nodes, motion).chain());
-    app.world().resource::<Nav>().view.set(View::Graph);
-    let node = |note: usize, rank: usize, home: Vec2, parent: Option<Entity>| {
+        .add_systems(Update, (show::show_nodes, motion).chain());
+    let node = |note: usize, forced: bool, home: Vec2| {
         (
             GraphNode {
                 note,
                 radius: 20.0,
-                shape: Shape::Circle,
-                rank,
-                forced: rank == 0,
+                rank: usize::from(!forced),
+                forced,
                 step: None,
-                parent,
-                folds: 0,
-                open: false,
                 hidden: false,
-                tucking: false,
-                tuck_to: Vec2::ZERO,
                 home,
                 arriving: false,
             },
@@ -176,60 +167,37 @@ fn a_folded_note_unfolds_out_of_its_parent_and_folds_back_in() {
             Visibility::default(),
         )
     };
-    let hub = app.world_mut().spawn(node(0, 0, Vec2::ZERO, None)).id();
-    let crate_note = app
+    let hub = app.world_mut().spawn(node(0, true, Vec2::ZERO)).id();
+    let other = app
         .world_mut()
-        .spawn(node(1, 4, Vec2::new(300.0, 0.0), Some(hub)))
+        .spawn(node(1, false, Vec2::new(300.0, 0.0)))
         .id();
-    let run = |app: &mut App, frames: usize| {
-        for _ in 0..frames {
-            app.update();
-        }
-    };
     let get = |app: &App, e: Entity| {
-        let node = app.world().get::<GraphNode>(e).unwrap();
+        let hidden = app.world().get::<GraphNode>(e).unwrap().hidden;
         let at = app
             .world()
             .get::<Transform>(e)
             .unwrap()
             .translation
             .truncate();
-        (node.hidden, node.folds, at)
+        (hidden, at)
     };
-    run(&mut app, 1);
-    assert!(get(&app, crate_note).0, "off every route: folded at first");
-    assert_eq!(get(&app, hub).1, 1, "the hub holds it");
+    app.update();
+    assert!(!get(&app, hub).0, "the hub always shows");
+    assert!(get(&app, other).0, "off every route shown: hidden");
 
-    app.world_mut().resource_mut::<GraphState>().fold_toggle = Some(hub);
-    run(&mut app, 1);
-    let (hidden, _, at) = get(&app, crate_note);
-    assert!(!hidden && at.x < 50.0, "it unfolds out of its parent: {at}");
-    run(&mut app, 240);
-    assert!(
-        (get(&app, crate_note).2.x - 300.0).abs() < 1.0,
-        "and floats home"
-    );
-
-    app.world_mut().resource_mut::<GraphState>().fold_toggle = Some(hub);
-    run(&mut app, 1);
-    assert!(
-        !get(&app, crate_note).0,
-        "folding, it first floats back into its parent"
-    );
-    run(&mut app, 240);
-    let (hidden, _, at) = get(&app, crate_note);
-    assert!(hidden && at.x < 10.0, "then disappears there: {at}");
-    assert_eq!(
-        app.world().get::<GraphNode>(crate_note).unwrap().home,
-        Vec2::new(300.0, 0.0),
-        "its place is kept"
-    );
-
-    // With the whole map, a crate still folds (it is beyond the concepts); editing shows it.
     app.world_mut().resource_mut::<GraphState>().whole = true;
-    run(&mut app, 2);
-    assert!(get(&app, crate_note).0);
-    app.world().resource::<Nav>().map_edit.set(true);
-    run(&mut app, 2);
-    assert!(!get(&app, crate_note).0, "editing shows every note");
+    app.update();
+    let (hidden, at) = get(&app, other);
+    assert!(
+        !hidden && at.x < 299.0,
+        "with the whole map it appears, sliding in: {at}"
+    );
+    for _ in 0..240 {
+        app.update();
+    }
+    assert!(
+        (get(&app, other).1.x - 300.0).abs() < 1.0,
+        "and settles at its place"
+    );
 }

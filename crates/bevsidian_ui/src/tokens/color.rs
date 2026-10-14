@@ -75,8 +75,8 @@ pub const WARNING_SOFT: Color = Color::srgba(0.984, 0.749, 0.141, 0.02);
 pub const FIND_MATCH: Color = Color::srgba(0.984, 0.749, 0.141, 0.09);
 pub const FIND_CURRENT: Color = Color::srgba(0.984, 0.573, 0.235, 0.3);
 
-// The graph's star map. The sky is `BACKGROUND`; these are opaque except the glows, the
-// nebulae and the name plates, which lie over it.
+// The graph's star map. The sky is `BACKGROUND`; these are opaque except the nebulae,
+// which lie over it.
 
 /// `#121212`: the celestial grid (circles and spokes around the capital).
 pub const MAP_GRID: Color = Color::srgb(0.071, 0.071, 0.071);
@@ -85,27 +85,33 @@ pub const MAP_FIELD_FAINT: Color = Color::srgb(0.3, 0.3, 0.3);
 pub const MAP_FIELD_BRIGHT: Color = Color::srgb(0.85, 0.85, 0.85);
 /// A nebula's middle: white over the sky (CSS: white 8 %).
 pub const MAP_NEBULA: Color = Color::srgba(1.0, 1.0, 1.0, 0.009);
-/// Behind a note's name: the sky, nearly opaque, so lines do not show between its letters.
-pub const MAP_PLATE: Color = Color::srgba(0.039, 0.039, 0.039, 0.7);
-/// `#3d2613`: the glow under the followed route's line (the link colour, dimmed over the sky).
-pub const MAP_ROUTE_GLOW: Color = Color::srgb(0.24, 0.15, 0.075);
-/// `#f5f5f4`: a note's star once read.
-pub const MAP_STAR: Color = Color::srgb(0.961, 0.961, 0.957);
-/// `#7a7a7a`: a note's star before it is read.
-pub const MAP_STAR_DIM: Color = Color::srgb(0.478, 0.478, 0.478);
-/// The glow around a read star, an unread one and the one being read (the middle of the
-/// glow; it fades to nothing).
-pub const MAP_GLOW: Color = Color::srgba(1.0, 1.0, 1.0, 0.045);
-pub const MAP_GLOW_DIM: Color = Color::srgba(1.0, 1.0, 1.0, 0.012);
-pub const MAP_GLOW_LINK: Color = Color::srgba(0.984, 0.573, 0.235, 0.16);
+/// Behind a note's name: the sky, opaque, so lines pass under the name.
+pub const MAP_PLATE: Color = BACKGROUND;
 /// `#3a3a3a`: the outline of a note's shape.
 pub const MAP_RING: Color = Color::srgb(0.227, 0.227, 0.227);
-/// `#6b6b6b`: the lines of the routes shown.
+/// `#5a5a5a`: the outline of a note's shape once it is read.
+pub const MAP_RING_LIT: Color = Color::srgb(0.353, 0.353, 0.353);
+/// The colours of the routes on the map (Tailwind's 400 shades: bright on the sky, and not
+/// orange, which is the note being read). A route also has a bullet with its icon, so routes
+/// never tell apart by colour alone.
+pub const MAP_ROUTES: [Color; 12] = [
+    Color::srgb(0.220, 0.741, 0.973), // sky #38bdf8
+    Color::srgb(0.655, 0.545, 0.980), // violet #a78bfa
+    Color::srgb(0.204, 0.827, 0.600), // emerald #34d399
+    Color::srgb(0.984, 0.443, 0.522), // rose #fb7185
+    Color::srgb(0.984, 0.749, 0.141), // amber #fbbf24
+    Color::srgb(0.133, 0.827, 0.933), // cyan #22d3ee
+    Color::srgb(0.639, 0.902, 0.208), // lime #a3e635
+    Color::srgb(0.910, 0.475, 0.976), // fuchsia #e879f9
+    Color::srgb(0.506, 0.549, 0.973), // indigo #818cf8
+    Color::srgb(0.176, 0.831, 0.749), // teal #2dd4bf
+    Color::srgb(0.957, 0.447, 0.714), // pink #f472b6
+    Color::srgb(0.980, 0.800, 0.082), // yellow #facc15
+];
+/// `#6b6b6b`: the main quest's lines.
 pub const MAP_LINE: Color = Color::srgb(0.42, 0.42, 0.42);
 /// `#363636`: the other lines, with the whole map shown.
 pub const MAP_LINE_FAINT: Color = Color::srgb(0.21, 0.21, 0.21);
-/// `#2e2e2e`: trails to notes no line reaches.
-pub const MAP_TRAIL: Color = Color::srgb(0.18, 0.18, 0.18);
 /// `#333333`: landmarks drawn in the sky.
 pub const MAP_INK: Color = Color::srgb(0.2, 0.2, 0.2);
 /// `#595959`: map labels.

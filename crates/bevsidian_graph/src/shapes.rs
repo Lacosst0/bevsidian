@@ -1,12 +1,9 @@
-//! What a note is drawn with: a star (a bright core in a soft glow, with diffraction spikes
-//! for the brightest), and the hairline outline of its [`Shape`] around it. Meshes are unit
-//! sized and scaled to each note.
+//! What a note is drawn with: its [`Shape`], filled, with an outline around it (the note's
+//! icon sits inside). Meshes are unit sized and scaled to each note.
 
 use bevy::{asset::RenderAssetUsages, mesh::PrimitiveTopology, prelude::*};
 
 use bevsidian_core::map::Shape;
-
-use crate::mesh::Shapes;
 
 /// The corners of a shape of radius 1, as drawn: polygons are a little larger than the
 /// circle so they look the same size.
@@ -46,51 +43,37 @@ pub fn ring(shape: Shape, width: f32) -> Mesh {
             [i, next, count + i, next, count + next, count + i]
         })
         .collect();
-    flat(positions, indices, None)
+    flat(positions, indices)
 }
 
-/// A soft glow of radius 1: opaque white in the middle, fading to nothing at the edge (the
-/// material's colour tints it and sets how strong it is).
-pub fn glow() -> Mesh {
-    let mut glow = Shapes::default();
-    // Fades like a star's light: fast near the core, a long faint tail.
-    glow.fade(Vec2::ZERO, 1.0, (6, 40), 0.0, |r| (1.0 - r).powi(3));
-    glow.into_mesh()
-}
-
-/// Diffraction spikes of length 1: four thin points, bright at the centre, fading to their
-/// tips (two long ones across, two shorter up and down… as a telescope draws a bright star).
-pub fn spikes() -> Mesh {
+/// A filled shape of radius 1: a fan of triangles from its centre (every shape here is
+/// star-shaped around it, so the fan covers it exactly).
+pub fn fill(shape: Shape) -> Mesh {
+    let corners = outline(shape);
     let mut positions = vec![[0.0, 0.0, 0.0]];
-    let mut colors = vec![[1.0, 1.0, 1.0, 1.0]];
-    let mut indices = Vec::new();
-    for (i, length) in [1.0_f32, 0.7, 1.0, 0.7].into_iter().enumerate() {
-        let direction = Vec2::from_angle(i as f32 * std::f32::consts::FRAC_PI_2);
-        let side = direction.perp() * 0.035;
-        let base = positions.len() as u32;
-        for (p, alpha) in [(side, 0.8), (direction * length, 0.0), (-side, 0.8)] {
-            positions.push([p.x, p.y, 0.0]);
-            colors.push([1.0, 1.0, 1.0, alpha]);
-        }
-        indices.extend([0, base, base + 1, 0, base + 1, base + 2]);
-    }
-    flat(positions, indices, Some(colors))
+    positions.extend(corners.iter().map(|c| [c.x, c.y, 0.0]));
+    let count = corners.len() as u32;
+    let indices = (0..count)
+        .flat_map(|i| [0, 1 + i, 1 + (i + 1) % count])
+        .collect();
+    flat(positions, indices)
 }
 
-fn flat(positions: Vec<[f32; 3]>, indices: Vec<u32>, colors: Option<Vec<[f32; 4]>>) -> Mesh {
+/// How far a shape reaches above its centre, as a share of its radius.
+pub fn top(shape: Shape) -> f32 {
+    outline(shape).iter().map(|p| p.y).fold(0.0, f32::max)
+}
+
+fn flat(positions: Vec<[f32; 3]>, indices: Vec<u32>) -> Mesh {
     let count = positions.len();
-    let mut mesh = Mesh::new(
+    Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; count])
     .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.5, 0.5]; count])
-    .with_inserted_indices(bevy::mesh::Indices::U32(indices));
-    if let Some(colors) = colors {
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    }
-    mesh
+    .with_inserted_indices(bevy::mesh::Indices::U32(indices))
 }
 
 #[cfg(test)]
@@ -108,21 +91,13 @@ mod tests {
     }
 
     #[test]
-    fn glows_fade_out_and_spikes_have_four_points() {
-        let glow = glow();
-        let Some(bevy::mesh::VertexAttributeValues::Float32x4(colors)) =
-            glow.attribute(Mesh::ATTRIBUTE_COLOR)
-        else {
-            panic!("a glow has vertex colours");
-        };
-        assert!(
-            (colors[0][3] - 1.0).abs() < f32::EPSILON,
-            "bright in the middle"
-        );
-        assert!(
-            colors.last().unwrap()[3].abs() < f32::EPSILON,
-            "gone at the edge"
-        );
-        assert_eq!(spikes().indices().unwrap().len(), 4 * 6);
+    fn every_fill_is_a_closed_fan() {
+        for shape in Shape::ALL {
+            let corners = outline(shape).len();
+            let fill = fill(shape);
+            assert_eq!(fill.count_vertices(), corners + 1, "{shape:?}");
+            assert_eq!(fill.indices().unwrap().len(), corners * 3, "{shape:?}");
+            assert!((0.8..1.4).contains(&top(shape)), "{shape:?}");
+        }
     }
 }

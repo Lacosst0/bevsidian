@@ -109,12 +109,6 @@ impl Shapes {
         }
     }
 
-    pub fn into_mesh(self) -> Mesh {
-        let mut mesh = empty();
-        self.write(&mut mesh);
-        mesh
-    }
-
     /// Replaces the mesh behind `handle` with these shapes.
     pub fn upload(self, meshes: &mut Assets<Mesh>, handle: &Handle<Mesh>) {
         if let Some(mut mesh) = meshes.get_mut(handle) {

@@ -1,10 +1,10 @@
-//! Routes on the map: the reading paths drawn as constellation lines.
+//! Routes on the map: the reading paths drawn as lines between their notes.
 //!
 //! The main quest (`quest: main`) starts at the hub; every other route starts at the stop of
 //! the main quest nearest its first step (or at the hub), so lines branch off the spiral
-//! instead of all crossing the capital. The map shows the main quest, the routes chosen in
-//! its checklist and the route being followed: their steps are always on the map (whatever is
-//! folded), and every other note only when unfolded, or with the whole map shown.
+//! instead of all crossing the hub. A route's core steps are joined in order; each side quest
+//! or secret hangs from the route's core step nearest it, so a spur is always short. The map
+//! shows the main quest, the routes chosen in its checklist and the route being followed.
 
 use bevy::prelude::*;
 
@@ -13,18 +13,38 @@ use bevsidian_core::{
     vault::{NoteId, Quest, StepKind, Vault, VaultData},
 };
 
-use crate::{GraphLabel, GraphLabelName, GraphNode, GraphState, label_text};
+use crate::{GraphLabel, GraphNode, GraphState, label_text};
 
-/// A line's two notes (lower id first), and the routes that take it, with how.
-pub type LineEnds = (NoteId, NoteId, Vec<(NoteId, StepKind)>);
+/// How a route takes a line: which route, as what kind of step, and whether it goes from the
+/// line's lower note to its higher one (the reading order, for the line's arrow).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Use {
+    pub route: NoteId,
+    pub kind: StepKind,
+    pub forward: bool,
+}
+
+/// A line's two notes (lower id first), and the routes that take it.
+pub type LineEnds = (NoteId, NoteId, Vec<Use>);
+
+/// Every route's lines, and where each route but the main quest begins (the line its bullet
+/// sits on: from the main quest to its first step, or its first two steps).
+pub struct RouteLines {
+    pub lines: Vec<LineEnds>,
+    pub starts: Vec<(NoteId, NoteId, NoteId)>,
+}
 
 /// The lines of every route. `place` says where a note sits; `hub` is where the main quest
 /// starts.
-pub fn lines(
-    vault: &VaultData,
-    place: &dyn Fn(NoteId) -> Option<Vec2>,
-    hub: NoteId,
-) -> Vec<LineEnds> {
+pub fn lines(vault: &VaultData, place: &dyn Fn(NoteId) -> Option<Vec2>, hub: NoteId) -> RouteLines {
+    let at = |n: NoteId| place(n).unwrap_or_default();
+    let nearest = |to: NoteId, among: &[NoteId]| {
+        among
+            .iter()
+            .copied()
+            .filter(|&a| a != to)
+            .min_by(|&a, &b| at(a).distance(at(to)).total_cmp(&at(b).distance(at(to))))
+    };
     let mut anchors = vec![hub];
     for path in vault.paths.iter().filter(|p| p.quest == Quest::Main) {
         for (&step, &kind) in path.steps.iter().zip(&path.kinds) {
@@ -34,26 +54,32 @@ pub fn lines(
         }
     }
     let mut out: Vec<LineEnds> = Vec::new();
-    let mut add = |a: NoteId, b: NoteId, route: NoteId, kind: StepKind| {
-        if a == b {
+    let mut add = |from: NoteId, to: NoteId, route: NoteId, kind: StepKind| {
+        if from == to {
             return;
         }
-        let (a, b) = (a.min(b), a.max(b));
-        let at = out
+        let (a, b) = (from.min(to), from.max(to));
+        let index = out
             .iter()
             .position(|r| (r.0, r.1) == (a, b))
             .unwrap_or_else(|| {
                 out.push((a, b, Vec::new()));
                 out.len() - 1
             });
-        let line = &mut out[at];
-        match line.2.iter_mut().find(|(r, _)| *r == route) {
+        let line = &mut out[index];
+        let taken = Use {
+            route,
+            kind,
+            forward: from == a,
+        };
+        match line.2.iter_mut().find(|u| u.route == route) {
             // A route taking a line twice takes it as a core step if either is.
-            Some((_, was)) if kind == StepKind::Core => *was = kind,
+            Some(was) if kind == StepKind::Core => *was = taken,
             Some(_) => {}
-            None => line.2.push((route, kind)),
+            None => line.2.push(taken),
         }
     };
+    let mut starts = Vec::new();
     for path in &vault.paths {
         let Some(&first) = path.steps.first() else {
             continue;
@@ -63,25 +89,37 @@ pub fn lines(
         } else if anchors.contains(&first) {
             None
         } else {
-            let at = place(first).unwrap_or_default();
-            anchors
-                .iter()
-                .copied()
-                .filter(|&a| a != first)
-                .min_by(|&a, &b| {
-                    let da = place(a).unwrap_or_default().distance(at);
-                    let db = place(b).unwrap_or_default().distance(at);
-                    da.total_cmp(&db)
-                })
+            nearest(first, &anchors)
         };
+        let cores: Vec<NoteId> = path
+            .steps
+            .iter()
+            .zip(&path.kinds)
+            .filter(|(_, k)| **k == StepKind::Core)
+            .map(|(&s, _)| s)
+            .collect();
         if let Some(start) = start {
             add(start, first, path.note, StepKind::Core);
         }
-        for (from, to, kind) in path.edges() {
-            add(path.steps[from], path.steps[to], path.note, kind);
+        if path.quest != Quest::Main {
+            match (start, cores.get(1)) {
+                (Some(start), _) => starts.push((path.note, start, first)),
+                (None, Some(&second)) => starts.push((path.note, first, second)),
+                (None, None) => {}
+            }
+        }
+        for pair in cores.windows(2) {
+            add(pair[0], pair[1], path.note, StepKind::Core);
+        }
+        for (&step, &kind) in path.steps.iter().zip(&path.kinds) {
+            if kind != StepKind::Core
+                && let Some(from) = nearest(step, &cores)
+            {
+                add(from, step, path.note, kind);
+            }
         }
     }
-    out
+    RouteLines { lines: out, starts }
 }
 
 /// The routes shown: the main quest, the ones chosen in the checklist and the followed one.
@@ -109,8 +147,7 @@ pub(crate) fn choose_routes(
     vault: Res<Vault>,
     mut state: ResMut<GraphState>,
     mut nodes: Query<(&mut GraphNode, &Children)>,
-    labels: Query<&Children, With<GraphLabel>>,
-    mut names: Query<&mut TextSpan, With<GraphLabelName>>,
+    mut labels: Query<&mut Text2d, With<GraphLabel>>,
     mut last: Local<Option<(Option<Vec<NoteId>>, Option<NoteId>, bool, u64, usize)>>,
 ) {
     let data = vault.get_untracked();
@@ -152,19 +189,16 @@ pub(crate) fn choose_routes(
         node.step = step;
         let label = label_text(&data.notes[node.note].name, step);
         for &child in children {
-            for &span in labels.get(child).into_iter().flatten() {
-                if let Ok(mut text) = names.get_mut(span)
-                    && text.0 != label
-                {
-                    text.0.clone_from(&label);
-                }
+            if let Ok(mut text) = labels.get_mut(child)
+                && text.0 != label
+            {
+                text.0.clone_from(&label);
             }
         }
     }
     state.active = active;
     state.followed = followed;
     state.whole = whole;
-    state.refold = true;
     if !first && rerouted {
         state.framing = true;
         state.frame_route = refollowed && followed.is_some();
@@ -197,26 +231,37 @@ mod tests {
             Some(match vault.notes[n].name.as_str() {
                 "A" => Vec2::new(100.0, 0.0),
                 "B" => Vec2::new(0.0, 100.0),
+                "C" => Vec2::new(20.0, 160.0),
                 "D" => Vec2::new(0.0, 300.0),
                 _ => Vec2::ZERO,
             })
         };
-        let lines = lines(&vault, &place, id("Hub"));
+        let drawn = lines(&vault, &place, id("Hub"));
+        // How each route takes the line from `a` to `b`, and whether in that direction.
         let line = |a: &str, b: &str| {
-            let (a, b) = (id(a).min(id(b)), id(a).max(id(b)));
-            lines
+            let (lo, hi) = (id(a).min(id(b)), id(a).max(id(b)));
+            drawn
+                .lines
                 .iter()
-                .find(|r| (r.0, r.1) == (a, b))
-                .map(|r| r.2.clone())
+                .find(|r| (r.0, r.1) == (lo, hi))
+                .map(|r| {
+                    r.2.iter()
+                        .map(|u| (u.route, u.kind, u.forward == (id(a) == lo)))
+                        .collect::<Vec<_>>()
+                })
         };
         let (main, side) = (id("Main"), id("Side"));
-        assert_eq!(line("Hub", "A"), Some(vec![(main, StepKind::Core)]));
-        assert_eq!(line("A", "B"), Some(vec![(main, StepKind::Core)]));
-        assert_eq!(line("B", "C"), Some(vec![(main, StepKind::Optional)]));
-        // The side route starts at B, the main stop nearest its first step.
-        assert_eq!(line("B", "D"), Some(vec![(side, StepKind::Core)]));
-        assert_eq!(line("D", "C"), Some(vec![(side, StepKind::Extra)]));
+        assert_eq!(line("Hub", "A"), Some(vec![(main, StepKind::Core, true)]));
+        assert_eq!(line("A", "B"), Some(vec![(main, StepKind::Core, true)]));
+        // A side quest hangs from the route's core step nearest it.
+        assert_eq!(line("B", "C"), Some(vec![(main, StepKind::Optional, true)]));
+        assert_eq!(line("A", "C"), None);
+        // The side route starts at B, the main stop nearest its first step; its bullet sits
+        // on that line.
+        assert_eq!(line("B", "D"), Some(vec![(side, StepKind::Core, true)]));
+        assert_eq!(line("D", "C"), Some(vec![(side, StepKind::Extra, true)]));
         assert_eq!(line("Hub", "D"), None);
+        assert_eq!(drawn.starts, vec![(side, id("B"), id("D"))]);
         assert_eq!(shown_routes(&vault, None, None), vec![main]);
         assert_eq!(shown_routes(&vault, Some(&[side]), None), vec![main, side]);
     }

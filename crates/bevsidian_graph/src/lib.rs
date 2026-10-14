@@ -1,14 +1,14 @@
 //! The graph view, drawn as a hand-made star map.
 //!
-//! Every note is a star where the vault's map note puts it ([`bevsidian_core::map`]): Bevy,
-//! the brightest, in the middle, the main quest as a spiral of stars winding out of it, and the
-//! sky behind them ([`world`]). A star's size is its importance; it is dim until the
-//! note is read and lit after; the hairline outline of a shape around it says what it is (a
-//! hexagon for an area's town, a diamond for a milestone, a star for a route's goal, a square
-//! for a crate…; see [`shapes`]). Reading paths are constellation lines ([`lines`],
-//! [`routes`]): the map shows the main quest,
-//! the routes the reader chose in its checklist and the route being followed; everything else
-//! waits, folded, in the note it hangs from ([`fold`]) or shows with the whole map.
+//! Every note is a filled shape where the vault's map note puts it ([`bevsidian_core::map`]):
+//! Bevy, the largest, in the middle, the main quest as a spiral winding out of it, and the
+//! sky behind them ([`world`]). The shape says what a note is (a hexagon for an area, a
+//! diamond for a milestone, a star for a route's goal, a square for a crate…; see
+//! [`shapes`]), the note's icon sits inside it and its name above; it is dim until the note
+//! is read. Routes are coloured lines with arrows in reading order and a bullet where each
+//! begins ([`lines`], [`routes`]): the map shows the main quest, the routes the reader chose
+//! in its checklist and the route being followed; everything else shows with the whole map
+//! ([`show`]).
 //!
 //! The map lives in a 2D world on its own render layer. A dedicated camera renders that world
 //! into an image that the UI shows in the [`GraphViewport`] node; pointer events on the node
@@ -27,7 +27,7 @@ use bevy::{
     platform::collections::HashMap,
     prelude::*,
     render::render_resource::{Extent3d, TextureFormat},
-    text::FontWeight,
+    text::{FontWeight, LineHeight},
     ui::UiGlobalTransform,
 };
 
@@ -40,12 +40,12 @@ use bevsidian_ui::color;
 
 mod controls;
 mod edit;
-mod fold;
 mod hint;
 mod lines;
 mod mesh;
 mod routes;
 mod shapes;
+mod show;
 mod tree;
 mod world;
 
@@ -65,7 +65,7 @@ pub fn plugin(app: &mut App) {
                 spawn_nodes,
                 world::spawn_world,
                 routes::choose_routes,
-                fold::fold_nodes,
+                show::show_nodes,
                 edit::edit_map,
                 controls::show_legend,
                 hint::show_hint,
@@ -85,6 +85,7 @@ pub fn plugin(app: &mut App) {
                 camera_motion,
                 sharpen_labels,
                 style_nodes,
+                place_bullets,
                 fit_plates,
                 world::show_handles,
                 world::scale_objects,
@@ -110,64 +111,61 @@ pub struct GraphViewport;
 #[derive(Component)]
 struct GraphCamera;
 
-/// A note on the map, drawn as its icon in its shape, with its name below.
+/// A note on the map, drawn as its icon inside its shape, with its name above.
 #[derive(Component)]
 #[allow(clippy::struct_excessive_bools)] // Independent states of one note, not a mode.
 struct GraphNode {
     note: NoteId,
-    /// Its size: the radius of its shape's outline.
+    /// Its size: the radius of its shape.
     radius: f32,
-    shape: Shape,
     /// How deep it sits in the tree (see [`tree::rank`]); 0 for the hub.
     rank: usize,
-    /// On a route the map shows: always on the map, whatever is folded.
+    /// On a route the map shows (or the hub): always on the map.
     forced: bool,
     /// Its place on the followed route (from 0), if it is on it.
     step: Option<usize>,
-    /// The note it hangs from (`None` for the hub).
-    parent: Option<Entity>,
-    /// How many notes it holds folded (see [`fold`]); 0 for none.
-    folds: usize,
-    /// The notes it holds are unfolded.
-    open: bool,
-    /// Not drawn or picked: folded away, or off the routes shown.
+    /// Not drawn or picked: off the routes shown.
     hidden: bool,
-    /// Floating into its parent (to `tuck_to`) before it is folded away.
-    tucking: bool,
-    tuck_to: Vec2,
     /// Its place on the map.
     home: Vec2,
-    /// Floating to its home (the map just opened, or it unfolded).
+    /// Floating to its home (the map just opened, or it appeared).
     arriving: bool,
 }
 
-/// A note's label: its icon, followed by its name ([`GraphLabelName`]), over a dark plate
-/// ([`GraphPlate`]) that keeps lines from showing between its letters, as star charts break
-/// their lines around names.
+/// A note's name, above its shape, over a dark plate ([`GraphPlate`]) that keeps lines from
+/// showing between its letters. Zoomed out, a name is drawn larger than its size in the world
+/// so it stays readable.
 #[derive(Component)]
-struct GraphLabel;
-
-#[derive(Component)]
-struct GraphLabelName;
+struct GraphLabel {
+    /// Height of the name's bottom above the note's centre (world units, at the note's scale).
+    lift: f32,
+    /// How much larger than its size in the world the name is drawn.
+    boost: f32,
+}
 
 #[derive(Component)]
 struct GraphPlate;
 
-/// The bright point of a note's star.
+/// The note's icon, inside its shape.
 #[derive(Component)]
-struct GraphCore;
+struct GraphIcon;
 
-/// The soft light around it.
+/// The inside of a note's shape.
 #[derive(Component)]
-struct GraphGlow;
+struct GraphFill;
 
-/// Diffraction spikes of the brightest stars (the capital, milestones and goals).
-#[derive(Component)]
-struct GraphSpikes;
-
-/// The hairline outline of a note's shape around its star.
+/// The outline of a note's shape.
 #[derive(Component)]
 struct GraphRing;
+
+/// A route's bullet: a disc in the route's colour with its icon, on the line where the route
+/// begins (as metro maps mark each line), so routes tell apart by more than colour.
+#[derive(Component)]
+struct RouteBullet {
+    route: NoteId,
+    /// The two notes of the line it sits on.
+    on: (Entity, Entity),
+}
 
 /// Text drawn in the graph world, re-rasterized as the camera zooms so it stays sharp.
 #[derive(Component)]
@@ -184,16 +182,14 @@ pub struct GraphState {
     edges: Vec<(Entity, Entity)>,
     /// The lines of every route.
     lines: Vec<lines::Line>,
-    /// Each note and the note it hangs from: a faint trail where no line reaches it.
-    trails: Vec<(Entity, Entity)>,
+    /// The colour of each route's lines.
+    colors: HashMap<NoteId, Color>,
     /// The routes shown (their path notes), the one followed, and whether the whole map is.
     active: Vec<NoteId>,
     followed: Option<NoteId>,
     whole: bool,
     /// The map is being edited (every note and line shows).
     editing: bool,
-    /// What shows changed: fold the map again.
-    refold: bool,
     /// The camera frames the shown notes (all of them, or the followed route's) until the
     /// user moves it.
     framing: bool,
@@ -211,11 +207,6 @@ pub struct GraphState {
     pinch: Option<f32>,
     /// Some note is still floating.
     moving: bool,
-    /// A note to fold or unfold, and a request to unfold (`true`) or fold every note.
-    fold_toggle: Option<Entity>,
-    fold_all: Option<bool>,
-    /// The node clicked last, to tell a double click on it.
-    last_click: Option<Entity>,
     /// While editing: the note or object chosen, and the one just dropped (to save).
     selected: Option<Entity>,
     dropped: Option<Entity>,
@@ -227,37 +218,31 @@ pub struct GraphState {
     field_reach: f32,
     /// Shared meshes and materials.
     circle: Handle<Mesh>,
-    stars: StarMeshes,
+    meshes: NodeMeshes,
     paint: NodePaint,
 }
 
-/// Materials of a note's star and outline, per state: a note the reader has not opened yet
-/// is a dim star, a visited one is lit, the one being read burns orange.
+/// Materials of a note's shape and icon, per state: a note the reader has not opened yet
+/// is dim, a visited one is lit, the one being read is filled orange.
 #[derive(Default)]
 struct NodePaint {
-    /// The inside of a nebula's handle.
-    handle_fill: Handle<ColorMaterial>,
+    /// The inside of a nebula's handle, and of a note's shape.
+    fill: Handle<ColorMaterial>,
+    fill_current: Handle<ColorMaterial>,
     ring: Handle<ColorMaterial>,
+    ring_lit: Handle<ColorMaterial>,
     ring_hovered: Handle<ColorMaterial>,
     ring_current: Handle<ColorMaterial>,
-    core_dim: Handle<ColorMaterial>,
-    core_lit: Handle<ColorMaterial>,
-    core_current: Handle<ColorMaterial>,
-    glow_dim: Handle<ColorMaterial>,
-    glow_lit: Handle<ColorMaterial>,
-    glow_current: Handle<ColorMaterial>,
     plate: Handle<ColorMaterial>,
-    /// The badge of a note holding folded notes, and of one whose notes are unfolded.
-    badge_folded: Handle<ColorMaterial>,
-    badge_open: Handle<ColorMaterial>,
+    /// Each route's colour, for its bullet.
+    routes: HashMap<NoteId, Handle<ColorMaterial>>,
 }
 
-/// Shared meshes of the stars.
+/// Shared meshes of the notes.
 #[derive(Default)]
-struct StarMeshes {
+struct NodeMeshes {
+    fills: HashMap<Shape, Handle<Mesh>>,
     rings: HashMap<Shape, Handle<Mesh>>,
-    glow: Handle<Mesh>,
-    spikes: Handle<Mesh>,
     plate: Handle<Mesh>,
 }
 
@@ -271,6 +256,21 @@ impl GraphState {
             || self.camera_goal.is_some()
             || self.pinch.is_some()
     }
+}
+
+/// The colour of a route's lines: the main quest's are light grey, every other route takes
+/// the next colour of [`color::MAP_ROUTES`], in the order of the routes.
+pub fn route_color(vault: &VaultData, route: NoteId) -> Color {
+    let others = vault
+        .paths
+        .iter()
+        .filter(|p| p.quest != bevsidian_core::vault::Quest::Main);
+    others
+        .clone()
+        .position(|p| p.note == route)
+        .map_or(color::MAP_LINE, |i| {
+            color::MAP_ROUTES[i % color::MAP_ROUTES.len()]
+        })
 }
 
 /// A primary-button press on the graph.
@@ -295,7 +295,7 @@ fn setup(
     mut state: ResMut<GraphState>,
 ) {
     // Opaque meshes let depth decide what covers what (the sky under the lines, the lines
-    // under the stars and their names); the nebulae are see-through, over the sky.
+    // under the notes and their names); the nebulae are see-through, over the sky.
     let opaque = |materials: &mut Assets<ColorMaterial>| {
         MeshMaterial2d(materials.add(ColorMaterial {
             alpha_mode: bevy::sprite_render::AlphaMode2d::Opaque,
@@ -355,28 +355,25 @@ fn setup(
     ));
 
     state.paint = NodePaint {
-        handle_fill: materials.add(color::CARD),
+        fill: materials.add(color::CARD),
+        fill_current: materials.add(color::LINK),
         ring: materials.add(color::MAP_RING),
+        ring_lit: materials.add(color::MAP_RING_LIT),
         ring_hovered: materials.add(color::MUTED_FOREGROUND),
         ring_current: materials.add(color::LINK),
-        core_dim: materials.add(color::MAP_STAR_DIM),
-        core_lit: materials.add(color::MAP_STAR),
-        core_current: materials.add(color::LINK),
-        glow_dim: materials.add(color::MAP_GLOW_DIM),
-        glow_lit: materials.add(color::MAP_GLOW),
-        glow_current: materials.add(color::MAP_GLOW_LINK),
         plate: materials.add(color::MAP_PLATE),
-        badge_folded: materials.add(color::FOREGROUND),
-        badge_open: materials.add(color::CARD),
+        routes: HashMap::default(),
     };
     state.circle = meshes.add(Circle::new(1.0));
-    state.stars = StarMeshes {
+    state.meshes = NodeMeshes {
+        fills: Shape::ALL
+            .into_iter()
+            .map(|shape| (shape, meshes.add(shapes::fill(shape))))
+            .collect(),
         rings: Shape::ALL
             .into_iter()
             .map(|shape| (shape, meshes.add(shapes::ring(shape, RING_WIDTH))))
             .collect(),
-        glow: meshes.add(shapes::glow()),
-        spikes: meshes.add(shapes::spikes()),
         plate: meshes.add(Rectangle::new(1.0, 1.0)),
     };
 }
@@ -391,62 +388,36 @@ fn default_shape(rank: usize) -> Shape {
     }
 }
 
-/// A note's radius (its outline's, and how near the pointer must come): by its shape and
-/// rank, then the map's size.
+/// A note's radius: by its shape and rank, then the map's size.
 fn node_radius(shape: Shape, rank: usize, scale: Scale) -> f32 {
     let base = match (shape, rank) {
-        (Shape::Octagon, _) => 30.0,
-        (Shape::Hexagon | Shape::Star, _) => 22.0,
-        (Shape::Diamond | Shape::Pentagon, _) => 18.0,
-        (Shape::Square, _) | (_, 3 | 4) => 12.0,
-        _ => 14.0,
+        (Shape::Octagon, _) => 40.0,
+        (Shape::Hexagon, _) => 31.0,
+        (Shape::Star, _) => 30.0,
+        (Shape::Diamond | Shape::Pentagon, _) => 27.0,
+        (Shape::Square, _) | (_, 3 | 4) => 21.0,
+        _ => 24.0,
     };
     base * scale.factor()
 }
 
-/// The radius of a note's bright point, its magnitude: the capital brightest, then the
-/// towns, the goals and milestones, the lessons, and the crates faintest.
-fn core_radius(shape: Shape, rank: usize, scale: Scale) -> f32 {
-    let base = match (shape, rank) {
-        (_, 0) => 6.5,
-        (_, 1) => 4.8,
-        (Shape::Star | Shape::Diamond, _) => 4.4,
-        (_, 4) => 2.4,
-        (_, 3) => 2.9,
-        _ => 3.4,
-    };
-    base * scale.factor()
-}
-
-/// How long a note's diffraction spikes are (the capital's, a goal's, a milestone's).
-fn spike_length(shape: Shape, rank: usize) -> Option<f32> {
-    match (shape, rank) {
-        (_, 0) => Some(78.0),
-        (Shape::Star, _) => Some(44.0),
-        (Shape::Diamond, _) => Some(30.0),
-        _ => None,
+/// The icon's size inside a shape, as a share of its radius (a star's points leave less room).
+fn icon_share(shape: Shape) -> f32 {
+    match shape {
+        Shape::Star => 0.62,
+        Shape::Diamond | Shape::Square => 0.8,
+        _ => 0.9,
     }
 }
 
-/// How far a shape reaches below its centre, as a share of its radius (where the label goes).
-fn reach(shape: Shape) -> f32 {
-    if shape == Shape::Circle {
-        // A lesson has no outline: its name sits close under its star.
-        return 0.55;
-    }
-    shapes::outline(shape)
-        .iter()
-        .map(|p| -p.y)
-        .fold(0.0, f32::max)
-}
-
-/// (Re)builds the nodes, lines and trails from the vault, at startup and after a note (or
-/// the map) is edited.
+/// (Re)builds the nodes, lines and route bullets from the vault, at startup and after a note
+/// (or the map) is edited.
 fn spawn_nodes(
     mut commands: Commands,
     vault: Res<Vault>,
     mut state: ResMut<GraphState>,
-    old: Query<(Entity, &GraphNode)>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    old: Query<Entity, Or<(With<GraphNode>, With<RouteBullet>)>>,
     mut built: Local<Option<u64>>,
 ) {
     let vault = vault.get_untracked();
@@ -455,11 +426,7 @@ fn spawn_nodes(
     }
     let first = built.is_none();
     *built = Some(vault.revision);
-    let mut was_open = std::collections::HashSet::new();
-    for (entity, node) in &old {
-        if node.open {
-            was_open.insert(node.note);
-        }
+    for entity in &old {
         commands.entity(entity).despawn();
     }
     state.hovered = None;
@@ -473,7 +440,6 @@ fn spawn_nodes(
         weight,
         ..default()
     };
-    // Entities first, so each node can name the node it hangs from.
     let entities: Vec<Entity> = layout
         .notes
         .iter()
@@ -487,52 +453,32 @@ fn spawn_nodes(
         let shape = place
             .and_then(|p| p.shape)
             .unwrap_or_else(|| default_shape(rank));
-        let scale = place.map_or(Scale::Normal, |p| p.scale);
-        let radius = node_radius(shape, rank, scale);
-        let core = core_radius(shape, rank, scale);
+        let radius = node_radius(shape, rank, place.map_or(Scale::Normal, |p| p.scale));
         let home = layout.homes[slot];
-        let label_size = if rank <= 1 {
-            LABEL_SIZE + 1.0
+        let (label_size, weight) = if rank <= 1 {
+            (LABEL_SIZE * 1.15, FontWeight::SEMIBOLD)
         } else {
-            LABEL_SIZE
+            (LABEL_SIZE, FontWeight::MEDIUM)
         };
-        let weight = if rank <= 1 {
-            FontWeight::SEMIBOLD
-        } else {
-            FontWeight::NORMAL
-        };
-        let stars = &state.stars;
-        let ring = stars.rings.get(&shape).cloned().unwrap_or_default();
-        let (glow, spikes, circle) = (
-            stars.glow.clone(),
-            stars.spikes.clone(),
-            state.circle.clone(),
+        let icon_size = (radius * icon_share(shape)).round();
+        let fill = state.meshes.fills.get(&shape).cloned().unwrap_or_default();
+        let ring = state.meshes.rings.get(&shape).cloned().unwrap_or_default();
+        let (backing, fill_paint, ring_paint, plate_paint) = (
+            state.meshes.plate.clone(),
+            state.paint.fill.clone(),
+            state.paint.ring.clone(),
+            state.paint.plate.clone(),
         );
-        let paint = &state.paint;
-        let (ring_paint, core_paint, glow_paint) = (
-            paint.ring.clone(),
-            paint.core_dim.clone(),
-            paint.glow_dim.clone(),
-        );
-        let spike_paint = paint.glow_lit.clone();
-        let (backing, backing_paint) = (stars.plate.clone(), paint.plate.clone());
-        let spikes_long = spike_length(shape, rank);
         commands
             .entity(entities[slot])
             .insert((
                 GraphNode {
                     note: id,
                     radius,
-                    shape,
                     rank,
                     forced: rank == 0,
                     step: None,
-                    parent: layout.parent[slot].map(|p| entities[p]),
-                    folds: 0,
-                    open: was_open.contains(&id),
                     hidden: false,
-                    tucking: false,
-                    tuck_to: Vec2::ZERO,
                     home,
                     arriving: first,
                 },
@@ -545,71 +491,50 @@ fn spawn_nodes(
             ))
             .with_children(|node| {
                 node.spawn((
-                    GraphGlow,
-                    Mesh2d(glow),
-                    MeshMaterial2d(glow_paint),
-                    Transform::from_xyz(0.0, 0.0, -0.3).with_scale(Vec3::splat(core * GLOW)),
-                    RenderLayers::layer(LAYER),
-                ));
-                if let Some(length) = spikes_long {
-                    node.spawn((
-                        GraphSpikes,
-                        Mesh2d(spikes),
-                        MeshMaterial2d(spike_paint),
-                        Transform::from_xyz(0.0, 0.0, -0.25).with_scale(Vec3::splat(length)),
-                        RenderLayers::layer(LAYER),
-                    ));
-                }
-                node.spawn((
                     GraphRing,
                     Mesh2d(ring),
                     MeshMaterial2d(ring_paint),
                     Transform::from_xyz(0.0, 0.0, -0.2).with_scale(Vec3::splat(radius)),
-                    // A lesson's circle shows only when it is hovered, chosen or read.
-                    if shape == Shape::Circle {
-                        Visibility::Hidden
-                    } else {
-                        Visibility::Inherited
-                    },
                     RenderLayers::layer(LAYER),
                 ));
                 node.spawn((
-                    GraphCore,
-                    Mesh2d(circle),
-                    MeshMaterial2d(core_paint),
-                    Transform::from_xyz(0.0, 0.0, -0.1).with_scale(Vec3::splat(core)),
+                    GraphFill,
+                    Mesh2d(fill),
+                    MeshMaterial2d(fill_paint),
+                    Transform::from_xyz(0.0, 0.0, -0.1)
+                        .with_scale(Vec3::splat(radius * (1.0 - RING_WIDTH))),
                     RenderLayers::layer(LAYER),
                 ));
                 node.spawn((
-                    GraphLabel,
-                    GraphText {
-                        size: label_size * ICON_SCALE,
-                    },
+                    GraphIcon,
+                    GraphText { size: icon_size },
                     Text2d::new(note.icon.to_string()),
-                    font("lucide", label_size * ICON_SCALE, FontWeight::NORMAL),
+                    font("lucide", icon_size, FontWeight::NORMAL),
+                    // One-em line: Lucide icons are centred in their em box.
+                    LineHeight::RelativeToFont(1.0),
                     TextColor(color::MUTED_FOREGROUND),
-                    Transform::from_xyz(0.0, -radius * reach(shape) - LABEL_GAP, 0.0),
+                    Transform::default(),
+                    RenderLayers::layer(LAYER),
+                ));
+                let lift = radius * shapes::top(shape) + LABEL_GAP;
+                node.spawn((
+                    GraphLabel { lift, boost: 1.0 },
+                    GraphText { size: label_size },
+                    Text2d::new(label_text(&note.name, None)),
+                    font("Geist, sans-serif", label_size, weight),
+                    TextColor(color::MUTED_FOREGROUND),
+                    Transform::from_xyz(0.0, lift + label_size / 2.0, 0.0),
                     RenderLayers::layer(LAYER),
                 ))
                 .with_children(|label| {
                     label.spawn((
-                        GraphLabelName,
-                        GraphText { size: label_size },
-                        TextSpan::new(label_text(&note.name, None)),
-                        font("Geist, sans-serif", label_size, weight),
-                        TextColor(color::MUTED_FOREGROUND),
-                    ));
-                    label.spawn((
                         GraphPlate,
                         Mesh2d(backing),
-                        MeshMaterial2d(backing_paint),
+                        MeshMaterial2d(plate_paint),
                         Transform::from_xyz(0.0, 0.0, -0.05).with_scale(Vec3::ZERO),
                         RenderLayers::layer(LAYER),
                     ));
                 });
-                if layout.parent.contains(&Some(slot)) {
-                    fold::spawn_badge(node, radius, &state);
-                }
             });
     }
     let mut edges = Vec::new();
@@ -621,7 +546,9 @@ fn spawn_nodes(
         }
     }
     let place = |id: NoteId| layout.slot(id).map(|s| layout.homes[s]);
-    state.lines = routes::lines(&vault, &place, layout.notes[layout.root])
+    let drawn = routes::lines(&vault, &place, layout.notes[layout.root]);
+    state.lines = drawn
+        .lines
         .into_iter()
         .filter_map(|(a, b, uses)| {
             Some(lines::Line {
@@ -631,16 +558,87 @@ fn spawn_nodes(
             })
         })
         .collect();
-    state.trails = layout
-        .parent
+    state.colors = vault
+        .paths
         .iter()
-        .enumerate()
-        .filter_map(|(child, up)| Some((entities[child], entities[(*up)?])))
+        .map(|p| (p.note, route_color(&vault, p.note)))
         .collect();
+    // A bullet where each route but the main quest begins.
+    let bullet = state.circle.clone();
+    for (route, a, b) in drawn.starts {
+        let (Some(ea), Some(eb)) = (entity_of(a), entity_of(b)) else {
+            continue;
+        };
+        let tint = state.colors.get(&route).copied().unwrap_or(color::MAP_LINE);
+        let paint = state
+            .paint
+            .routes
+            .entry(route)
+            .or_insert_with(|| materials.add(tint))
+            .clone();
+        commands
+            .spawn((
+                RouteBullet {
+                    route,
+                    on: (ea, eb),
+                },
+                Transform::from_xyz(0.0, 0.0, 0.5),
+                Visibility::Hidden,
+                RenderLayers::layer(LAYER),
+            ))
+            .with_children(|disc| {
+                disc.spawn((
+                    Mesh2d(bullet.clone()),
+                    MeshMaterial2d(paint),
+                    Transform::from_scale(Vec3::splat(BULLET_RADIUS)),
+                    RenderLayers::layer(LAYER),
+                ));
+                disc.spawn((
+                    GraphText { size: BULLET_ICON },
+                    Text2d::new(vault.notes[route].icon.to_string()),
+                    font("lucide", BULLET_ICON, FontWeight::NORMAL),
+                    LineHeight::RelativeToFont(1.0),
+                    TextColor(color::BACKGROUND),
+                    Transform::from_xyz(0.0, 0.0, 0.01),
+                    RenderLayers::layer(LAYER),
+                ));
+            });
+    }
     state.edges = edges;
-    state.refold = true;
     if first {
         state.framing = true;
+    }
+}
+
+/// A route bullet's radius and icon size (world units).
+const BULLET_RADIUS: f32 = 15.0;
+const BULLET_ICON: f32 = 17.0;
+
+/// Places the route bullets on their lines, and shows those of the routes shown.
+fn place_bullets(
+    state: Res<GraphState>,
+    nodes: Query<(&Transform, &GraphNode), Without<RouteBullet>>,
+    mut bullets: Query<(&RouteBullet, &mut Transform, &mut Visibility)>,
+) {
+    for (bullet, mut transform, mut visibility) in &mut bullets {
+        let ends = (nodes.get(bullet.on.0), nodes.get(bullet.on.1));
+        let shows = state.active.contains(&bullet.route) || state.whole;
+        let (Ok((ta, na)), Ok((tb, nb)), true) = (ends.0, ends.1, shows) else {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        };
+        if na.hidden || nb.hidden {
+            visibility.set_if_neq(Visibility::Hidden);
+            continue;
+        }
+        let at = ta
+            .translation
+            .truncate()
+            .lerp(tb.translation.truncate(), 0.5);
+        transform.translation.x = at.x;
+        transform.translation.y = at.y;
+        // Zoomed out, a bullet keeps a size on screen, like the notes.
+        visibility.set_if_neq(Visibility::Inherited);
     }
 }
 
@@ -652,11 +650,9 @@ struct Layout {
     /// The notes, in vault order: every note but the reading paths, the map itself and the
     /// app's own notes.
     notes: Vec<NoteId>,
-    /// Home of each (as the map says, or beside the note it hangs from), its rank and the
-    /// note it hangs from (indices into `notes`).
+    /// Home of each (as the map says, or beside the note it hangs from) and its rank.
     homes: Vec<Vec2>,
     rank: Vec<usize>,
-    parent: Vec<Option<usize>>,
     /// The hub, the root of the tree.
     root: usize,
 }
@@ -714,16 +710,15 @@ fn home_positions(vault: &VaultData) -> Layout {
         notes,
         homes,
         rank,
-        parent,
         root,
     }
 }
 
-/// The name after a note's icon: with its step number on the followed route.
+/// A note's name, with its step number on the followed route.
 fn label_text(name: &str, step: Option<usize>) -> String {
     match step {
-        Some(step) => format!("  {}. {name}", step + 1),
-        None => format!("  {name}"),
+        Some(step) => format!("{}. {name}", step + 1),
+        None => name.to_owned(),
     }
 }
 
@@ -747,16 +742,12 @@ fn fit_plates(
     }
 }
 
-/// How far a star's glow reaches, in radii of its bright point: a faint halo, not a blob.
-const GLOW: f32 = 3.5;
-/// A label's icon, as a share of its text's size.
-const ICON_SCALE: f32 = 1.5;
-/// Room between a note's outline and its label (world units).
-const LABEL_GAP: f32 = 14.0;
+/// Room between a note's shape and its label above (world units).
+const LABEL_GAP: f32 = 8.0;
 /// How far past a note's outline the pointer still picks it (world units).
 const PICK_SLOP: f32 = 12.0;
 /// Width of a shape's outline, as a share of its radius.
-const RING_WIDTH: f32 = 0.07;
+const RING_WIDTH: f32 = 0.08;
 
 /// Shows the render target in a freshly spawned viewport node and wires pointer input.
 fn attach_viewport(
@@ -812,13 +803,12 @@ fn resize_target(
     }
 }
 
-/// How fast (per second) notes float home, and into their parent when folding.
-const ARRIVE_EASE: f32 = 4.0;
-const TUCK_EASE: f32 = 7.0;
+/// How fast (per second) notes float home.
+const ARRIVE_EASE: f32 = 5.0;
 
-/// Moves the notes that are floating: home (the map just opened, or they unfolded) or into
-/// the note they fold into. Every other note stays where the map puts it; a dragged one (only
-/// while editing) follows the pointer.
+/// Moves the notes that are floating home (the map just opened, or they appeared). Every
+/// other note stays where the map puts it; a dragged one (only while editing) follows the
+/// pointer.
 fn motion(
     time: Res<Time>,
     mut state: ResMut<GraphState>,
@@ -832,10 +822,7 @@ fn motion(
             continue;
         }
         let at = transform.translation.truncate();
-        let next = if node.tucking {
-            moving = true;
-            at.lerp(node.tuck_to, ease(TUCK_EASE))
-        } else if node.arriving {
+        let next = if node.arriving {
             let next = at.lerp(node.home, ease(ARRIVE_EASE));
             node.arriving = next.distance(node.home) > 0.5;
             moving |= node.arriving;
@@ -873,10 +860,15 @@ fn frame(
 }
 
 /// Label font size at zoom 1.
-const LABEL_SIZE: f32 = 16.0;
-/// Smallest a note's name, and a town's, is drawn on screen (in pixels): smaller, it hides.
-const NAMES_PX: f32 = 7.0;
+const LABEL_SIZE: f32 = 21.0;
+/// Smallest a note's name, and an area's, is drawn on screen (in pixels): smaller, it hides.
+const NAMES_PX: f32 = 8.0;
 const TOWN_NAMES_PX: f32 = 4.0;
+/// Names smaller than this on screen (in pixels) are drawn up to it, at most so many times
+/// their size: an area's name, which shows furthest out, and others.
+const READABLE_PX: f32 = 13.0;
+const TOWN_BOOST: f32 = 3.0;
+const MAX_BOOST: f32 = 1.8;
 /// Smallest a note's shape is drawn on screen (its radius in pixels): the hub, a town, others.
 const HUB_PX: f32 = 22.0;
 const TOWN_PX: f32 = 14.0;
@@ -884,11 +876,15 @@ const NOTE_PX: f32 = 10.0;
 
 /// Re-rasterizes text for the current zoom so it stays sharp when zoomed in. The size moves
 /// in steps of √2 (so a smooth zoom does not re-render text every frame) and the text's scale
-/// compensates, keeping its size in the world unchanged.
+/// compensates, keeping its size in the world unchanged (times a name's boost).
 fn sharpen_labels(
     camera: Query<&Projection, With<GraphCamera>>,
-    mut texts: Query<(Ref<GraphText>, &mut TextFont, &mut Transform)>,
-    mut spans: Query<(Ref<GraphText>, &mut TextFont), Without<Transform>>,
+    mut texts: Query<(
+        Ref<GraphText>,
+        Option<Ref<GraphLabel>>,
+        &mut TextFont,
+        &mut Transform,
+    )>,
     mut current: Local<Option<i32>>,
 ) {
     let Ok(projection) = camera.single() else {
@@ -899,17 +895,13 @@ fn sharpen_labels(
     let changed = *current != Some(step);
     *current = Some(step);
     let factor = (step as f32 / 2.0).exp2();
-    for (text, mut font, mut transform) in &mut texts {
+    for (text, label, mut font, mut transform) in &mut texts {
+        let boosted = label.as_ref().is_some_and(Ref::is_changed);
         // New text (the map was rebuilt) starts at its plain size.
-        if changed || text.is_added() {
-            font.font_size = (text.size * factor).into();
+        if changed || text.is_added() || boosted {
+            let boost = label.map_or(1.0, |l| l.boost);
+            font.font_size = (text.size * boost * factor).into();
             transform.scale = Vec3::splat(1.0 / factor);
-        }
-    }
-    // Spans (a label's name) are scaled with the text they are in.
-    for (text, mut font) in &mut spans {
-        if changed || text.is_added() {
-            font.font_size = (text.size * factor).into();
         }
     }
 }
@@ -930,36 +922,28 @@ fn neighbors(state: &GraphState, entity: Entity) -> Vec<Entity> {
         .collect()
 }
 
-/// The material and visibility parts of a note's star.
-type StarPart<'a> = (
-    &'a mut MeshMaterial2d<ColorMaterial>,
-    &'a mut Visibility,
-    Has<GraphRing>,
-    Has<GraphCore>,
-    Has<GraphGlow>,
-);
-
-/// Lights the stars: dim until the reader has opened the note, lit after, orange while it is
-/// being read; a hovered note lights up with its neighbours (the rest fade); outlines show
-/// for shapes (a lesson's circle only when hovered, chosen or read). Zoomed out, stars keep
-/// a size on screen and only the bigger places keep their names.
+/// Styles the notes: a note not read yet is dim (a dark outline, a grey icon), a read one is
+/// lit, the one being read is filled orange; a hovered note lights up with its neighbours (the
+/// rest fade). Zoomed out, notes keep a size on screen and only the bigger places keep their
+/// names.
 #[allow(clippy::type_complexity)]
 fn style_nodes(
     nav: Res<Nav>,
     state: Res<GraphState>,
-    mut nodes: Query<(Entity, &GraphNode, &Children, &mut Transform)>,
+    mut nodes: Query<(Entity, &GraphNode, &Children, &mut Transform), Without<GraphLabel>>,
     mut labels: Query<
-        (&mut TextColor, &mut Visibility, &Children),
-        (With<GraphLabel>, Without<GraphRing>),
-    >,
-    mut name_colors: Query<&mut TextColor, (With<GraphLabelName>, Without<GraphLabel>)>,
-    mut parts: Query<
-        StarPart,
         (
-            Or<(With<GraphRing>, With<GraphCore>, With<GraphGlow>)>,
-            Without<GraphLabel>,
+            &mut GraphLabel,
+            &GraphText,
+            &mut Transform,
+            &mut TextColor,
+            &mut Visibility,
         ),
+        (Without<GraphIcon>, Without<GraphNode>),
     >,
+    mut icons: Query<&mut TextColor, (With<GraphIcon>, Without<GraphLabel>)>,
+    mut rings: Query<&mut MeshMaterial2d<ColorMaterial>, (With<GraphRing>, Without<GraphFill>)>,
+    mut fills: Query<&mut MeshMaterial2d<ColorMaterial>, (With<GraphFill>, Without<GraphRing>)>,
     camera: Query<&Projection, With<GraphCamera>>,
 ) {
     if nav.view.get_untracked() != View::Graph {
@@ -985,15 +969,17 @@ fn style_nodes(
         let is_current = node.note == current;
         let focused = Some(entity) == focus;
         let selected = state.selected == Some(entity);
-        let lit = node.rank == 0 || focused || visited.contains(&node.note);
-        let label = if is_current || focused {
-            color::FOREGROUND
+        let lit = node.rank == 0 || visited.contains(&node.note);
+        let (label, icon) = if is_current {
+            (color::FOREGROUND, color::BACKGROUND)
+        } else if focused {
+            (color::FOREGROUND, color::FOREGROUND)
         } else if !near {
-            color::DISABLED_FOREGROUND
+            (color::DISABLED_FOREGROUND, color::DISABLED_FOREGROUND)
         } else if lit {
-            color::BODY
+            (color::BODY, color::BODY)
         } else {
-            color::MUTED_FOREGROUND
+            (color::MUTED_FOREGROUND, color::MUTED_FOREGROUND)
         };
         let on_screen = LABEL_SIZE / scale;
         let named = is_current
@@ -1005,53 +991,51 @@ fn style_nodes(
                 1 => on_screen >= TOWN_NAMES_PX,
                 _ => on_screen >= NAMES_PX,
             };
-        let (core, glow) = if is_current {
-            (&paint.core_current, &paint.glow_current)
-        } else if lit && near {
-            (&paint.core_lit, &paint.glow_lit)
-        } else {
-            (&paint.core_dim, &paint.glow_dim)
-        };
         let ring = if is_current || selected {
             &paint.ring_current
         } else if focused || node.rank == 0 {
             &paint.ring_hovered
+        } else if lit {
+            &paint.ring_lit
         } else {
             &paint.ring
+        };
+        let fill = if is_current {
+            &paint.fill_current
+        } else {
+            &paint.fill
         };
         let set = |material: &mut MeshMaterial2d<ColorMaterial>, wanted: &Handle<ColorMaterial>| {
             if material.0 != *wanted {
                 material.0 = wanted.clone();
             }
         };
-        let shown = |on: bool| {
-            if on {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            }
-        };
         for &child in children {
-            if let Ok((mut color, mut visibility, spans)) = labels.get_mut(child) {
+            if let Ok((mut name, text, mut at, mut color, mut visibility)) = labels.get_mut(child) {
+                // Its size on screen, and how much it is drawn larger to be readable.
+                let shown = text.size * size.x / scale;
+                let most = if node.rank <= 1 {
+                    TOWN_BOOST
+                } else {
+                    MAX_BOOST
+                };
+                let boost = (READABLE_PX / shown).clamp(1.0, most);
+                if (name.boost - boost).abs() > 0.01 {
+                    name.boost = boost;
+                    at.translation.y = name.lift + text.size * boost / 2.0;
+                }
                 color.set_if_neq(TextColor(label));
-                visibility.set_if_neq(shown(named));
-                for &span in spans {
-                    if let Ok(mut color) = name_colors.get_mut(span) {
-                        color.set_if_neq(TextColor(label));
-                    }
-                }
-            } else if let Ok((mut material, mut visibility, is_ring, is_core, is_glow)) =
-                parts.get_mut(child)
-            {
-                if is_ring {
-                    set(&mut material, ring);
-                    let outlined = node.shape != Shape::Circle || focused || selected || is_current;
-                    visibility.set_if_neq(shown(outlined));
-                } else if is_core {
-                    set(&mut material, core);
-                } else if is_glow {
-                    set(&mut material, glow);
-                }
+                visibility.set_if_neq(if named {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                });
+            } else if let Ok(mut color) = icons.get_mut(child) {
+                color.set_if_neq(TextColor(icon));
+            } else if let Ok(mut material) = rings.get_mut(child) {
+                set(&mut material, ring);
+            } else if let Ok(mut material) = fills.get_mut(child) {
+                set(&mut material, fill);
             }
         }
     }
@@ -1085,7 +1069,6 @@ fn pick(world: Vec2, nodes: &Query<(Entity, &Transform, &GraphNode)>) -> Option<
         .iter()
         .filter(|(_, t, n)| {
             !n.hidden
-                && !n.tucking
                 && t.translation.truncate().distance(world) <= n.radius * t.scale.x + PICK_SLOP
         })
         .min_by(|a, b| {
@@ -1096,21 +1079,14 @@ fn pick(world: Vec2, nodes: &Query<(Entity, &Transform, &GraphNode)>) -> Option<
         .map(|(e, ..)| e)
 }
 
-/// What is under the pointer: a fold badge, a note, or (while editing) a map object.
+/// What is under the pointer: a note, or (while editing) a map object.
 fn pick_any(
     world: Vec2,
     editing: bool,
     nodes: &Query<(Entity, &Transform, &GraphNode)>,
     things: &Query<(Entity, &GlobalTransform, &world::MapThing)>,
 ) -> Option<Entity> {
-    let badge = if editing {
-        None
-    } else {
-        fold::badge_at(world, nodes)
-    };
-    badge
-        .or_else(|| pick(world, nodes))
-        .or_else(|| editing.then(|| edit::thing_at(world, things)).flatten())
+    pick(world, nodes).or_else(|| editing.then(|| edit::thing_at(world, things)).flatten())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1213,17 +1189,7 @@ fn on_click(
     let Ok(node) = nodes.get(entity) else {
         return;
     };
-    // A note holding folded notes folds and unfolds on a click and opens on a double click
-    // (which puts back what its first click folded); any other note opens on a click.
-    let foldable = node.folds > 0;
-    let double = event.count >= 2 && state.last_click == Some(entity);
-    state.last_click = Some(entity);
-    if foldable {
-        state.fold_toggle = Some(entity);
-    }
-    if !foldable || double {
-        nav.open(node.note, None);
-    }
+    nav.open(node.note, None);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1433,7 +1399,7 @@ fn fit<'a>(
     viewport: &ComputedNode,
 ) -> (Vec2, f32) {
     let mut bounds: Option<Rect> = None;
-    for (_, node) in nodes.filter(|(_, n)| !n.hidden && !n.tucking) {
+    for (_, node) in nodes.filter(|(_, n)| !n.hidden) {
         // Leave room for the note and its label below.
         let r = Rect::from_center_half_size(node.home, Vec2::new(90.0, 60.0));
         bounds = Some(bounds.map_or(r, |b| b.union(r)));

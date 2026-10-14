@@ -1,54 +1,59 @@
-//! The lines of the star map: one per pair of notes a route joins, drawn the way star charts
-//! draw constellations: straight, thin, and stopping short of each star so it shines clear.
+//! The lines of the map: one per pair of notes a route joins, straight, stopping short of
+//! each note.
 //!
-//! A route's main line (its core steps) is solid, side quests (optional steps) dashed and
-//! secrets (extra steps) dotted. Lines keep their width on screen at any zoom. The followed
-//! route burns orange, with a faint wider line under it as its glow. Routes that share a line
-//! draw it once. Notes no shown line reaches hang from their parent by a faint dotted trail,
-//! the capital sends a dotted ray to every region's town, and a hovered note shows its links
-//! as thin dashes.
+//! A route's core steps are joined by a solid line with an arrow halfway along each segment,
+//! pointing in reading order; side quests (optional steps) are dashed and secrets (extra
+//! steps) dotted. Every route has its own colour (the main quest's is grey) and a bullet
+//! where it begins (see `RouteBullet`), as metro maps tell their lines apart. Lines keep
+//! their width on screen at any zoom; the followed route is thicker, with a faint wider line
+//! under it as its glow. Routes that share a line draw it once. A hovered note shows its
+//! links as thin dashes.
 
 use bevy::prelude::*;
 
 use bevsidian_core::{
     nav::{Nav, View},
-    vault::{NoteId, StepKind},
+    vault::StepKind,
 };
 use bevsidian_ui::color;
 
-use crate::{GraphCamera, GraphNode, GraphState, mesh::Shapes, neighbors, ortho_scale};
+use crate::{
+    GraphCamera, GraphNode, GraphState, mesh::Shapes, neighbors, ortho_scale, routes::Use,
+};
 
 /// A line between two notes, and the routes that take it (and how).
 #[derive(Clone, Debug)]
 pub struct Line {
     pub a: Entity,
     pub b: Entity,
-    pub uses: Vec<(NoteId, StepKind)>,
+    pub uses: Vec<Use>,
 }
 
 /// The mesh holding every line as quads.
 #[derive(Component)]
 pub(crate) struct LinesMesh;
 
-/// Widths on screen, in render-target pixels: a main line, a side quest, a secret's dots
-/// (their diameter), a trail's dots, a hovered note's links; the followed route's line and
-/// its glow.
-const MAIN_PX: f32 = 1.6;
-const SIDE_PX: f32 = 1.3;
-const SECRET_PX: f32 = 2.2;
-const TRAIL_PX: f32 = 1.6;
+/// Widths on screen, in render-target pixels: a core line, a side quest, a secret's dots
+/// (their diameter), a hovered note's links; the followed route's line and its glow.
+const MAIN_PX: f32 = 2.2;
+const SIDE_PX: f32 = 1.6;
+const SECRET_PX: f32 = 2.6;
 const LINK_PX: f32 = 1.0;
-const FOLLOWED_PX: f32 = 2.4;
-const FOLLOWED_GLOW_PX: f32 = 6.0;
+const FOLLOWED_PX: f32 = 3.2;
+const FOLLOWED_GLOW_PX: f32 = 8.0;
+/// The arrow on a core line, and how long a line must be (on screen) to carry one.
+const ARROW_PX: f32 = 6.0;
+const ARROW_ROOM_PX: f32 = 40.0;
 /// Dashes and gaps of side quests, the gap between dots, in pixels.
 const DASH_PX: f32 = 7.0;
 const DASH_GAP_PX: f32 = 5.0;
 const DOT_GAP_PX: f32 = 5.0;
-/// How far short of a star (beyond its outline) a line stops, in pixels.
+/// How far short of a note (beyond its shape) a line stops, in pixels.
 const GAP_PX: f32 = 4.0;
-/// Depths, back to front: trails, the followed route's glow, lines, a hovered note's lines,
-/// the followed route, a hovered note's links.
-const Z_TRAIL: f32 = -0.01;
+/// Depths, back to front: the followed route's glow, lines, a hovered note's lines, the
+/// followed route, a hovered note's links.
+/// How far a route not shown fades toward the sky with the whole map.
+const WHOLE_DIM: f32 = 0.45;
 const Z_GLOW: f32 = 0.0;
 const Z_LINE: f32 = 0.01;
 const Z_HOVERED: f32 = 0.02;
@@ -66,7 +71,7 @@ pub fn pattern(length: f32, piece: f32, gap: f32) -> impl Iterator<Item = (f32, 
     })
 }
 
-/// The part of the segment from `a` to `b` outside the two stars (`ra` and `rb` around their
+/// The part of the segment from `a` to `b` outside the two notes (`ra` and `rb` around their
 /// centres), or `None` when they overlap.
 pub fn between(a: Vec2, ra: f32, b: Vec2, rb: f32) -> Option<(Vec2, Vec2)> {
     let length = a.distance(b);
@@ -133,27 +138,90 @@ fn stronger(a: StepKind, b: StepKind) -> StepKind {
     if rank(a) <= rank(b) { a } else { b }
 }
 
+/// How a line looks now, if it shows.
+pub(crate) struct Look {
+    kind: StepKind,
+    tint: Color,
+    /// It is the followed route's.
+    followed: bool,
+    /// Its reading order runs from the line's `a` to its `b`.
+    forward: bool,
+}
+
 /// How a line looks now, if it shows: as the followed route takes it, as the shown routes
-/// do, or (with the whole map shown, or while editing) faintly as any route does. The flag
-/// says it is the followed route's.
-pub(crate) fn look(state: &GraphState, line: &Line) -> Option<(StepKind, Color, bool)> {
-    let best = |keep: &dyn Fn(NoteId) -> bool| {
+/// do (the main quest's grey where it is one of them, else the first route's colour), or,
+/// with the whole map shown or while editing, faintly as any route does.
+pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
+    let pick = |keep: &dyn Fn(&Use) -> bool| {
         line.uses
             .iter()
-            .filter(|(route, _)| keep(*route))
-            .map(|&(_, kind)| kind)
-            .reduce(stronger)
+            .filter(|u| keep(u))
+            .copied()
+            .reduce(|best, u| {
+                if stronger(u.kind, best.kind) == u.kind && u.kind != best.kind {
+                    u
+                } else {
+                    best
+                }
+            })
     };
-    if let Some(kind) = best(&|r| Some(r) == state.followed) {
-        return Some((kind, color::LINK, true));
+    let colour = |u: &Use| {
+        state
+            .colors
+            .get(&u.route)
+            .copied()
+            .unwrap_or(color::MAP_LINE)
+    };
+    if let Some(u) = pick(&|u| Some(u.route) == state.followed) {
+        return Some(Look {
+            kind: u.kind,
+            tint: colour(&u),
+            followed: true,
+            forward: u.forward,
+        });
     }
-    if let Some(kind) = best(&|r| state.active.contains(&r)) {
-        return Some((kind, color::MAP_LINE, false));
+    let main = |u: &Use| colour(u) == color::MAP_LINE;
+    if let Some(u) = pick(&|u| state.active.contains(&u.route) && main(u))
+        .or_else(|| pick(&|u| state.active.contains(&u.route)))
+    {
+        return Some(Look {
+            kind: u.kind,
+            tint: colour(&u),
+            followed: false,
+            forward: u.forward,
+        });
     }
     if state.whole || state.editing {
-        return best(&|_| true).map(|kind| (kind, color::MAP_LINE_FAINT, false));
+        // Every route in its colour, dimmed under the ones shown.
+        return pick(&|_| true).map(|u| Look {
+            kind: u.kind,
+            tint: if main(&u) {
+                color::MAP_LINE_FAINT
+            } else {
+                colour(&u).mix(&color::BACKGROUND, WHOLE_DIM)
+            },
+            followed: false,
+            forward: u.forward,
+        });
     }
     None
+}
+
+/// A chevron in the middle of a line, pointing along `(from, to)`: the reading order.
+fn arrow(
+    out: &mut Shapes,
+    (from, to): (Vec2, Vec2),
+    (half, px): (f32, f32),
+    z: f32,
+    color: [f32; 4],
+) {
+    let direction = (to - from).normalize_or_zero();
+    let tip = from.lerp(to, 0.5) + direction * ARROW_PX * px * 0.5;
+    for side in [1.0, -1.0] {
+        let back = tip - direction * ARROW_PX * px + direction.perp() * side * ARROW_PX * px * 0.8;
+        out.quad(back, tip, half, z, color);
+    }
+    out.disc(tip, half, 8, z, color);
 }
 
 pub(crate) fn draw_lines(
@@ -173,75 +241,66 @@ pub(crate) fn draw_lines(
     // World units per render-target pixel.
     let px = ortho_scale(projection);
     let focus = state.hovered.or(state.dragging);
-    // A star's centre, and how far from it lines stop.
-    let star = |e: Entity| {
+    // A note's centre, and how far from it lines stop.
+    let end = |e: Entity| {
         nodes
             .get(e)
             .ok()
-            .filter(|(_, n)| !n.hidden && !n.tucking)
+            .filter(|(_, n)| !n.hidden)
             .map(|(t, n)| (t.translation.truncate(), n.radius * t.scale.x + GAP_PX * px))
     };
     let mut out = Shapes::default();
-    let mut reached = std::collections::HashSet::new();
     for line in &state.lines {
-        let (Some((a, ra)), Some((b, rb))) = (star(line.a), star(line.b)) else {
+        let (Some((a, ra)), Some((b, rb))) = (end(line.a), end(line.b)) else {
             continue;
         };
-        let Some((kind, mut tint, followed)) = look(&state, line) else {
+        let Some(look) = look(&state, line) else {
             continue;
         };
-        reached.insert(line.a);
-        reached.insert(line.b);
-        let Some(ends) = between(a, ra, b, rb) else {
+        let Some((from, to)) = between(a, ra, b, rb) else {
             continue;
         };
+        let ends = if look.forward { (from, to) } else { (to, from) };
         let hovered = focus.is_some_and(|f| f == line.a || f == line.b);
-        if hovered && !followed {
+        let mut tint = look.tint;
+        if hovered && !look.followed && tint == color::MAP_LINE_FAINT {
             tint = color::MUTED_FOREGROUND;
         }
-        if followed {
+        let (width, z) = if look.followed {
             // Its glow first, under it.
+            let glow = tint.mix(&color::BACKGROUND, 0.7);
             stroke(
                 &mut out,
                 ends,
                 StepKind::Core,
                 (FOLLOWED_GLOW_PX, px),
                 Z_GLOW,
-                color::MAP_ROUTE_GLOW,
+                glow,
             );
-            stroke(&mut out, ends, kind, (FOLLOWED_PX, px), Z_FOLLOWED, tint);
+            (FOLLOWED_PX, Z_FOLLOWED)
+        } else if look.kind == StepKind::Core {
+            (MAIN_PX, if hovered { Z_HOVERED } else { Z_LINE })
         } else {
-            let width = if kind == StepKind::Core {
-                MAIN_PX
-            } else {
-                SIDE_PX
-            };
-            let z = if hovered { Z_HOVERED } else { Z_LINE };
-            stroke(&mut out, ends, kind, (width, px), z, tint);
-        }
-    }
-    // Trails to the parent of notes no line reaches, and rays from the capital to every
-    // region's town: the capital links to them all.
-    for &(child, parent) in &state.trails {
-        let to_capital = nodes.get(parent).is_ok_and(|(_, n)| n.rank == 0);
-        let ray = to_capital && nodes.get(child).is_ok_and(|(_, n)| n.rank == 1);
-        if !ray && (reached.contains(&child) || to_capital) {
-            continue;
-        }
-        if let (Some((a, ra)), Some((b, rb))) = (star(child), star(parent))
-            && let Some(ends) = between(a, ra, b, rb)
-        {
-            let tint = color::MAP_TRAIL.to_linear().to_f32_array();
-            dotted(&mut out, ends, TRAIL_PX * px / 2.0, px, Z_TRAIL, tint);
+            (SIDE_PX, if hovered { Z_HOVERED } else { Z_LINE })
+        };
+        stroke(&mut out, ends, look.kind, (width, px), z, tint);
+        if look.kind == StepKind::Core && ends.0.distance(ends.1) > ARROW_ROOM_PX * px {
+            arrow(
+                &mut out,
+                ends,
+                (width * px / 2.0, px),
+                z,
+                tint.to_linear().to_f32_array(),
+            );
         }
     }
     // A hovered note's links.
     if let Some(focus) = focus
-        && let Some((f, rf)) = star(focus)
+        && let Some((f, rf)) = end(focus)
     {
         let link = color::MAP_LINK.to_linear().to_f32_array();
         for other in neighbors(&state, focus) {
-            if let Some((o, ro)) = star(other)
+            if let Some((o, ro)) = end(other)
                 && let Some(ends) = between(f, rf, o, ro)
             {
                 dashed(&mut out, ends, LINK_PX * px / 2.0, px, Z_LINK, link);

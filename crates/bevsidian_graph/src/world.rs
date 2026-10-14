@@ -160,10 +160,7 @@ pub(crate) fn spawn_world(
             }
             MapObject::Nebula { .. } => {
                 let circle = state.circle.clone();
-                let (ring, fill) = (
-                    state.paint.ring_hovered.clone(),
-                    state.paint.handle_fill.clone(),
-                );
+                let (ring, fill) = (state.paint.ring_hovered.clone(), state.paint.fill.clone());
                 entity.insert(Visibility::Hidden).with_children(|handle| {
                     handle.spawn((
                         NebulaHandle,

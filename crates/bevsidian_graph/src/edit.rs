@@ -71,7 +71,6 @@ pub(crate) fn edit_map(
         *was_editing = editing;
         state.editing = editing;
         state.selected = None;
-        state.refold = true;
     }
     // Choose again what was chosen before the save rebuilt the map.
     if let Some(pick) = *pending
