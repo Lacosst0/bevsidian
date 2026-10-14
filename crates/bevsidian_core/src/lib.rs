@@ -3,6 +3,7 @@
 
 pub mod docs;
 pub mod icons;
+pub mod map;
 pub mod nav;
 pub mod vault;
 

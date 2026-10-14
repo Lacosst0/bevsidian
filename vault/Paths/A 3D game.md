@@ -1,23 +1,20 @@
 ---
 icon: cuboid
 path: true
+quest: feature
+feature: 3D worlds
 ---
 # A 3D game
 
-Shapes, light, models and movement.
+East over the Render Ridge to the Polygon Peaks: shapes, light, models and a world around them.
 
-1. [[Hello Bevy]]
-2. [[Transforms]]
-3. [[Meshes and materials]]
-4. [[Lighting]]
-5. [[Cameras]]
-6. [[Models and glTF]]
-7. [[Keyboard and mouse]]
-8. [[Physics]]
-9. [[3D animation]]
-10. [[Environment]]
-11. [[Audio]]
-12. [[Post-processing]] (optional)
-13. [[Custom materials]] (optional)
-14. [[bevy_rapier]] (extra)
-15. [[3D authoring crates]] (extra)
+1. [[Transforms]]
+2. [[Cameras]]
+3. [[Camera crates]] (extra): follow and orbit cameras.
+4. [[3D]]: the map of the peaks.
+5. [[Meshes and materials]]
+6. [[Lighting]]
+7. [[Models and glTF]]
+8. [[3D animation]]
+9. [[3D authoring crates]] (extra)
+10. [[Environment]]: sky, fog and shadows.

@@ -19,6 +19,13 @@ An Obsidian-like documentation vault for Bevy, written in Bevy 0.20 (BSN scenes,
   linear blending; never copy CSS alphas.
 - Mockups and the design canvas: `design/`.
 
+## The map
+
+The graph is a hand-drawn game map: `vault/Map.md` places every note (and the map's land,
+labels and landmarks); routes are the notes in `vault/Paths/` (`quest: main|feature|mastery`).
+Add a new note to the map too, beside its region (the workspace test lists missing ones and
+notes placed too close together).
+
 ## Code previews
 
 Notes run code with `example=NAME` (README, "Live code previews"). Examples live in

@@ -40,7 +40,7 @@ If you are stuck on how to build a feature, ask what the data is. See [[ECS]].
 
 ## Where to start
 
-Follow the path [[Gameplay systems]].
+Three routes cross this area: [[Enemies and AI]], [[Procedural worlds]] and [[Items and stories]].
 
 ## Libraries
 

@@ -1,12 +1,18 @@
-//! Remembers the settings (text size, scroll speed, frame rate) between visits: on the web
-//! in `localStorage`, natively not at all. Also the storage behind saved note edits.
+//! Remembers the settings (text size, scroll speed, frame rate), the map's chosen routes and
+//! the notes visited between visits: on the web in `localStorage`, natively not at all. Also
+//! the storage behind saved note edits.
 
 use bevy::prelude::*;
 
-use bevsidian_core::nav::{MAX_FPS_CHOICES, Nav, SCROLL_SPEEDS, TEXT_SIZES};
+use bevsidian_core::{
+    Vault,
+    nav::{MAX_FPS_CHOICES, Nav, SCROLL_SPEEDS, TEXT_SIZES},
+    vault::NoteId,
+};
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, load).add_systems(Last, save);
+    app.add_systems(Startup, (load, load_map))
+        .add_systems(Last, (save, save_map));
 }
 
 const TEXT_SIZE_KEY: &str = "bevsidian.textSize";
@@ -14,6 +20,64 @@ const SCROLL_SPEED_KEY: &str = "bevsidian.scrollSpeed";
 const SHOW_FPS_KEY: &str = "bevsidian.showFps";
 const MAX_FPS_KEY: &str = "bevsidian.maxFps";
 const VSYNC_KEY: &str = "bevsidian.vsync";
+const QUESTS_KEY: &str = "bevsidian.quests";
+const WHOLE_MAP_KEY: &str = "bevsidian.wholeMap";
+const VISITED_KEY: &str = "bevsidian.visited";
+
+/// Notes by name, one per line (names survive notes being added or removed).
+fn names(vault: &Vault, ids: &[NoteId]) -> String {
+    let data = vault.get_untracked();
+    ids.iter()
+        .filter_map(|&id| data.notes.get(id).map(|n| n.name.as_str()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn ids(vault: &Vault, names: &str) -> Vec<NoteId> {
+    let data = vault.get_untracked();
+    names.lines().filter_map(|name| data.find(name)).collect()
+}
+
+fn load_map(nav: Res<Nav>, vault: Res<Vault>) {
+    if let Some(quests) = read(QUESTS_KEY) {
+        nav.quests.set(Some(ids(&vault, &quests)));
+    }
+    if read(WHOLE_MAP_KEY).as_deref() == Some("1") {
+        nav.whole_map.set(true);
+    }
+    if let Some(visited) = read(VISITED_KEY) {
+        let mut visited = ids(&vault, &visited);
+        let current = nav.current.get_untracked();
+        if !visited.contains(&current) {
+            visited.push(current);
+        }
+        nav.visited.set(visited);
+    }
+}
+
+fn save_map(
+    nav: Res<Nav>,
+    vault: Res<Vault>,
+    mut last: Local<Option<(Option<Vec<NoteId>>, bool, usize)>>,
+) {
+    let current = (
+        nav.quests.get_untracked(),
+        nav.whole_map.get_untracked(),
+        nav.visited.with_untracked(Vec::len),
+    );
+    if last.as_ref() == Some(&current) {
+        return;
+    }
+    // The first frame only records what `load_map` restored.
+    if last.is_some() {
+        if let Some(quests) = &current.0 {
+            write(QUESTS_KEY, &names(&vault, quests));
+        }
+        write(WHOLE_MAP_KEY, if current.1 { "1" } else { "0" });
+        write(VISITED_KEY, &names(&vault, &nav.visited.get_untracked()));
+    }
+    *last = Some(current);
+}
 
 fn load(nav: Res<Nav>) {
     if let Some(size) = read(TEXT_SIZE_KEY).and_then(|v| v.parse::<u32>().ok()) {

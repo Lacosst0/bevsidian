@@ -21,8 +21,10 @@ theme (Geist, neutral greys, white primary buttons) with one orange accent for l
 | `Mobile.dc.html`, `MobileSheet.dc.html` | Phone note and sidebar drawer | `src/shell` (compact layout) |
 | `Kit.dc.html` | Tokens, components, ECS identity | `crates/bevsidian_ui` |
 
-Where the app and a mockup differ, the app follows real data and behaviour: the graph has no
-filter card or tag nodes, the switcher lists notes only, and settings keep steppers for text
+Where the app and a mockup differ, the app follows real data and behaviour: the graph is now a
+hand-made game map (see `vault/Map.md`: shapes per kind of note, roads per route, land, region
+names and landmarks, with the map tokens `MAP_*` in `color.rs`) with a quest log, a checklist
+and an edit bar instead of the mockup's filter card and tag nodes, the switcher lists notes only, and settings keep steppers for text
 size and scroll speed (any value in range) with a segmented frame-rate limit.
 
 ## Colour in Bevy vs. CSS

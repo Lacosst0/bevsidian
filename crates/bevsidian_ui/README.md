@@ -56,6 +56,7 @@ for links, the current graph node and the running code line; warnings are amber.
 | `input.rs` | Input | `text_input` |
 | `field.rs` | Field | `field` |
 | `switch.rs` | Switch | `switch` |
+| `checkbox.rs` | Checkbox | `checkbox` |
 | `stepper.rs` | (number input) | `stepper` |
 | `dialog.rs` | Dialog | `scrim`, `dialog`, `dialog_header`, `dialog_footer` |
 | `pagination.rs` | Pagination | `page_link` |

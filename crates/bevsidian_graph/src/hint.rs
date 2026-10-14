@@ -1,6 +1,6 @@
 //! The hint at the bottom of the graph while a note is hovered: its name and what a click
 //! and a double click do (a note holding folded notes folds on a click and opens on a double
-//! click; any other note opens on a click). Not shown on touch screens, which have no hover.
+//! click; any other note opens on a click; while editing the map, a click chooses it). Not shown on touch screens, which have no hover.
 
 use bevy::{prelude::*, text::FontWeight};
 
@@ -109,7 +109,8 @@ pub(crate) fn show_hint(
         .hovered
         .filter(|_| state.dragging.is_none() && !nav.touch.get_untracked())
         .and_then(|e| nodes.get(e).ok().map(|n| (e, n)));
-    let key = hovered.map(|(e, n)| (e, n.open, state.path.is_empty()));
+    let editing = nav.map_edit.get_untracked();
+    let key = hovered.map(|(e, n)| (e, n.open, editing));
     if *last == key && !bars.is_empty() {
         return;
     }
@@ -124,9 +125,10 @@ pub(crate) fn show_hint(
     let Some((_, node)) = hovered else {
         return;
     };
-    let foldable = state.path.is_empty() && node.folds > 0;
+    let foldable = !editing && node.folds > 0;
     let name = vault.get_untracked().notes[node.note].name.clone();
     let click = match (foldable, node.open) {
+        _ if editing => "choose it; drag it to move it".to_owned(),
         (false, _) => "open".to_owned(),
         (true, false) => format!("show {} more", node.folds),
         (true, true) => format!("fold {} away", node.folds),

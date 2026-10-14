@@ -48,9 +48,11 @@ fn shell(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
             --
             @{overlays::links::links_popover(nav.clone(), vault.clone())}
             --
-            @{overlays::command::command_palette(nav.clone(), vault)}
+            @{overlays::command::command_palette(nav.clone(), vault.clone())}
             --
             @{overlays::settings::settings_dialog(nav.clone())}
+            --
+            @{overlays::quests::quest_dialog(nav.clone(), vault)}
             --
             @{overlays::selection_bar::selection_bar(nav.clone())}
             --

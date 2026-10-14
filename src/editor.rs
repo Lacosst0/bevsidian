@@ -30,6 +30,7 @@ use bevsidian_ui::color;
 pub fn plugin(app: &mut App) {
     app.init_resource::<EditSession>()
         .add_observer(open_editor)
+        .add_observer(store_map)
         .add_systems(
             Update,
             (refresh_highlight, fit_editor, follow_caret, autosave).chain(),
@@ -469,6 +470,13 @@ fn commit(session: &mut EditSession, vault: &Vault) {
         let path = vault.get_untracked().notes[id].path.clone();
         persist(&path, &session.text);
     }
+}
+
+/// The map editor changed the map note: store it like an edit.
+fn store_map(edited: On<bevsidian_graph::MapEdited>, vault: Res<Vault>) {
+    let data = vault.get_untracked();
+    let note = &data.notes[edited.note];
+    persist(&note.path, &note.source);
 }
 
 /// Key under which an edited note is kept in `localStorage`.

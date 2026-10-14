@@ -1,11 +1,11 @@
-//! Folding the graph: notes beyond the concepts' ring start folded into the note they grow
-//! from, so the whole graph opens on the hub, the areas and their concepts.
+//! Folding the map: what is not on a route the map shows waits, folded, in the note it hangs
+//! from. With the whole map shown, notes beyond the concepts (sub-concepts and crates) fold
+//! the same way, so the map opens on the hub, the areas and their concepts.
 //!
-//! A note holding folded notes shows how many with a "+N" badge and a dot around its disc
-//! for each (up to a dozen): a cluster with more inside. A click on it unfolds them, and they
-//! float out of it; a click on an unfolded note (with a "−" badge) folds them back in. A
-//! double click opens the note. The note being read is always unfolded into view, and a
-//! followed path shows its steps whatever is folded.
+//! A note holding folded notes shows how many with a "+N" badge. A click on it unfolds them,
+//! and they float out of it; a click on an unfolded note (with a "−" badge) folds them back
+//! in. A double click opens the note. The note being read is always unfolded into view, and
+//! while the map is edited every note shows.
 
 use bevy::{camera::visibility::RenderLayers, prelude::*, text::FontWeight};
 
@@ -14,75 +14,68 @@ use bevsidian_ui::color;
 
 use crate::{GraphNode, GraphState, GraphText, LAYER};
 
-/// The outermost ring shown unfolded: the hub (0), the areas (1) and their concepts (2).
-pub const SHOWN_RING: usize = 2;
+/// The deepest rank shown unfolded with the whole map: the hub (0), the areas (1) and their
+/// concepts (2).
+pub const SHOWN_RANK: usize = 2;
 
 /// Radius of the badge on a note holding folded notes (world units).
 pub const BADGE_RADIUS: f32 = 11.0;
-/// Where the badge sits: up and right of the disc's centre, as a share of its radius on
-/// each axis (on the outline, at 45°).
+/// Where the badge sits: up and right of the note's centre, as a share of its radius on each
+/// axis (on its outline, at 45°).
 const BADGE_AT: f32 = 0.72;
 /// Size of the badge's text (world units).
 const BADGE_TEXT: f32 = 12.0;
-/// The dots around a note holding folded notes: how far past its disc, how big, and at most
-/// how many (one per folded note).
-const DOTS_GAP: f32 = 7.0;
-const DOT_RADIUS: f32 = 2.5;
-const MAX_DOTS: usize = 12;
-/// The dots leave a gap around the badge (at 45°): they run from 45° + this angle round to
-/// 45° − it.
-const DOTS_CLEAR: f32 = 0.55;
-/// How far (world units) the app's tree may be from its wanted distance before it moves:
-/// notes settling nudge the course's reach a little all the time.
-const SHIFT_SLACK: f32 = 120.0;
 /// How close (world units) a folding note gets to its parent before it disappears.
 const TUCKED: f32 = 6.0;
 
-/// Which notes are shown: a note is shown when the note it grows from is, and either sits
-/// within [`SHOWN_RING`] or grows from an unfolded (`open`) note. Roots are always shown.
-pub fn shown(parent: &[Option<usize>], ring: &[usize], open: &[bool]) -> Vec<bool> {
+/// Which notes show. A note shows when it must (`forced`: the hub, a step of a route shown),
+/// or when the note it hangs from shows and either lets it show (`base`) or is unfolded.
+pub fn shown(parent: &[Option<usize>], base: &[bool], forced: &[bool], open: &[bool]) -> Vec<bool> {
     fn visit(
         n: usize,
-        parent: &[Option<usize>],
-        ring: &[usize],
-        open: &[bool],
+        input: (&[Option<usize>], &[bool], &[bool], &[bool]),
         memo: &mut [Option<bool>],
         depth: usize,
     ) -> bool {
         if let Some(known) = memo[n] {
             return known;
         }
-        let result = match parent[n] {
-            // A cycle cannot happen in a tree; stop anyway rather than recurse forever.
-            Some(_) if depth > parent.len() => true,
-            Some(p) => {
-                visit(p, parent, ring, open, memo, depth + 1) && (ring[n] <= SHOWN_RING || open[p])
-            }
-            None => true,
-        };
+        let (parent, base, forced, open) = input;
+        let result = forced[n]
+            || match parent[n] {
+                // A cycle cannot happen in a tree; stop anyway rather than recurse forever.
+                Some(_) if depth > parent.len() => true,
+                Some(p) => visit(p, input, memo, depth + 1) && (base[n] || open[p]),
+                None => true,
+            };
         memo[n] = Some(result);
         result
     }
     let mut memo = vec![None; parent.len()];
     (0..parent.len())
-        .map(|n| visit(n, parent, ring, open, &mut memo, 0))
+        .map(|n| visit(n, (parent, base, forced, open), &mut memo, 0))
         .collect()
 }
 
-/// How many notes each note holds folded: its children beyond [`SHOWN_RING`] with everything
-/// growing from them. A note with none has no badge.
-pub fn folded_counts(parent: &[Option<usize>], ring: &[usize]) -> Vec<usize> {
+/// How many notes each note holds folded: the children that show only when it is unfolded,
+/// with everything that hangs from them (but not what must show anyway).
+pub fn folded_counts(parent: &[Option<usize>], base: &[bool], forced: &[bool]) -> Vec<usize> {
     let count = parent.len();
-    // Each note's subtree size: walk up from every note, counting it at each ancestor.
-    let mut size = vec![1_usize; count];
+    // Each note's subtree, without the notes that show anyway: walk up from every note.
+    let mut size = vec![0_usize; count];
     for n in 0..count {
+        if forced[n] {
+            continue;
+        }
+        size[n] += 1;
         let mut at = parent[n];
         let mut steps = 0;
+        // Up to the first note that shows anyway: it holds this one, not its ancestors.
         while let Some(p) = at {
             size[p] += 1;
             at = parent[p];
             steps += 1;
-            if steps > count {
+            if forced[p] || steps > count {
                 break;
             }
         }
@@ -90,7 +83,8 @@ pub fn folded_counts(parent: &[Option<usize>], ring: &[usize]) -> Vec<usize> {
     let mut folded = vec![0; count];
     for n in 0..count {
         if let Some(p) = parent[n]
-            && ring[n] > SHOWN_RING
+            && !base[n]
+            && !forced[n]
         {
             folded[p] += size[n];
         }
@@ -113,48 +107,14 @@ pub(crate) struct GraphBadgeFill;
 #[derive(Component)]
 pub(crate) struct GraphBadgeOutline;
 
-/// The dots around a note while it holds folded notes.
-#[derive(Component)]
-pub(crate) struct GraphStack;
-
 /// Where a note's badge sits, relative to its centre.
 pub(crate) fn badge_offset(radius: f32) -> Vec2 {
     Vec2::splat(radius * BADGE_AT)
 }
 
-/// Spawns the badge and the dots of a note holding `folds` folded notes.
-pub(crate) fn spawn_badge(
-    node: &mut ChildSpawnerCommands,
-    radius: f32,
-    folds: usize,
-    state: &GraphState,
-) {
+/// Spawns the (hidden) badge of a note other notes hang from.
+pub(crate) fn spawn_badge(node: &mut ChildSpawnerCommands, radius: f32, state: &GraphState) {
     let paint = &state.paint;
-    let dots = folds.clamp(1, MAX_DOTS);
-    let start = std::f32::consts::FRAC_PI_4 + DOTS_CLEAR;
-    let span = std::f32::consts::TAU - 2.0 * DOTS_CLEAR;
-    node.spawn((
-        GraphStack,
-        Transform::from_xyz(0.0, 0.0, -0.3),
-        Visibility::Hidden,
-        RenderLayers::layer(LAYER),
-    ))
-    .with_children(|ring| {
-        for i in 0..dots {
-            let share = if dots == 1 {
-                0.5
-            } else {
-                i as f32 / (dots - 1) as f32
-            };
-            let at = Vec2::from_angle(start + span * share) * (radius + DOTS_GAP);
-            ring.spawn((
-                Mesh2d(state.circle.clone()),
-                MeshMaterial2d(paint.stack[0].clone()),
-                Transform::from_translation(at.extend(0.0)).with_scale(Vec3::splat(DOT_RADIUS)),
-                RenderLayers::layer(LAYER),
-            ));
-        }
-    });
     let font = TextFont {
         font: bevy::text::FontSource::families("Geist, sans-serif"),
         font_size: BADGE_TEXT.into(),
@@ -196,21 +156,14 @@ pub(crate) fn spawn_badge(
     });
 }
 
-/// Applies folding: which notes are shown, the badges, and the motion of notes unfolding
-/// out of their parent or folding back into it.
-#[allow(clippy::too_many_arguments)]
+/// Applies folding: which notes show, the badges, and the motion of notes unfolding out of
+/// their parent or folding back into it.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub(crate) fn fold_nodes(
     nav: Res<Nav>,
     mut state: ResMut<GraphState>,
     mut nodes: Query<(Entity, &mut GraphNode, &mut Transform, &mut Visibility)>,
-    mut badges: Query<
-        (Entity, &ChildOf, &mut Visibility),
-        (With<GraphBadge>, Without<GraphNode>, Without<GraphStack>),
-    >,
-    mut stacks: Query<
-        (&ChildOf, &mut Visibility),
-        (With<GraphStack>, Without<GraphNode>, Without<GraphBadge>),
-    >,
+    mut badges: Query<(Entity, &ChildOf, &mut Visibility), (With<GraphBadge>, Without<GraphNode>)>,
     mut fills: Query<
         (
             &ChildOf,
@@ -221,25 +174,36 @@ pub(crate) fn fold_nodes(
     >,
     mut labels: Query<(&ChildOf, &mut Text2d, &mut TextColor), With<GraphBadgeLabel>>,
     mut last_current: Local<Option<(usize, usize)>>,
-    // Nodes already placed: a new one (the graph was just built) starts folded, not folding.
+    // Nodes already placed: a new one (the map was just built) starts folded, not folding.
     mut seen: Local<bevy::platform::collections::HashSet<Entity>>,
 ) {
     let entities: Vec<Entity> = nodes.iter().map(|(e, ..)| e).collect();
     if entities.is_empty() {
         return;
     }
-    let index = |e: Entity| entities.iter().position(|&x| x == e);
+    let index: bevy::platform::collections::HashMap<Entity, usize> =
+        entities.iter().enumerate().map(|(i, &e)| (e, i)).collect();
     let parent: Vec<Option<usize>> = nodes
         .iter()
-        .map(|(_, n, ..)| n.parent.and_then(index))
+        .map(|(_, n, ..)| n.parent.and_then(|p| index.get(&p).copied()))
         .collect();
-    let ring: Vec<usize> = nodes.iter().map(|(_, n, ..)| n.ring).collect();
+    let editing = nav.map_edit.get_untracked();
+    let whole = state.whole || editing;
+    let base: Vec<bool> = nodes
+        .iter()
+        .map(|(_, n, ..)| editing || (whole && n.rank <= SHOWN_RANK))
+        .collect();
+    let forced: Vec<bool> = nodes.iter().map(|(_, n, ..)| editing || n.forced).collect();
     let mut open: Vec<bool> = nodes.iter().map(|(_, n, ..)| n.open).collect();
 
     // Requests: a click on a note or its badge, "expand all" / "collapse all", and the note
-    // being read (unfolded into view when it changes, or when the graph is rebuilt).
-    let mut changed = false;
-    if let Some(toggled) = state.fold_toggle.take().and_then(index) {
+    // being read (unfolded into view when it changes, or when the map is rebuilt).
+    let mut changed = std::mem::take(&mut state.refold);
+    if let Some(toggled) = state
+        .fold_toggle
+        .take()
+        .and_then(|e| index.get(&e).copied())
+    {
         open[toggled] = !open[toggled];
         changed = true;
     }
@@ -258,43 +222,22 @@ pub(crate) fn fold_nodes(
             }
         }
     }
-    let visible = shown(&parent, &ring, &open);
+    let visible = shown(&parent, &base, &forced, &open);
+    let folds = folded_counts(&parent, &base, &forced);
     let positions: Vec<Vec2> = nodes
         .iter()
         .map(|(_, _, t, _)| t.translation.truncate())
         .collect();
-    let following = !state.path.is_empty();
     let mut moving = false;
-    seen.retain(|e| entities.contains(e));
+    seen.retain(|e| index.contains_key(e));
     for (i, (entity, mut node, mut transform, mut visibility)) in nodes.iter_mut().enumerate() {
         let new = seen.insert(entity);
         node.open = open[i];
-        let hide = if following {
-            node.off_path
-        } else {
-            !visible[i]
-        };
+        node.folds = if editing { 0 } else { folds[i] };
         let parent_at = parent[i].map(|p| positions[p]);
-        if hide {
-            if node.hidden {
-                node.tucking = false;
-            } else if new || following || node.arriving || parent_at.is_none() {
-                node.hidden = true;
-                node.tucking = false;
-            } else if let Some(to) = parent_at {
-                // Float into the parent, then disappear.
-                if transform.translation.truncate().distance(to) < TUCKED {
-                    node.hidden = true;
-                    node.tucking = false;
-                } else {
-                    node.tucking = true;
-                    node.tuck_to = to;
-                    moving = true;
-                }
-            }
-        } else {
+        if visible[i] {
             if node.hidden
-                && !following
+                && !new
                 && let Some(from) = parent_at
             {
                 // Unfolding: float out of the parent to its place.
@@ -305,6 +248,21 @@ pub(crate) fn fold_nodes(
             }
             node.hidden = false;
             node.tucking = false;
+        } else if node.hidden {
+            node.tucking = false;
+        } else if new || node.arriving || parent_at.is_none() {
+            node.hidden = true;
+            node.tucking = false;
+        } else if let Some(to) = parent_at {
+            // Float into the parent, then disappear.
+            if transform.translation.truncate().distance(to) < TUCKED {
+                node.hidden = true;
+                node.tucking = false;
+            } else {
+                node.tucking = true;
+                node.tuck_to = to;
+                moving = true;
+            }
         }
         visibility.set_if_neq(if node.hidden {
             Visibility::Hidden
@@ -312,64 +270,37 @@ pub(crate) fn fold_nodes(
             Visibility::Inherited
         });
     }
-    // The app's tree keeps its distance from the course's as far as that is unfolded: it
-    // floats closer when notes fold away and further when they unfold.
-    let reach = nodes
-        .iter()
-        .filter(|(_, n, ..)| !n.app && !n.hidden)
-        .map(|(_, n, ..)| n.home.length() + n.orbit)
-        .fold(0.0, f32::max);
-    let wanted = reach + state.app_reach + crate::APP_GAP;
-    if !following && reach > 0.0 && (wanted - state.app_shift).abs() > SHIFT_SLACK {
-        let by = wanted - state.app_shift;
-        state.app_shift = wanted;
-        for (_, mut node, ..) in &mut nodes {
-            if node.app {
-                node.home.x += by;
-                node.arriving = true;
-            }
-        }
-        moving = true;
-    }
     if changed || moving {
-        state.alpha = state.alpha.max(0.3);
+        state.moving = true;
     }
 
     // Badges: "+N" on white while folded, "−" on the card colour while unfolded.
     let paint = &state.paint;
-    let badge_of = |child_of: &ChildOf| nodes.get(child_of.parent()).ok();
-    // The badge's parts hang from the badge, which hangs from the note.
+    let node_of = |e: Entity| nodes.get(e).ok().map(|(_, n, ..)| n);
     let mut note_of_badge = bevy::platform::collections::HashMap::<Entity, Entity>::default();
     for (badge, child_of, mut visibility) in &mut badges {
         note_of_badge.insert(badge, child_of.parent());
-        let shows = badge_of(child_of)
-            .is_some_and(|(_, n, ..)| !n.hidden && !n.tucking && !following && n.folds > 0);
+        // Zoomed far out (the note grew to stay visible), the badge would be a speck.
+        let shows = node_of(child_of.parent())
+            .is_some_and(|n| !n.hidden && !n.tucking && n.folds > 0)
+            && nodes
+                .get(child_of.parent())
+                .is_ok_and(|(_, _, t, _)| t.scale.x <= 1.0);
         visibility.set_if_neq(if shows {
             Visibility::Inherited
         } else {
             Visibility::Hidden
         });
     }
-    for (child_of, mut visibility) in &mut stacks {
-        let shows = badge_of(child_of).is_some_and(|(_, n, ..)| {
-            !n.hidden && !n.tucking && !following && n.folds > 0 && !n.open
-        });
-        visibility.set_if_neq(if shows {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        });
-    }
-    let node_of = |part: &ChildOf| {
+    let owner = |part: &ChildOf| {
         note_of_badge
             .get(&part.parent())
-            .and_then(|&note| nodes.get(note).ok())
+            .and_then(|&note| node_of(note))
     };
     for (child_of, mut material, outline) in &mut fills {
-        let Some((_, node, ..)) = node_of(child_of) else {
+        let Some(node) = owner(child_of) else {
             continue;
         };
-        // Folded: a white disc. Unfolded: a dark one with a light outline.
         let wanted = match (outline, node.open) {
             (false, true) => &paint.badge_open,
             (false, false) => &paint.badge_folded,
@@ -380,11 +311,11 @@ pub(crate) fn fold_nodes(
             material.0 = wanted.clone();
         }
     }
-    for (child_of, mut text, mut color) in &mut labels {
-        let Some((_, node, ..)) = node_of(child_of) else {
+    for (child_of, mut text, mut tint) in &mut labels {
+        let Some(node) = owner(child_of) else {
             continue;
         };
-        let (wanted, tint) = if node.open {
+        let (wanted, color) = if node.open {
             ("\u{2212}".to_owned(), color::FOREGROUND)
         } else {
             (format!("+{}", node.folds), color::PRIMARY_FOREGROUND)
@@ -392,7 +323,7 @@ pub(crate) fn fold_nodes(
         if text.0 != wanted {
             text.0 = wanted;
         }
-        color.set_if_neq(TextColor(tint));
+        tint.set_if_neq(TextColor(color));
     }
 }
 
@@ -403,10 +334,10 @@ pub(crate) fn badge_at(
 ) -> Option<Entity> {
     nodes
         .iter()
-        .filter(|(_, _, n)| !n.hidden && !n.tucking && n.folds > 0)
+        .filter(|(_, t, n)| !n.hidden && !n.tucking && n.folds > 0 && t.scale.x <= 1.0)
         .find(|(_, t, n)| {
-            let at = t.translation.truncate() + badge_offset(n.radius);
-            at.distance(world) <= BADGE_RADIUS + 4.0
+            let at = t.translation.truncate() + badge_offset(n.radius) * t.scale.x;
+            at.distance(world) <= BADGE_RADIUS * t.scale.x + 4.0
         })
         .map(|(e, ..)| e)
 }
@@ -416,118 +347,50 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_folded_note_unfolds_out_of_its_parent_and_folds_back_in() {
-        use bevsidian_core::nav::View;
-
-        let mut app = App::new();
-        app.add_plugins(MinimalPlugins)
-            // Every update is one 60 Hz frame.
-            .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-                std::time::Duration::from_secs_f32(1.0 / 60.0),
-            ))
-            .insert_resource(Nav::new(99))
-            .insert_resource(GraphState {
-                alpha: 1.0,
-                ..default()
-            })
-            .add_systems(Update, (fold_nodes, crate::simulate).chain());
-        app.world().resource::<Nav>().view.set(View::Graph);
-        let node = |note: usize, ring: usize, home: Vec2, parent: Option<Entity>, folds| {
-            (
-                GraphNode {
-                    note,
-                    velocity: Vec2::ZERO,
-                    radius: 20.0,
-                    pinned: false,
-                    neighbors: Vec::new(),
-                    hidden: false,
-                    off_path: false,
-                    parent,
-                    ring,
-                    app: false,
-                    folds,
-                    open: false,
-                    tucking: false,
-                    tuck_to: Vec2::ZERO,
-                    home,
-                    arriving: false,
-                    target: None,
-                    orbit: 30.0,
-                },
-                Transform::from_translation(home.extend(0.0)),
-                Visibility::default(),
-            )
-        };
-        let concept = app.world_mut().spawn(node(0, 2, Vec2::ZERO, None, 1)).id();
-        let library = app
-            .world_mut()
-            .spawn(node(1, 4, Vec2::new(300.0, 0.0), Some(concept), 0))
-            .id();
-        let run = |app: &mut App, frames: usize| {
-            for _ in 0..frames {
-                app.update();
-            }
-        };
-        let get = |app: &App, e: Entity| {
-            let node = app.world().get::<GraphNode>(e).unwrap();
-            let at = app
-                .world()
-                .get::<Transform>(e)
-                .unwrap()
-                .translation
-                .truncate();
-            (node.hidden, node.open, at)
-        };
-        run(&mut app, 1);
-        assert!(get(&app, library).0, "beyond the concepts: folded at first");
-
-        app.world_mut().resource_mut::<GraphState>().fold_toggle = Some(concept);
-        run(&mut app, 1);
-        let (hidden, _, at) = get(&app, library);
-        assert!(!hidden && at.x < 50.0, "it unfolds out of its parent: {at}");
-        assert!(get(&app, concept).1, "the parent is open");
-        run(&mut app, 240);
-        let (_, _, at) = get(&app, library);
-        assert!((at.x - 300.0).abs() < 5.0, "and floats home: {at}");
-
-        app.world_mut().resource_mut::<GraphState>().fold_toggle = Some(concept);
-        run(&mut app, 1);
-        assert!(
-            !get(&app, library).0,
-            "folding, it first floats back into its parent"
+    fn routes_show_their_steps_and_the_rest_folds() {
+        // 0 hub → 1 area → 2 concept → 3 sub-concept → 4 crate; 5 a crate under the area.
+        let parent = [None, Some(0), Some(1), Some(2), Some(3), Some(1)];
+        let closed = [false; 6];
+        // Only a route through the sub-concept: the hub and it show, nothing else.
+        let forced = [true, false, false, true, false, false];
+        let none = [false; 6];
+        assert_eq!(
+            shown(&parent, &none, &forced, &closed),
+            [true, false, false, true, false, false]
         );
-        run(&mut app, 240);
-        let (hidden, _, at) = get(&app, library);
-        assert!(hidden && at.x < 10.0, "then disappears there: {at}");
-        // Its home is kept for the next unfold.
-        let home = app.world().get::<GraphNode>(library).unwrap().home;
-        assert!((home.x - 300.0).abs() < 2.0, "{home}");
+        // The sub-concept holds its crate; the hub holds the area, its concept and its crate
+        // (not the sub-concept, which shows anyway, nor its crate).
+        assert_eq!(folded_counts(&parent, &none, &forced), [3, 2, 0, 1, 0, 0]);
+        let mut open = closed;
+        open[3] = true;
+        assert!(shown(&parent, &none, &forced, &open)[4]);
     }
 
     #[test]
-    fn notes_beyond_the_concepts_start_folded() {
-        // 0 hub → 1 area → 2 concept → 3 sub-concept → 4 library; 5 a library under the area.
+    fn the_whole_map_folds_beyond_the_concepts() {
         let parent = [None, Some(0), Some(1), Some(2), Some(3), Some(1)];
-        let ring = [0, 1, 2, 3, 4, 4];
+        let rank = [0, 1, 2, 3, 4, 4];
+        let base: Vec<bool> = rank.iter().map(|&r| r <= SHOWN_RANK).collect();
+        let forced = [true, false, false, false, false, false];
         let closed = [false; 6];
         assert_eq!(
-            shown(&parent, &ring, &closed),
+            shown(&parent, &base, &forced, &closed),
             [true, true, true, false, false, false]
         );
-        assert_eq!(folded_counts(&parent, &ring), [0, 1, 2, 1, 0, 0]);
-        // Unfolding the concept shows its sub-concept, whose library stays folded in it.
+        assert_eq!(folded_counts(&parent, &base, &forced), [0, 1, 2, 1, 0, 0]);
+        // Unfolding the concept shows its sub-concept, whose crate stays folded in it.
         let mut open = closed;
         open[2] = true;
         assert_eq!(
-            shown(&parent, &ring, &open),
+            shown(&parent, &base, &forced, &open),
             [true, true, true, true, false, false]
         );
         open[3] = true;
-        assert!(shown(&parent, &ring, &open)[4]);
+        assert!(shown(&parent, &base, &forced, &open)[4]);
         // Folding the concept again hides everything under it, unfolded or not.
         open[2] = false;
         assert_eq!(
-            shown(&parent, &ring, &open),
+            shown(&parent, &base, &forced, &open),
             [true, true, true, false, false, false]
         );
     }

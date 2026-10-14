@@ -1,19 +1,15 @@
 ---
 icon: users
 path: true
+quest: feature
+feature: Online multiplayer
 ---
 # Multiplayer
 
-Build a game that works for one player, then put players together.
+Across the sea to the Far Shores: a game that works for one player, then for many. States and Messages, from the ECS Heartlands, help on the way.
 
-1. [[Project setup]]
-2. [[Events and observers]]
-3. [[Time and timers]]
-4. [[States]]
-5. [[Networking]]
-6. [[bevy_replicon]]
-7. [[Messages]] (optional)
-8. [[bevy_renet]] (optional)
-9. [[Netcode crates]] (optional)
-10. [[Randomness]] (extra)
-11. [[bevy_http_client]] (extra)
+1. [[Networking]]: the map of the shores.
+2. [[bevy_replicon]]: replicate the world.
+3. [[Netcode crates]] (optional)
+4. [[bevy_renet]] (extra)
+5. [[bevy_http_client]] (extra)

@@ -20,6 +20,7 @@ pub fn plugin(app: &mut App) {
             shortcuts,
             reset_switcher_index,
             follow_paths,
+            mark_visited,
             reset_scroll_on_navigation,
             scroll_to_anchor,
             track_section.after(reset_scroll_on_navigation),
@@ -59,6 +60,17 @@ pub struct Nav {
     /// The reading path being followed (its note): the graph shows only its notes, and its
     /// notes link to the previous and next step.
     pub path: Signal<Option<NoteId>>,
+    /// The routes chosen in the map's checklist (their path notes), beside the main quest:
+    /// the map shows only their roads. `None` until the reader has chosen.
+    pub quests: Signal<Option<Vec<NoteId>>>,
+    /// The map shows every note and road, whatever routes are chosen.
+    pub whole_map: Signal<bool>,
+    /// The map's checklist ("What's in your game?") is open.
+    pub map_setup: Signal<bool>,
+    /// The map is being edited: notes and objects can be moved, reshaped, added and removed.
+    pub map_edit: Signal<bool>,
+    /// Notes the reader has opened, in the order first opened (the map ticks them off).
+    pub visited: Signal<Vec<NoteId>>,
     /// Find in the note (`Ctrl+F`): open, what to find, which match is current and how
     /// many there are.
     pub find: Signal<bool>,
@@ -140,6 +152,11 @@ impl Nav {
             scrolled: signal(|| false),
             links: signal(|| false),
             path: signal(|| None),
+            quests: signal(|| None),
+            whole_map: signal(|| false),
+            map_setup: signal(|| false),
+            map_edit: signal(|| false),
+            visited: signal(Vec::new),
             find: signal(|| false),
             find_query: signal(String::new),
             find_index: signal(|| 0),
@@ -399,6 +416,18 @@ fn follow_paths(nav: Res<Nav>, vault: Res<Vault>, mut last: Local<Option<NoteId>
     *last = Some(current);
     if vault.get_untracked().path(current).is_some() {
         nav.path.set_if_neq(Some(current));
+    }
+}
+
+/// The note being read counts as visited.
+fn mark_visited(nav: Res<Nav>, mut last: Local<Option<NoteId>>) {
+    let current = nav.current.get_untracked();
+    if *last == Some(current) {
+        return;
+    }
+    *last = Some(current);
+    if !nav.visited.get_untracked().contains(&current) {
+        nav.visited.update(|v| v.push(current));
     }
 }
 

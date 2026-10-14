@@ -1,20 +1,16 @@
 ---
 icon: sparkles
 path: true
+quest: feature
+feature: Polished visuals
 ---
 # Make it look good
 
-Cheap changes that make a game look finished.
+To the Lightworks, south of the ridge: cheap changes that make a game look finished.
 
-1. [[Colors and math]]
-2. [[Cameras]]
-3. [[Meshes and materials]]
-4. [[Lighting]]
-5. [[Post-processing]]
-6. [[Environment]]
-7. [[Custom materials]] (optional)
-8. [[Sprites]] (optional)
-9. [[Text and images]] (optional)
-10. [[bevy_hanabi]] (extra)
-11. [[3D effect crates]] (extra)
-12. [[2D lighting crates]] (extra)
+1. [[Rendering]]: the map of the works.
+2. [[Colors and math]]
+3. [[Custom materials]]
+4. [[Post-processing]]
+5. [[bevy_hanabi]] (extra): particles.
+6. [[3D effect crates]] (extra)

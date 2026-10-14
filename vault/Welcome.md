@@ -11,7 +11,7 @@ icon: house
 
 ## Start here
 
-Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the graph (`Ctrl+G`) to see it: Bevy in the middle, one cluster per area around it.
+Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the map (`Ctrl+G`) to see it: Bevy in the middle, a road out of it for every kind of game.
 
 1. [[Bevy]]: the map of all areas.
 2. [[Your first game]]: the fastest path to something playable.
@@ -19,7 +19,7 @@ Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**
 4. [[BSN]]: Bevy 0.20's scene notation.
 5. [[Bevsidian]]: how this app itself is built (optional).
 
-Or pick a path: [[Getting started]], [[Understanding ECS]], [[A 2D game]], [[A 3D game]], [[Multiplayer]], [[Building UI]], [[Make it look good]], [[Ship it]]. In the graph, solid lines are the main route, dashed ones optional steps and dotted ones extras.
+Or pick a route: [[A 2D game]], [[A 3D game]], [[Building UI]], [[Multiplayer]], [[Understanding ECS]], [[Ship it]] and more on [[Bevy]]. On the map, solid roads are the main way, dashed ones side quests and dotted ones secrets.
 
 ## How links work
 
@@ -43,6 +43,7 @@ Or pick a path: [[Getting started]], [[Understanding ECS]], [[A 2D game]], [[A 3
 - [x] Markdown rendering with links and tags
 - [x] Text selection and copy
 - [x] Graph view
+- [x] A hand-drawn map with routes for every kind of game
 - [x] Interactive Bevy tutorials, area by area
 - [x] Reading paths with optional and extra steps
 - [ ] More examples

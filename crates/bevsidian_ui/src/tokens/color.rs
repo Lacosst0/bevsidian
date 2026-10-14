@@ -75,6 +75,27 @@ pub const WARNING_SOFT: Color = Color::srgba(0.984, 0.749, 0.141, 0.02);
 pub const FIND_MATCH: Color = Color::srgba(0.984, 0.749, 0.141, 0.09);
 pub const FIND_CURRENT: Color = Color::srgba(0.984, 0.573, 0.235, 0.3);
 
+/// The graph's map, all opaque (they are painted over one another, not blended): the sea
+/// is [`BACKGROUND`] dotted with [`CARD`].
+/// `#0f0f0f`: the shallows around the land.
+pub const MAP_SHALLOWS: Color = Color::srgb(0.059, 0.059, 0.059);
+/// `#2b2b2b`: the coastline.
+pub const MAP_COAST: Color = Color::srgb(0.169, 0.169, 0.169);
+/// `#131313`: land.
+pub const MAP_LAND: Color = Color::srgb(0.075, 0.075, 0.075);
+/// `#5c5c5c`: the roads of the routes shown.
+pub const MAP_ROAD: Color = Color::srgb(0.361, 0.361, 0.361);
+/// `#2a2a2a`: the other roads, with the whole map shown.
+pub const MAP_ROAD_FAINT: Color = Color::srgb(0.165, 0.165, 0.165);
+/// `#333333`: trails to notes no road reaches.
+pub const MAP_TRAIL: Color = Color::srgb(0.2, 0.2, 0.2);
+/// `#383838`: landmarks drawn on the land.
+pub const MAP_INK: Color = Color::srgb(0.22, 0.22, 0.22);
+/// `#595959`: the names of regions.
+pub const MAP_INK_STRONG: Color = Color::srgb(0.35, 0.35, 0.35);
+/// `#7c4a21`: a hovered note's links, the link colour dimmed over the page.
+pub const LINK_SOFT_SOLID: Color = Color::srgb(0.486, 0.29, 0.129);
+
 /// Behind dialogs and drawers (CSS: black 60 %).
 pub const SCRIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.8);
 /// Drop shadows.

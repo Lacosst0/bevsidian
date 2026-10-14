@@ -1,6 +1,6 @@
 [package]
 name = "bevsidian_graph"
-description = "Obsidian-style force-directed graph view of the Bevsidian vault"
+description = "The Bevsidian vault drawn as a hand-made game map"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

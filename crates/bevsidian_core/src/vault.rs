@@ -6,6 +6,8 @@ use bevy::prelude::*;
 use bevy_radioactive::view::Signal;
 use bevy_ui_commonmark::{MdDocument, WikiLink};
 
+use crate::map::WorldMap;
+
 /// Index of a note in [`Vault::notes`].
 pub type NoteId = usize;
 
@@ -98,6 +100,27 @@ pub struct NotePath {
     pub steps: Vec<NoteId>,
     /// How each step is taken, parallel to `steps`.
     pub kinds: Vec<StepKind>,
+    /// Where it sits among the map's routes (the `quest:` property).
+    pub quest: Quest,
+    /// What a game that takes it has, for the map's checklist (the `feature:` property, or
+    /// the note's name).
+    pub label: String,
+    /// The first paragraph of its note.
+    pub summary: String,
+}
+
+/// The kind of route a reading path is on the map.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Quest {
+    /// The main quest (`quest: main`): always on the map.
+    Main,
+    /// A feature a game may have (`quest: feature`): offered in the map's checklist.
+    Feature,
+    /// Something to get better at (`quest: mastery`): offered after the features.
+    Mastery,
+    /// A path that is not a route.
+    #[default]
+    Other,
 }
 
 /// How a step of a reading path is taken: a link followed by `(optional)` or `(extra)` in the
@@ -155,6 +178,42 @@ fn path_links(source: &str) -> Vec<(String, StepKind)> {
     links
 }
 
+/// The first paragraph of a note: the first lines of text after its front matter and title.
+fn summary(source: &str) -> String {
+    let mut lines = source.lines().peekable();
+    if lines.peek().is_some_and(|l| l.trim() == "---") {
+        lines.next();
+        for line in lines.by_ref() {
+            if line.trim() == "---" {
+                break;
+            }
+        }
+    }
+    let mut paragraph: Vec<&str> = Vec::new();
+    for line in lines {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            if paragraph.is_empty() {
+                continue;
+            }
+            break;
+        }
+        paragraph.push(line);
+    }
+    // A list, a table or a quote is not a summary.
+    let prose = paragraph.first().is_some_and(|first| {
+        !first.starts_with(['-', '*', '>', '|', '`'])
+            && first
+                .split_once(". ")
+                .is_none_or(|(n, _)| n.parse::<u32>().is_err())
+    });
+    if prose {
+        paragraph.join(" ")
+    } else {
+        String::new()
+    }
+}
+
 /// Vault contents.
 #[derive(Debug, Default)]
 pub struct VaultData {
@@ -168,6 +227,8 @@ pub struct VaultData {
     pub home: NoteId,
     /// Bumped by every saved edit.
     pub revision: u64,
+    /// The hand-drawn map of the graph (the note with `map: true`).
+    pub map: Option<WorldMap>,
 }
 
 impl VaultData {
@@ -257,9 +318,40 @@ impl VaultData {
                         kinds.push(kind);
                     }
                 }
-                NotePath { note, steps, kinds }
+                let property = |key: &str| {
+                    vault.notes[note]
+                        .doc
+                        .properties
+                        .iter()
+                        .find(|(k, _)| k == key)
+                        .map(|(_, v)| v.trim().to_owned())
+                };
+                let quest = match property("quest").as_deref() {
+                    Some("main") => Quest::Main,
+                    Some("feature") => Quest::Feature,
+                    Some("mastery") => Quest::Mastery,
+                    _ => Quest::Other,
+                };
+                NotePath {
+                    note,
+                    steps,
+                    kinds,
+                    quest,
+                    label: property("feature").unwrap_or_else(|| vault.notes[note].name.clone()),
+                    summary: summary(&vault.notes[note].source),
+                }
             })
             .collect();
+        vault.map = vault
+            .notes
+            .iter()
+            .position(|note| {
+                note.doc
+                    .properties
+                    .iter()
+                    .any(|(key, value)| key == "map" && value == "true")
+            })
+            .map(|id| WorldMap::parse(id, &vault.notes[id].source));
         vault.home = vault
             .find("Welcome")
             .or_else(|| vault.find("README"))
@@ -281,6 +373,12 @@ impl VaultData {
                         .is_some_and(|p| p.eq_ignore_ascii_case(name))
                 })
             })
+    }
+
+    /// Whether note `id` describes the vault rather than teaching (a reading path or the
+    /// map): the graph leaves it out.
+    pub fn is_meta(&self, id: NoteId) -> bool {
+        self.path(id).is_some() || self.map.as_ref().is_some_and(|m| m.note == id)
     }
 
     /// The reading path note `id` describes, if it is one.
@@ -426,9 +524,13 @@ mod tests {
                 note: tour,
                 steps: vec![v.find("B").unwrap(), v.find("A").unwrap()],
                 kinds: vec![StepKind::Core; 2],
+                quest: Quest::Other,
+                label: "Tour".into(),
+                summary: String::new(),
             }]
         );
         assert!(v.path(tour).is_some());
+        assert!(v.is_meta(tour));
         assert!(v.path(v.find("A").unwrap()).is_none());
     }
 
@@ -462,6 +564,30 @@ mod tests {
                 (0, 3, StepKind::Core)
             ]
         );
+    }
+
+    #[test]
+    fn quests_and_the_map() {
+        let v = VaultData::from_sources([
+            ("A.md", "# A"),
+            (
+                "Run.md",
+                "---\npath: true\nquest: feature\nfeature: Running\n---\n# Run\n\nGo fast,\nvery fast.\n\n1. [[A]]",
+            ),
+            (
+                "Map.md",
+                "---\nmap: true\n---\n# Map\n```map\nA @ 1, 2\n```",
+            ),
+        ]);
+        let run = v.path(v.find("Run").unwrap()).unwrap();
+        assert_eq!(run.quest, Quest::Feature);
+        assert_eq!(run.label, "Running");
+        assert_eq!(run.summary, "Go fast, very fast.");
+        let map = v.map.as_ref().unwrap();
+        assert_eq!(map.note, v.find("Map").unwrap());
+        assert_eq!(map.place("A").unwrap().at, bevy::math::Vec2::new(1.0, 2.0));
+        assert!(v.is_meta(map.note));
+        assert!(!v.is_meta(v.find("A").unwrap()));
     }
 
     #[test]
