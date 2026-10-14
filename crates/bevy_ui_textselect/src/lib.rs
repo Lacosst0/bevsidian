@@ -50,8 +50,10 @@ use bevy::{
 };
 use parley::{Affinity, Cursor, Selection};
 
+mod marks;
 pub mod text;
 
+pub use marks::{TextBlocks, TextMark, TextMarks};
 pub use text::{block_text, slice_text};
 
 /// Common imports.
@@ -73,6 +75,7 @@ impl Plugin for TextSelectPlugin {
             app.init_resource::<Clipboard>();
         }
         app.init_resource::<TextSelection>()
+            .init_resource::<TextMarks>()
             .init_resource::<PointerQueue>()
             .add_observer(queue_press)
             .add_observer(queue_drag)
@@ -102,7 +105,7 @@ impl Plugin for TextSelectPlugin {
                     // Highlights are placed from the previous layout (text does not move
                     // relative to its group between frames), so this frame's layout pass
                     // positions them without a one-frame gap.
-                    (validate_selection, draw_highlights)
+                    (validate_selection, draw_highlights, marks::draw_marks)
                         .chain()
                         .before(UiSystems::Layout),
                     update_accessibility.after(UiSystems::Layout),

@@ -1,9 +1,10 @@
-//! Everything that floats over the page: dialogs, menus, toolbars, toasts, the autoscroll
-//! marker and the on-screen keyboard.
+//! Everything that floats over the page: dialogs, menus, toolbars, toasts, find in the note,
+//! the autoscroll marker and the on-screen keyboard.
 
 pub mod autoscroll;
 pub mod command;
 pub mod context_menu;
+pub mod find;
 pub mod keyboard;
 pub mod links;
 pub mod selection_bar;
@@ -16,6 +17,7 @@ pub fn plugin(app: &mut App) {
     app.add_plugins((
         autoscroll::plugin,
         context_menu::plugin,
+        find::plugin,
         links::plugin,
         toast::plugin,
         selection_bar::plugin,

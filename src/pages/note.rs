@@ -72,6 +72,8 @@ pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
         ]
         --
         @{top}
+        --
+        @{crate::overlays::find::find_bar(nav.clone())}
         ]
     }
 }

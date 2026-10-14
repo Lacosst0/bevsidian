@@ -71,6 +71,10 @@ pub const SUCCESS_SOFT: Color = Color::srgba(0.290, 0.871, 0.502, 0.02);
 pub const DESTRUCTIVE_SOFT: Color = Color::srgba(0.973, 0.443, 0.443, 0.02);
 pub const WARNING_SOFT: Color = Color::srgba(0.984, 0.749, 0.141, 0.02);
 
+/// Find-in-page matches, and the current one (CSS: amber 30 %, orange 55 %).
+pub const FIND_MATCH: Color = Color::srgba(0.984, 0.749, 0.141, 0.09);
+pub const FIND_CURRENT: Color = Color::srgba(0.984, 0.573, 0.235, 0.3);
+
 /// Behind dialogs and drawers (CSS: black 60 %).
 pub const SCRIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.8);
 /// Drop shadows.

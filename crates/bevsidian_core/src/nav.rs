@@ -59,6 +59,12 @@ pub struct Nav {
     /// The reading path being followed (its note): the graph shows only its notes, and its
     /// notes link to the previous and next step.
     pub path: Signal<Option<NoteId>>,
+    /// Find in the note (`Ctrl+F`): open, what to find, which match is current and how
+    /// many there are.
+    pub find: Signal<bool>,
+    pub find_query: Signal<String>,
+    pub find_index: Signal<usize>,
+    pub find_count: Signal<usize>,
     /// Quick switcher state.
     pub switcher: Signal<bool>,
     pub switcher_query: Signal<String>,
@@ -134,6 +140,10 @@ impl Nav {
             scrolled: signal(|| false),
             links: signal(|| false),
             path: signal(|| None),
+            find: signal(|| false),
+            find_query: signal(String::new),
+            find_index: signal(|| 0),
+            find_count: signal(|| 0),
             switcher: signal(|| false),
             switcher_query: signal(String::new),
             switcher_index: signal(|| 0),
@@ -217,6 +227,26 @@ impl Nav {
     }
 
     /// Closes the drawer and the links popover (after navigating).
+    /// Opens find in the note (in the reading view).
+    pub fn open_find(&self) {
+        if self.view.get_untracked() == View::Note && !self.editing.get_untracked() {
+            self.find.set(true);
+        }
+    }
+
+    /// Moves to the next (`1`) or previous (`-1`) match of find, wrapping around.
+    pub fn step_find(&self, by: isize) {
+        let count = self.find_count.get_untracked();
+        if count > 0 {
+            let index = self.find_index.get_untracked().min(count - 1);
+            self.find_index.set(
+                (index.cast_signed() + by)
+                    .rem_euclid(count.cast_signed())
+                    .cast_unsigned(),
+            );
+        }
+    }
+
     pub fn close_overlays(&self) {
         self.close_drawer();
         self.links.set_if_neq(false);
@@ -406,6 +436,10 @@ fn shortcuts(
         let alt = modifiers.alt;
         match input.key_code {
             KeyCode::KeyO if command => nav.open_switcher(),
+            KeyCode::KeyF if command => nav.open_find(),
+            KeyCode::F3 if nav.find.get_untracked() => {
+                nav.step_find(if modifiers.shift { -1 } else { 1 });
+            }
             KeyCode::KeyG if command => nav.toggle_graph(),
             KeyCode::KeyE if command => nav.toggle_editing(),
             KeyCode::Comma if command => nav.settings.set(!nav.settings.get_untracked()),
@@ -414,7 +448,10 @@ fn shortcuts(
             KeyCode::ArrowLeft if alt => nav.go_back(),
             KeyCode::ArrowRight if alt => nav.go_forward(),
             KeyCode::Escape => {
-                if nav.links.get_untracked() {
+                if nav.find.get_untracked() {
+                    nav.find.set(false);
+                    focus.clear();
+                } else if nav.links.get_untracked() {
                     nav.links.set(false);
                 } else if nav.switcher.get_untracked() {
                     nav.switcher.set(false);
@@ -436,6 +473,11 @@ fn shortcuts(
                     (index + count - 1) % count
                 };
                 nav.switcher_index.set(next);
+            }
+            KeyCode::Enter | KeyCode::NumpadEnter
+                if nav.find.get_untracked() && !nav.switcher.get_untracked() =>
+            {
+                nav.step_find(if modifiers.shift { -1 } else { 1 });
             }
             KeyCode::Enter | KeyCode::NumpadEnter if nav.switcher.get_untracked() => {
                 let (results, _) = nav.switcher_results(&vault.get_untracked());
