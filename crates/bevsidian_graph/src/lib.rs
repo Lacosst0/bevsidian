@@ -80,8 +80,11 @@ struct GraphNode {
     neighbors: Vec<Entity>,
     /// Off the reading path being followed: not drawn, simulated or picked.
     hidden: bool,
-    /// Where it belongs in the whole graph (see [`layout::clusters`]); it drifts back there.
+    /// Its place in the whole graph: first from [`layout::clusters`], then wherever it was
+    /// last pushed or dropped. It floats there when the graph opens or a path is left.
     home: Vec2,
+    /// Floating to its home (the graph just opened, or a path was left).
+    arriving: bool,
     /// Its place on the followed path's line (see [`layout::line`]).
     target: Option<Vec2>,
     /// Radius of its orbit: no other note comes closer (room for its disc and label).
@@ -112,8 +115,10 @@ struct GraphText {
 #[derive(Resource, Default)]
 pub struct GraphState {
     image: Handle<Image>,
-    /// Links, one per direction: the springs of the simulation.
+    /// Links, one per direction.
     edges: Vec<(Entity, Entity)>,
+    /// The springs of the simulation: a link and its length in the layout.
+    springs: Vec<(Entity, Entity, f32)>,
     /// The lines drawn, one per connected pair, and whether the whole graph shows it: only
     /// lines inside a cluster and from the hub to cluster centres do, the others only for
     /// the hovered note (they would tangle the clusters together).
@@ -305,11 +310,19 @@ fn spawn_nodes(
                     neighbors: Vec::new(),
                     hidden: false,
                     home,
+                    arriving: kept.is_empty(),
                     target: None,
                     orbit: orbit(radius, &note.name),
                 },
-                // Notes start at home: the first frame already shows the layout.
-                Transform::from_translation(kept.get(&i).copied().unwrap_or(home.extend(1.0))),
+                // Notes float out from the hub to their homes when the graph is first built.
+                Transform::from_translation(kept.get(&i).copied().unwrap_or_else(|| {
+                    let start = if kept.is_empty() {
+                        home * START_SPREAD
+                    } else {
+                        home
+                    };
+                    start.extend(1.0)
+                })),
                 Visibility::default(),
                 RenderLayers::layer(LAYER),
             ))
@@ -353,16 +366,24 @@ fn spawn_nodes(
             .id();
         note_entities.push(Some(id));
     }
+    let slot = |id: NoteId| shown.iter().position(|&n| n == id);
     let mut edges = Vec::new();
+    let mut springs = Vec::new();
     for (i, note) in vault.notes.iter().enumerate() {
         for &target in &note.outgoing {
-            if let (Some(a), Some(b)) = (note_entities[i], note_entities[target]) {
+            if let (Some(a), Some(b), Some(sa), Some(sb)) = (
+                note_entities[i],
+                note_entities[target],
+                slot(i),
+                slot(target),
+            ) {
                 edges.push((a, b));
+                springs.push((a, b, layout.homes[sa].distance(layout.homes[sb])));
             }
         }
     }
     state.edges = edges;
-    let slot = |id: NoteId| shown.iter().position(|&n| n == id);
+    state.springs = springs;
     state.lines = connections(&vault)
         .into_iter()
         .filter_map(|(a, b, kind)| {
@@ -382,6 +403,9 @@ fn spawn_nodes(
         state.alpha = state.alpha.max(0.1);
     }
 }
+
+/// Where notes start when the graph is first built, as a share of the way to their homes.
+const START_SPREAD: f32 = 0.1;
 
 /// Radius a note keeps clear around itself: its disc, and its label (centred below it).
 fn orbit(radius: f32, name: &str) -> f32 {
@@ -550,6 +574,10 @@ fn follow_path(
     let mut ordered = vec![None; steps.len()];
     for (entity, mut node, mut visibility, children) in &mut nodes {
         let step = steps.iter().position(|&s| s == node.note);
+        // Leaving a path: its steps float back to where they were.
+        if changed && steps.is_empty() && node.target.is_some() {
+            node.arriving = true;
+        }
         node.hidden = !steps.is_empty() && step.is_none();
         node.target = step.and_then(|step| places.get(step).copied());
         visibility.set_if_neq(if node.hidden {
@@ -607,17 +635,24 @@ fn frame_path(
     }
 }
 
-/// How fast (per second) path steps ease onto their line.
+/// How fast (per second) path steps ease onto their line, and notes float to their homes.
 const PATH_EASE: f32 = 7.0;
-/// Pull towards a note's home, and along links (gentle: links only bend the layout).
-const HOME_PULL: f32 = 0.35;
-const LINK_PULL: f32 = 0.02;
-/// How much of an overlap one collision pass removes.
-const COLLISION: f32 = 0.7;
+const ARRIVE_EASE: f32 = 2.5;
+/// Pull along links, towards their length in the layout.
+const LINK_PULL: f32 = 2.0;
+/// Push between notes inside each other's orbits, per unit of overlap: an overlap clears
+/// at about this rate (per second).
+const REPEL: f32 = 6.0;
+/// Velocity lost per second: high, so notes glide to rest instead of bouncing.
+const DAMPING: f32 = 10.0;
+/// Fastest a note floats (world units per second).
+const MAX_SPEED: f32 = 2400.0;
 
 /// Moves the shown notes. With a path followed, its steps ease quickly onto their line.
-/// Otherwise each note drifts towards its home on the rings, links pull gently, and no note
-/// enters another's orbit: they keep their distance but stay as close as that allows.
+/// Otherwise notes float: no note stays inside another's orbit (a dragged note pushes others
+/// smoothly out of its way, and they stay where they end up), links pull towards their
+/// length in the layout (a dragged note brings its neighbours along), and notes that are
+/// arriving (the graph just opened, or a path was left) float to their homes.
 fn simulate(
     time: Res<Time>,
     nav: Res<Nav>,
@@ -630,89 +665,93 @@ fn simulate(
     let dt = time.delta_secs().min(1.0 / 30.0);
     let following = !state.path.is_empty();
     let alpha = state.alpha;
-    let mut positions: Vec<(Entity, Vec2, f32, bool)> = Vec::new();
-    let index = |positions: &[(Entity, Vec2, f32, bool)], e: Entity| {
-        positions.iter().position(|(p, ..)| *p == e)
-    };
-    let mut forces = Vec::new();
-    let mut homes = Vec::new();
+    // Position, orbit, whether it stays put, whether it takes part in pushing.
+    let mut positions: Vec<(Entity, Vec2, f32, bool, bool)> = Vec::new();
     for (entity, node, transform) in &nodes {
         if node.hidden {
             continue;
         }
-        let at = transform.translation.truncate();
         let fixed = state.dragging == Some(entity) || (node.pinned && !following);
-        positions.push((entity, at, node.orbit, fixed));
-        homes.push(node.home);
-        forces.push(if following {
-            Vec2::ZERO
-        } else {
-            (node.home - at) * HOME_PULL
-        });
+        let pushing = !following && !node.arriving;
+        positions.push((
+            entity,
+            transform.translation.truncate(),
+            node.orbit,
+            fixed,
+            pushing,
+        ));
     }
+    let index = |e: Entity| positions.iter().position(|(p, ..)| *p == e);
+    let weights = state.anchor.map(|anchor| mobility(&state.edges, anchor));
+    let mobility = |e: Entity| {
+        weights
+            .as_ref()
+            .map_or(1.0, |m| m.get(&e).copied().unwrap_or(FAR_MOBILITY))
+    };
+    // Links pull with the simulation's heat, nearest a dragged note most.
+    let mut forces = vec![Vec2::ZERO; positions.len()];
     if !following {
-        for &(a, b) in &state.edges {
-            let (Some(i), Some(j)) = (index(&positions, a), index(&positions, b)) else {
+        for &(a, b, rest) in &state.springs {
+            let (Some(i), Some(j)) = (index(a), index(b)) else {
                 continue;
             };
-            // Springs as long as the link at home: at rest they pull nothing out of place,
-            // and a dragged note brings its neighbours along.
-            let rest = homes[i].distance(homes[j]);
             let delta = positions[j].1 - positions[i].1;
-            let f = delta.normalize_or_zero() * (delta.length() - rest) * LINK_PULL;
-            forces[i] += f;
-            forces[j] -= f;
+            let f =
+                delta.normalize_or_zero() * (delta.length() - rest) * LINK_PULL * alpha * DAMPING;
+            forces[i] += f * mobility(a);
+            forces[j] -= f * mobility(b);
         }
     }
-    let weights = state.anchor.map(|anchor| mobility(&state.edges, anchor));
-    let ease = 1.0 - (-PATH_EASE * dt).exp();
-    for (i, (entity, node, _)) in nodes.iter_mut().filter(|(_, n, _)| !n.hidden).enumerate() {
-        let (_, at, _, fixed) = positions[i];
-        let mut node = node;
-        if fixed {
-            node.velocity = Vec2::ZERO;
-            continue;
-        }
-        if let (true, Some(target)) = (following, node.target) {
-            node.velocity = Vec2::ZERO;
-            positions[i].1 = at.lerp(target, ease);
-            continue;
-        }
-        let mobility = weights
-            .as_ref()
-            .map_or(1.0, |m| m.get(&entity).copied().unwrap_or(FAR_MOBILITY));
-        node.velocity = (node.velocity + forces[i] * dt * alpha * mobility) * 0.85;
-        let step = node.velocity * dt * 8.0;
-        positions[i].1 = at + step.clamp_length_max(40.0);
-    }
-    // Orbits: push apart any two notes closer than their orbits allow (fixed notes stay).
-    for _ in 0..2 {
-        for i in 0..positions.len() {
-            for j in (i + 1)..positions.len() {
-                let (a, b) = (positions[i], positions[j]);
-                let delta = b.1 - a.1;
-                let overlap = a.2 + b.2 - delta.length();
-                if overlap <= 0.0 || (a.3 && b.3) {
-                    continue;
-                }
-                let push = delta.normalize_or(Vec2::from_angle(i as f32)) * overlap * COLLISION;
-                match (a.3, b.3) {
-                    (true, _) => positions[j].1 += push,
-                    (_, true) => positions[i].1 -= push,
-                    _ => {
-                        positions[i].1 -= push / 2.0;
-                        positions[j].1 += push / 2.0;
-                    }
-                }
+    // Orbits push at any heat: whatever a dragged note comes near floats away.
+    for i in 0..positions.len() {
+        for j in (i + 1)..positions.len() {
+            let (a, b) = (positions[i], positions[j]);
+            if !(a.4 && b.4) {
+                continue;
             }
+            let delta = b.1 - a.1;
+            let overlap = a.2 + b.2 - delta.length();
+            if overlap <= 0.0 {
+                continue;
+            }
+            let push = delta.normalize_or(Vec2::from_angle(i as f32)) * overlap * REPEL * DAMPING;
+            forces[i] -= push;
+            forces[j] += push;
         }
     }
-    for (i, (_, _, mut transform)) in nodes.iter_mut().filter(|(_, n, _)| !n.hidden).enumerate() {
-        let at = positions[i].1;
-        transform.translation.x = at.x;
-        transform.translation.y = at.y;
+    let ease = |rate: f32| 1.0 - (-rate * dt).exp();
+    let mut arriving = false;
+    for (i, (_, mut node, mut transform)) in
+        nodes.iter_mut().filter(|(_, n, _)| !n.hidden).enumerate()
+    {
+        let (_, at, _, fixed, _) = positions[i];
+        let next = if let (true, Some(target)) = (following, node.target) {
+            node.velocity = Vec2::ZERO;
+            at.lerp(target, ease(PATH_EASE))
+        } else if node.arriving && !fixed {
+            node.velocity = Vec2::ZERO;
+            let next = at.lerp(node.home, ease(ARRIVE_EASE));
+            node.arriving = next.distance(node.home) > 1.0;
+            arriving |= node.arriving;
+            next
+        } else if fixed {
+            node.velocity = Vec2::ZERO;
+            at
+        } else {
+            // Damped: speed settles at force / DAMPING, so a force of `k · gap` closes the
+            // gap at rate `k`, at any frame rate.
+            node.velocity = ((node.velocity + forces[i] * dt) * (-DAMPING * dt).exp())
+                .clamp_length_max(MAX_SPEED);
+            at + node.velocity * dt
+        };
+        transform.translation.x = next.x;
+        transform.translation.y = next.y;
+        // Off a path, a note's home is wherever it floats to.
+        if !following && !node.arriving {
+            node.home = next;
+        }
     }
-    if state.dragging.is_none() {
+    if state.dragging.is_none() && !arriving {
         // 1% per 60 Hz frame, at any frame rate.
         state.alpha *= 0.99_f32.powf(dt * 60.0);
     }
@@ -1247,21 +1286,11 @@ fn on_drag(
     }
 }
 
-fn on_drag_end(
-    _: On<PointerDragEnd>,
-    mut state: ResMut<GraphState>,
-    mut nodes: Query<(&mut GraphNode, &Transform)>,
-) {
+fn on_drag_end(_: On<PointerDragEnd>, mut state: ResMut<GraphState>) {
     // A fling keeps panning (see `camera_motion`); a dragged node just stops, and stays
-    // where it was dropped (outside a path's line).
-    if let Some(dropped) = state.dragging.take() {
-        state.pan_velocity = Vec2::ZERO;
-        if let Ok((mut node, transform)) = nodes.get_mut(dropped)
-            && node.target.is_none()
-        {
-            node.home = transform.translation.truncate();
-        }
-    } else if !state.press.is_some_and(|p| p.moved) {
+    // where it was dropped (its home follows it, see `simulate`).
+    let dropped = state.dragging.take().is_some();
+    if dropped || !state.press.is_some_and(|p| p.moved) {
         state.pan_velocity = Vec2::ZERO;
     }
 }
@@ -1546,6 +1575,56 @@ pub fn legend() -> impl Scene {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_dragged_note_pushes_others_away_and_they_stay() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(Nav::new(0))
+            .insert_resource(GraphState {
+                alpha: 0.15,
+                ..default()
+            })
+            .add_systems(Update, simulate);
+        app.world().resource::<Nav>().view.set(View::Graph);
+        let node = |at: Vec2| {
+            (
+                GraphNode {
+                    note: 0,
+                    velocity: Vec2::ZERO,
+                    radius: 20.0,
+                    pinned: false,
+                    neighbors: Vec::new(),
+                    hidden: false,
+                    home: at,
+                    arriving: false,
+                    target: None,
+                    orbit: 50.0,
+                },
+                Transform::from_translation(at.extend(0.0)),
+            )
+        };
+        let dragged = app.world_mut().spawn(node(Vec2::ZERO)).id();
+        let other = app.world_mut().spawn(node(Vec2::new(30.0, 0.0))).id();
+        app.world_mut().resource_mut::<GraphState>().dragging = Some(dragged);
+        for _ in 0..120 {
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(4));
+        }
+        let at = |app: &App, e: Entity| app.world().get::<Transform>(e).unwrap().translation;
+        assert_eq!(
+            at(&app, dragged).truncate(),
+            Vec2::ZERO,
+            "the dragged note stays put"
+        );
+        let pushed = at(&app, other).x;
+        assert!(
+            pushed > 80.0,
+            "pushed out of the dragged note's orbit: {pushed}"
+        );
+        let home = app.world().get::<GraphNode>(other).unwrap().home;
+        assert!((home.x - pushed).abs() < 1.0, "its new place is its home");
+    }
 
     #[test]
     fn connections_follow_links_and_tags() {
