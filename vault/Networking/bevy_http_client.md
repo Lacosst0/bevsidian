@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [networking]
 crates: bevy_http_client=0.12; serde={ version = "1", features = ["derive"] }

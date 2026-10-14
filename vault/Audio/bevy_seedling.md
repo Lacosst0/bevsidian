@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [audio]
 bevy: 0.19
@@ -39,7 +40,7 @@ A sound is an entity with a `SamplePlayer`; despawn it to stop it. Everything el
 
 ## Compared
 
-| | Bevy audio ([[Audio]]) | [[Audio crates#bevy_kira_audio|bevy_kira_audio]] | bevy_seedling |
+| | Bevy audio ([[Audio]]) | [[Audio crates#bevy_kira_audio\|bevy_kira_audio]] | bevy_seedling |
 |:--|:--|:--|:--|
 | Model | entities with `AudioPlayer` | channels + a global `Audio` | an audio graph in the ECS |
 | Effects | none | some | many, composable |

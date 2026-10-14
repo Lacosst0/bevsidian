@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [2d, 3d]
 crates: bevy_vector_shapes=0.14

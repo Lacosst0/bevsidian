@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [physics]
 crates: bevy_rapier2d=0.37

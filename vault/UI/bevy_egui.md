@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [ui, tooling]
 crates: bevy_egui=0.43

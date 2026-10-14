@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [ui]
 crates: bevy_hui={ version = "0.8", features = ["picking"] }
@@ -102,7 +103,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
 
 | Crate | Approach |
 |:--|:--|
-| [[UI crates#bevy_lunex|bevy_lunex]] | layout system for responsive, retained UI |
+| [[UI crates#bevy_lunex\|bevy_lunex]] | layout system for responsive, retained UI |
 | `bsn!` ([[Scenes and BSN]]) | Rust macro scenes built into Bevy 0.20 |
 | [[bevy_egui]] | immediate mode, best for tools |
 

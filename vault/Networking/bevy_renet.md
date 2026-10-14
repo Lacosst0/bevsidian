@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [networking]
 bevy: 0.19

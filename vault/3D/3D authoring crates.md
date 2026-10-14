@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [3d]
 crates: bevy_skein=0.7.0-rc.1

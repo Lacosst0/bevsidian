@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: atom
 tags: [ui, bsn]
 crates: bevy_radioactive={ git = "https://github.com/Lacosst0/bevy_radioactive", default-features = false, features = ["watch", "subscribe", "hooks", "view", "ui"] }

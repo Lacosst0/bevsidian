@@ -307,7 +307,7 @@ fn spawn_nodes(
                     note: i,
                     velocity: Vec2::ZERO,
                     radius,
-                    pinned: hub,
+                    pinned: hub || note.name == "Welcome",
                     neighbors: Vec::new(),
                     hidden: false,
                     home,
@@ -443,20 +443,39 @@ struct Layout {
     parent: Vec<Option<usize>>,
 }
 
-/// The tree of the vault: every shown note hangs from one other, back to the hub. A note
-/// hangs from the first note of its own folder that links to it (an area's index lists its
-/// notes), the areas from the hub; what no such link reaches hangs from any note linking to
-/// it, and the rest from its folder's index or the hub.
-fn spanning_tree(vault: &VaultData, shown: &[NoteId], root: usize) -> Vec<Option<usize>> {
+/// The top folder of a note ("" for the notes at the top).
+fn top_folder(vault: &VaultData, id: NoteId) -> &str {
+    vault.notes[id].folder.split('/').next().unwrap_or("")
+}
+
+fn has_property(vault: &VaultData, id: NoteId, key: &str) -> bool {
+    vault.notes[id]
+        .doc
+        .properties
+        .iter()
+        .any(|(k, value)| k == key && value == "true")
+}
+
+/// Whether a note is about the app itself (the welcome note and the `Bevsidian` folder): they
+/// grow their own small tree, apart from the course.
+fn is_app_note(vault: &VaultData, id: NoteId) -> bool {
+    top_folder(vault, id) == "Bevsidian" || vault.notes[id].name == "Welcome"
+}
+
+/// The tree of `members` (slots of `shown`) grown from `root`: every member hangs from one
+/// other. A note hangs from the first note of its own folder that links to it (an area's
+/// index lists its notes), the areas from the root; what no such link reaches hangs from any
+/// note linking to it, and the rest from its folder's index or the root. A note hangs from
+/// a note of an inner ring (see [`home_positions`]) where it can.
+fn spanning_tree(
+    vault: &VaultData,
+    shown: &[NoteId],
+    members: &[usize],
+    ring: &[usize],
+    root: usize,
+) -> Vec<Option<usize>> {
     let slot = |id: NoteId| shown.iter().position(|&n| n == id);
-    let folder = |n: usize| {
-        vault.notes[shown[n]]
-            .folder
-            .split('/')
-            .next()
-            .unwrap_or("")
-            .to_owned()
-    };
+    let folder = |n: usize| top_folder(vault, shown[n]);
     let out: Vec<Vec<usize>> = shown
         .iter()
         .map(|&id| {
@@ -464,19 +483,26 @@ fn spanning_tree(vault: &VaultData, shown: &[NoteId], root: usize) -> Vec<Option
                 .outgoing
                 .iter()
                 .filter_map(|&t| slot(t))
+                .filter(|t| members.contains(t))
                 .collect()
         })
         .collect();
     let mut parent = vec![None; shown.len()];
     let mut seen = vec![false; shown.len()];
     seen[root] = true;
-    // First the links inside a folder (and out of the hub), then any link at all.
-    for strict in [true, false] {
+    // First the links inside a folder (and out of the root) to a ring further out, then such
+    // links from anywhere, then any link at all.
+    for pass in 0..3 {
         let mut queue: std::collections::VecDeque<usize> =
-            (0..shown.len()).filter(|&n| seen[n]).collect();
+            members.iter().copied().filter(|&n| seen[n]).collect();
         while let Some(from) = queue.pop_front() {
             for &to in &out[from] {
-                let allowed = !strict || from == root || folder(from) == folder(to);
+                let outwards = ring[from] < ring[to];
+                let allowed = match pass {
+                    0 => outwards && (from == root || folder(from) == folder(to)),
+                    1 => outwards,
+                    _ => true,
+                };
                 if !seen[to] && allowed {
                     seen[to] = true;
                     parent[to] = Some(from);
@@ -485,9 +511,11 @@ fn spanning_tree(vault: &VaultData, shown: &[NoteId], root: usize) -> Vec<Option
             }
         }
     }
-    for n in 0..shown.len() {
+    for &n in members {
         if !seen[n] {
-            let index = (0..shown.len())
+            let index = members
+                .iter()
+                .copied()
                 .find(|&i| vault.notes[shown[i]].name == folder(n))
                 .filter(|&i| i != n);
             parent[n] = Some(index.unwrap_or(root));
@@ -496,16 +524,12 @@ fn spanning_tree(vault: &VaultData, shown: &[NoteId], root: usize) -> Vec<Option
     parent
 }
 
-/// Home positions of the `shown` notes (in that order): the vault grown like a tree from the
-/// hub (`hub: true`, or else the best-linked note).
+/// Home positions of the `shown` notes (in that order). The course grows like a tree from the
+/// hub (`hub: true`, or else the best-linked note) in four rings: the hub, the areas (a
+/// folder's index), the notes under them, and the libraries (`lib: true`) furthest out. The
+/// notes about the app grow a tree of their own from the welcome note, off to one side.
 fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
-    let hub = shown.iter().position(|&id| {
-        vault.notes[id]
-            .doc
-            .properties
-            .iter()
-            .any(|(key, value)| key == "hub" && value == "true")
-    });
+    let hub = shown.iter().position(|&id| has_property(vault, id, "hub"));
     let root = hub.unwrap_or_else(|| {
         (0..shown.len())
             .max_by_key(|&a| {
@@ -513,14 +537,62 @@ fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
             })
             .unwrap_or(0)
     });
-    let parent = spanning_tree(vault, shown, root);
+    let welcome = shown
+        .iter()
+        .position(|&id| vault.notes[id].name == "Welcome");
     let space: Vec<f32> = shown
         .iter()
         .map(|&id| 2.0 * orbit(20.0, &vault.notes[id].name))
         .collect();
-    let homes = layout::tree(&parent, root, &space);
+    let ring: Vec<usize> = shown
+        .iter()
+        .map(|&id| {
+            if has_property(vault, id, "lib") {
+                3
+            } else if vault.notes[id].name == top_folder(vault, id) {
+                1
+            } else {
+                2
+            }
+        })
+        .collect();
+    let mut parent = vec![None; shown.len()];
+    let mut homes = vec![Vec2::ZERO; shown.len()];
+    let mut grown: Vec<(Vec<usize>, Vec<Vec2>)> = Vec::new();
+    for (group_root, app) in [(Some(root), false), (welcome, true)] {
+        let Some(group_root) = group_root else {
+            continue;
+        };
+        let members: Vec<usize> = (0..shown.len())
+            .filter(|&n| is_app_note(vault, shown[n]) == app)
+            .collect();
+        let up = spanning_tree(vault, shown, &members, &ring, group_root);
+        let local = |n: usize| members.iter().position(|&m| m == n).unwrap_or(0);
+        let local_parent: Vec<Option<usize>> = members.iter().map(|&n| up[n].map(local)).collect();
+        let local_ring: Vec<usize> = members.iter().map(|&n| ring[n]).collect();
+        let local_space: Vec<f32> = members.iter().map(|&n| space[n]).collect();
+        let at = layout::tree(&local_parent, &local_ring, local(group_root), &local_space);
+        for &n in &members {
+            parent[n] = up[n];
+        }
+        grown.push((members, at));
+    }
+    // The app's tree sits beside the course's, clear of it.
+    let reach = |at: &[Vec2]| at.iter().map(|p| p.length()).fold(0.0, f32::max);
+    let shift = match grown.as_slice() {
+        [(_, course), (_, app)] => reach(course) + reach(app) + APP_GAP,
+        _ => 0.0,
+    };
+    for (index, (members, at)) in grown.iter().enumerate() {
+        for (&n, &p) in members.iter().zip(at) {
+            homes[n] = if index == 0 { p } else { p + Vec2::X * shift };
+        }
+    }
     Layout { homes, parent }
 }
+
+/// Distance between the course's tree and the app's, beyond their reaches.
+const APP_GAP: f32 = 500.0;
 
 /// Icon colours.
 const NOTE_COLOR: Color = color::BODY;
@@ -1725,23 +1797,23 @@ mod tests {
     }
 
     #[test]
-    fn the_vault_grows_into_a_tree_from_the_hub() {
+    fn the_vault_grows_into_two_trees() {
         let vault = real_vault();
         let shown: Vec<NoteId> = (0..vault.notes.len())
             .filter(|&i| vault.path(i).is_none())
             .collect();
         let layout = home_positions(&vault, &shown);
-        let root = layout
-            .parent
-            .iter()
-            .position(Option::is_none)
-            .expect("a root");
-        assert_eq!(vault.notes[shown[root]].name, "Bevy");
-        // Every note reaches the hub through its parents, without a loop.
-        for start in 0..shown.len() {
+        let named = |name: &str| {
+            shown
+                .iter()
+                .position(|&i| vault.notes[i].name == name)
+                .unwrap_or_else(|| panic!("{name}"))
+        };
+        let (hub, welcome) = (named("Bevy"), named("Welcome"));
+        let root_of = |start: usize| {
             let (mut at, mut steps) = (start, 0);
-            while at != root {
-                at = layout.parent[at].expect("a parent");
+            while let Some(up) = layout.parent[at] {
+                at = up;
                 steps += 1;
                 assert!(
                     steps < 8,
@@ -1749,14 +1821,63 @@ mod tests {
                     vault.notes[shown[start]].name
                 );
             }
+            at
+        };
+        // Every note reaches one of the two roots, and the app's notes only the welcome note.
+        for n in 0..shown.len() {
+            let app = is_app_note(&vault, shown[n]);
+            assert_eq!(
+                root_of(n),
+                if app { welcome } else { hub },
+                "{}",
+                vault.notes[shown[n]].name
+            );
         }
         // The areas hang straight off the hub.
         for area in ["ECS", "2D", "UI", "Networking"] {
-            let n = shown
+            assert_eq!(layout.parent[named(area)], Some(hub), "{area}");
+        }
+        // Four rings: libraries furthest out, the notes before them, the areas before those.
+        let radius = |n: usize| layout.homes[n].length();
+        let course: Vec<usize> = (0..shown.len())
+            .filter(|&n| !is_app_note(&vault, shown[n]) && n != hub)
+            .collect();
+        let ring = |lib: bool, area: bool| {
+            course
                 .iter()
-                .position(|&i| vault.notes[i].name == area)
-                .unwrap();
-            assert_eq!(layout.parent[n], Some(root), "{area}");
+                .copied()
+                .filter(|&n| {
+                    has_property(&vault, shown[n], "lib") == lib
+                        && (vault.notes[shown[n]].name == top_folder(&vault, shown[n])) == area
+                })
+                .map(radius)
+                .collect::<Vec<f32>>()
+        };
+        let (areas, notes, libs) = (ring(false, true), ring(false, false), ring(true, false));
+        let range = |v: &[f32]| {
+            (
+                v.iter().copied().fold(f32::MAX, f32::min),
+                v.iter().copied().fold(0.0, f32::max),
+            )
+        };
+        for &n in &course {
+            if !has_property(&vault, shown[n], "lib") && radius(n) > 1000.0 {
+                eprintln!("far non-lib: {} {}", vault.notes[shown[n]].name, radius(n));
+            }
+        }
+        assert!(range(&areas).1 < range(&notes).0, "areas inside notes");
+        assert!(range(&notes).1 < range(&libs).0, "notes inside libraries");
+        // The app's tree is clear of the course's.
+        let course_reach = course.iter().map(|&n| radius(n)).fold(0.0, f32::max);
+        for n in 0..shown.len() {
+            if is_app_note(&vault, shown[n]) {
+                assert!(layout.homes[n].x - layout.homes[welcome].x < 600.0);
+                assert!(
+                    layout.homes[n].distance(Vec2::ZERO) > course_reach,
+                    "{}",
+                    vault.notes[shown[n]].name
+                );
+            }
         }
         // Nothing lands on top of something else.
         for a in 0..shown.len() {
@@ -1770,5 +1891,11 @@ mod tests {
                 );
             }
         }
+        eprintln!(
+            "areas {:?} notes {:?} libs {:?}",
+            range(&areas),
+            range(&notes),
+            range(&libs)
+        );
     }
 }

@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [2d]
 crates: bevy_light_2d=0.11

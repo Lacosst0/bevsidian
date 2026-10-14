@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [physics]
 bevy: 0.19

@@ -209,9 +209,9 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[Audio crates#bevy_kira_audio|bevy_kira_audio]] | channels, tweens, effects | released `0.27` |
+| [[Audio crates#bevy_kira_audio\|bevy_kira_audio]] | channels, tweens, effects | released `0.27` |
 | [[bevy_seedling]] | audio graph, effects | pending `0.8` |
-| [[Audio crates#bevy_fmod|bevy_fmod]] | FMOD middleware | pending `0.11` (Bevy 0.19) |
+| [[Audio crates#bevy_fmod\|bevy_fmod]] | FMOD middleware | pending `0.11` (Bevy 0.19) |
 
 ## Next
 

@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [tooling]
 bevy: 0.19

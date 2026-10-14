@@ -392,6 +392,8 @@ pub fn slugify(text: &str) -> String {
 
 /// Splits `[[target#heading]]` destinations.
 pub fn parse_wikilink(dest: &str) -> WikiLink {
+    // In a table cell the pipe before an alias is escaped; the backslash lands in the target.
+    let dest = dest.trim_end_matches('\\');
     match dest.split_once('#') {
         Some((target, heading)) => WikiLink {
             target: target.trim().to_owned(),
@@ -1216,5 +1218,23 @@ mod tests {
                 .any(|b| matches!(b, Block::Footnote { .. }))
         );
         assert_eq!(slugify("Hello, World!"), "hello-world");
+    }
+}
+
+#[cfg(test)]
+mod table_wikilink_tests {
+    use super::*;
+
+    #[test]
+    fn aliased_wikilinks_work_in_table_cells() {
+        // A bare `|` would split the cell; `\|` is the escaped form.
+        let doc = MdDocument::parse("| a | b |\n|:--|:--|\n| [[X#y\\|z]] | c |\n");
+        assert_eq!(
+            doc.links,
+            [WikiLink {
+                target: "X".into(),
+                heading: Some("y".into())
+            }]
+        );
     }
 }

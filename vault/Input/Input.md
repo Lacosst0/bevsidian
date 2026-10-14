@@ -29,8 +29,8 @@ fn jump(keys: Res<ButtonInput<KeyCode>>, mouse: Res<ButtonInput<MouseButton>>) {
 | Note | You learn |
 |:--|:--|
 | [[Keyboard and mouse]] | pressed, just pressed, axes, mouse position and motion |
-| [[Gamepad and touch#Gamepad|Gamepad]] | buttons, sticks, rumble |
-| [[Gamepad and touch#Touch|Touch]] | taps and drags on phones |
+| [[Gamepad and touch#Gamepad\|Gamepad]] | buttons, sticks, rumble |
+| [[Gamepad and touch#Touch\|Touch]] | taps and drags on phones |
 | [[Picking]] | clicks and drags on entities |
 | [[Input mapping]] | actions, rebinding, plus the best crates |
 
@@ -40,6 +40,6 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[Input crates#bevy_enhanced_input|bevy_enhanced_input]] | actions, contexts, modifiers; **observer based** | git |
-| [[Input crates#leafwing-input-manager|leafwing-input-manager]] | action enum + `InputMap`, remapping | git |
+| [[Input crates#bevy_enhanced_input\|bevy_enhanced_input]] | actions, contexts, modifiers; **observer based** | git |
+| [[Input crates#leafwing-input-manager\|leafwing-input-manager]] | action enum + `InputMap`, remapping | git |
 | `bevy_mod_picking` | old picking crate | built in built into Bevy ([[Picking]]) |

@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [input]
 crates: bevy_enhanced_input={ git = "https://github.com/simgine/bevy_enhanced_input" }; leafwing-input-manager={ git = "https://github.com/Leafwing-Studios/leafwing-input-manager" }
@@ -198,7 +199,7 @@ fn act(player: Single<&ActionState<PlayerAction>, With<Player>>) {
 
 ### Choosing
 
-| | [[Input crates#bevy_enhanced_input|bevy_enhanced_input]] | leafwing-input-manager |
+| | [[Input crates#bevy_enhanced_input\|bevy_enhanced_input]] | leafwing-input-manager |
 |:--|:--|:--|
 | Style | observer events with `On<Fire<A>>` | poll `ActionState` |
 | Actions are | types with their own output | enum variants |

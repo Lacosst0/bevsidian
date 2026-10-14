@@ -39,7 +39,7 @@ fn play() {}
 |:--|:--|
 | `OnEnter(S)` | runs once when entering `S` |
 | `OnExit(S)` | runs once when leaving `S`, **before** the next `OnEnter` |
-| `in_state(S)` | [[Run conditions|run condition]]: true while in `S` |
+| `in_state(S)` | [[Run conditions\|run condition]]: true while in `S` |
 | `State<AppState>` | resource holding the current value |
 
 ## Changing state

@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [networking]
 ---
@@ -46,7 +47,7 @@ Develop with a **SyncTest** session first: it rolls back every frame and reports
 
 ### Compared
 
-| | Rollback (this) | Server-authoritative ([[bevy_replicon]], [[Netcode crates#lightyear|lightyear]]) |
+| | Rollback (this) | Server-authoritative ([[bevy_replicon]], [[Netcode crates#lightyear\|lightyear]]) |
 |:--|:--|:--|
 | Sends | inputs only | state |
 | Server | none needed (peer-to-peer) | required |
@@ -112,7 +113,7 @@ Add `SteamworksPlugin::init_app(YOUR_APP_ID)` before `DefaultPlugins`, put `stea
 | Achievements & stats | `client.user_stats()` |
 | Cloud saves | `client.remote_storage()` |
 | Lobbies & matchmaking | `client.matchmaking()` |
-| Networking | pair with [[bevy_replicon]] or [[Netcode crates#lightyear|lightyear]], which have Steam transports |
+| Networking | pair with [[bevy_replicon]] or [[Netcode crates#lightyear\|lightyear]], which have Steam transports |
 
 ### Links
 
@@ -136,7 +137,7 @@ lightyear = "0.30"      # for Bevy 0.19
 | Replication | the server's entities and components appear on clients (it builds on `bevy_replicon`) |
 | **Prediction** | your own player moves instantly from your input; the server's answer corrects it (rollback) |
 | **Interpolation** | other players are shown smoothly between snapshots |
-| Inputs | buffered per tick and sent redundantly so a lost packet doesn't drop a key press; integrates with [[Input crates#bevy_enhanced_input|bevy_enhanced_input]] and [[Input crates#leafwing-input-manager|leafwing-input-manager]] |
+| Inputs | buffered per tick and sent redundantly so a lost packet doesn't drop a key press; integrates with [[Input crates#bevy_enhanced_input\|bevy_enhanced_input]] and [[Input crates#leafwing-input-manager\|leafwing-input-manager]] |
 | Lag compensation | hit detection that accounts for what the shooter saw |
 | Topologies | client-server, host-client (listen server), peer-to-peer |
 | Web | compatible with WASM via WebTransport |

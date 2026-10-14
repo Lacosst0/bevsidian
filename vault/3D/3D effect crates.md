@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [3d, ui]
 crates: bevy_rich_text3d=0.8

@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [assets]
 crates: bevy_asset_loader={ version = "0.28", features = ["2d"] }; bevy_common_assets={ version = "0.18", features = ["ron"] }; serde={ version = "1", features = ["derive"] }

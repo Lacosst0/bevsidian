@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [2d]
 bevy: 0.19

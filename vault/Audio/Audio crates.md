@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [audio]
 crates: bevy_kira_audio=0.27
@@ -87,7 +88,7 @@ Your options menu becomes two sliders that call `set_volume` on the channels.
 
 ### Compared to alternatives
 
-| | Bevy audio | bevy_kira_audio | [[bevy_seedling]] | [[Audio crates#bevy_fmod|bevy_fmod]] |
+| | Bevy audio | bevy_kira_audio | [[bevy_seedling]] | [[Audio crates#bevy_fmod\|bevy_fmod]] |
 |:--|:--|:--|:--|:--|
 | Setup | built in | one plugin | one plugin | FMOD install + licence |
 | Buses / mixing | no | channels | a full audio graph | professional mixer |

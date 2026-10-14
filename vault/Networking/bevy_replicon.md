@@ -1,4 +1,5 @@
 ---
+lib: true
 icon: package
 tags: [networking]
 crates: bevy_replicon=0.45; serde={ version = "1", features = ["derive"] }
