@@ -1,10 +1,10 @@
 ---
 icon: move
-tags: [rendering, beginner]
+tags: [rendering]
 ---
 # Transforms
 
-Where an entity is, which way it faces, how big it is. Every visible thing has a [`Transform`]. #rendering #beginner
+Where an entity is, which way it faces, how big it is. Every visible thing has a [`Transform`]. #rendering
 
 ## The three parts
 

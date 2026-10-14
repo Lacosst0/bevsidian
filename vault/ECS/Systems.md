@@ -1,10 +1,10 @@
 ---
 icon: square-function
-tags: [ecs, beginner]
+tags: [ecs]
 ---
 # Systems
 
-A system is a normal Rust function. Its **parameters** say what data it needs; Bevy fetches that data and calls the function. #ecs #beginner
+A system is a normal Rust function. Its **parameters** say what data it needs; Bevy fetches that data and calls the function. #ecs
 
 ## Your first system
 

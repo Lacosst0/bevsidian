@@ -1,10 +1,10 @@
 ---
 icon: type
-tags: [ui, beginner]
+tags: [ui]
 ---
 # Text and images
 
-What goes inside boxes. #ui #beginner
+What goes inside boxes. #ui
 
 ## Text
 

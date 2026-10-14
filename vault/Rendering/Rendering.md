@@ -1,10 +1,10 @@
 ---
 icon: monitor
-tags: [rendering, beginner]
+tags: [rendering]
 ---
 # Rendering
 
-Bevy renders with `wgpu`, which talks to Vulkan, Metal, DirectX 12, OpenGL/WebGL2 and WebGPU. You never call the GPU yourself: you describe the scene with ordinary [[ECS]] components, and the renderer draws it. #rendering #beginner
+Bevy renders with `wgpu`, which talks to Vulkan, Metal, DirectX 12, OpenGL/WebGL2 and WebGPU. You never call the GPU yourself: you describe the scene with ordinary [[ECS]] components, and the renderer draws it. #rendering
 
 ## What gets drawn
 

@@ -1,11 +1,11 @@
 ---
 icon: gamepad-2
-tags: [start, beginner]
+tags: [start]
 crates: rand="0.10"
 ---
 # Make a game
 
-Time to put it together. We will build **Dodge**: a ship slides left and right, rocks fall, you have three lives. Each step adds one idea from earlier notes, and the preview above each block plays the game *so far*. #beginner #start
+Time to put it together. We will build **Dodge**: a ship slides left and right, rocks fall, you have three lives. Each step adds one idea from earlier notes, and the preview above each block plays the game *so far*. #start
 
 > [!TIP]
 > Click inside a preview to move the ship. When the last life goes, click again to restart.

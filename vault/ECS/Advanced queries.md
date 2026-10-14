@@ -1,10 +1,10 @@
 ---
 icon: search
-tags: [ecs, advanced]
+tags: [ecs]
 ---
 # Advanced queries
 
-Everything beyond `Query<&T>`. You rarely need it all at once; skim and come back. #ecs #advanced
+Everything beyond `Query<&T>`. You rarely need it all at once; skim and come back. #ecs
 
 ## Single
 

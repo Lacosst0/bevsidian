@@ -1,10 +1,10 @@
 ---
 icon: text-select
-tags: [ecs, advanced]
+tags: [ecs]
 ---
 # Reflection
 
-Reflection lets Bevy look at your types **at runtime**: list the fields, read a value by name, build one from a file. Scenes, inspectors and the entity cards on this page rely on it. #ecs #advanced
+Reflection lets Bevy look at your types **at runtime**: list the fields, read a value by name, build one from a file. Scenes, inspectors and the entity cards on this page rely on it. #ecs
 
 ## Derive it
 

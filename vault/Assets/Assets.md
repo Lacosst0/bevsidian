@@ -1,10 +1,10 @@
 ---
 icon: package
-tags: [assets, beginner]
+tags: [assets]
 ---
 # Assets
 
-Images, sounds, models, fonts, scenes: anything that lives in a file. The [`AssetServer`] loads them in the background and hands you a **handle**. #assets #beginner
+Images, sounds, models, fonts, scenes: anything that lives in a file. The [`AssetServer`] loads them in the background and hands you a **handle**. #assets
 
 ## Load something
 
@@ -240,4 +240,4 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 ## Next
 
-[[Scenes and BSN]], or write your own loader in [[Custom assets]].
+[[Saving and loading]] to keep data between runs, [[Custom assets]] to write your own loader, or [[Scenes and BSN]].

@@ -1,10 +1,10 @@
 ---
 icon: mail
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Messages
 
-A **message** is a note one system leaves for others. Writers append to a queue; readers walk through whatever is new. Nothing runs at the moment of writing, unlike an [[Events and observers|observer]]. #ecs #intermediate
+A **message** is a note one system leaves for others. Writers append to a queue; readers walk through whatever is new. Nothing runs at the moment of writing, unlike an [[Events and observers|observer]]. #ecs
 
 ## Write and read
 

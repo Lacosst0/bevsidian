@@ -1,6 +1,6 @@
 ---
 icon: backpack
-tags: [gameplay, ecs, intermediate]
+tags: [gameplay, ecs]
 crates: serde={ version = "1", features = ["derive"] }
 ---
 # Inventory and items

@@ -1,10 +1,10 @@
 ---
 icon: eye
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Change detection
 
-Bevy remembers *when* every component and resource was last written. Ask for "only what changed since I last ran" and skip the rest. #ecs #intermediate
+Bevy remembers *when* every component and resource was last written. Ask for "only what changed since I last ran" and skip the rest. #ecs
 
 ## Changed and Added
 

@@ -1,10 +1,10 @@
 ---
 icon: mountain
-tags: [3d, intermediate]
+tags: [3d]
 ---
 # Environment
 
-Sky, fog, atmosphere: what makes a 3D scene feel like a place. #3d #intermediate
+Sky, fog, atmosphere: what makes a 3D scene feel like a place. #3d
 
 ## Background
 

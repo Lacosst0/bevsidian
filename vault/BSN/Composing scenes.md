@@ -1,10 +1,10 @@
 ---
 icon: blocks
-tags: [bsn, scenes, intermediate]
+tags: [bsn]
 ---
 # Composing scenes
 
-BSN scenes are plain Rust values, so you compose them with plain Rust: functions, parameters, loops. This note is the toolbox. #bsn #scenes
+BSN scenes are plain Rust values, so you compose them with plain Rust: functions, parameters, loops. This note is the toolbox. #bsn
 
 ## Patching, precisely
 

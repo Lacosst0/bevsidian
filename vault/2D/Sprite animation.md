@@ -1,10 +1,10 @@
 ---
 icon: clapperboard
-tags: [2d, beginner]
+tags: [2d]
 ---
 # Sprite animation
 
-Flipbook animation: show frame 0, then 1, then 2... on a timer. #2d #beginner
+Flipbook animation: show frame 0, then 1, then 2... on a timer. #2d
 
 ## The recipe
 

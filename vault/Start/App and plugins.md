@@ -1,10 +1,10 @@
 ---
 icon: puzzle
-tags: [start, beginner]
+tags: [start]
 ---
 # App and plugins
 
-An [`App`] is a [[Entities and components|World]] (all your data), a set of [[Schedules and sets|schedules]] (all your systems) and a runner that loops. A **plugin** is a bundle of setup you can add to it. #start #beginner
+An [`App`] is a [[Entities and components|World]] (all your data), a set of [[Schedules and sets|schedules]] (all your systems) and a runner that loops. A **plugin** is a bundle of setup you can add to it. #start
 
 ## Building an app
 

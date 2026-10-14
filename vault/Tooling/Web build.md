@@ -1,10 +1,10 @@
 ---
 icon: globe
-tags: [tooling, intermediate]
+tags: [tooling]
 ---
 # Web build
 
-Bevy compiles to WebAssembly and runs in the browser, on WebGL2 or WebGPU. This very site is a Bevy app built that way. #tooling #intermediate
+Bevy compiles to WebAssembly and runs in the browser, on WebGL2 or WebGPU. This very site is a Bevy app built that way. #tooling
 
 ## The quick way
 

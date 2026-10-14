@@ -1,10 +1,10 @@
 ---
 icon: mouse-pointer
-tags: [input, beginner]
+tags: [input]
 ---
 # Keyboard and mouse
 
-Input lives in resources. Read them in a system that runs every frame. #input #beginner
+Input lives in resources. Read them in a system that runs every frame. #input
 
 ## Keys
 

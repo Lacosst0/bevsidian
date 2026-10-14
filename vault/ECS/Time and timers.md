@@ -1,10 +1,10 @@
 ---
 icon: clock
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Time and timers
 
-Games run at different frame rates on different machines. Always move things by **time**, not by frame. #ecs #intermediate
+Games run at different frame rates on different machines. Always move things by **time**, not by frame. #ecs
 
 ## The Time resource
 

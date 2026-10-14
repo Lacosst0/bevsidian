@@ -1,6 +1,6 @@
 ---
 icon: bot
-tags: [gameplay, ai, intermediate]
+tags: [gameplay, ai]
 ---
 # Game AI
 

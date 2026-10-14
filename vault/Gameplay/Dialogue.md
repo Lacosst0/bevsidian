@@ -1,6 +1,6 @@
 ---
 icon: message-circle
-tags: [gameplay, ui, intermediate]
+tags: [gameplay, ui]
 crates: serde={ version = "1", features = ["derive"] }
 ---
 # Dialogue

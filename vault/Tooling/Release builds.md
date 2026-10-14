@@ -1,10 +1,10 @@
 ---
 icon: rocket
-tags: [tooling, intermediate]
+tags: [tooling]
 ---
 # Release builds
 
-`cargo run` builds for development. To ship, tell Cargo to optimise for the player. #tooling #intermediate
+`cargo run` builds for development. To ship, tell Cargo to optimise for the player. #tooling
 
 ## Profiles
 

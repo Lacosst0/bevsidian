@@ -1,6 +1,6 @@
 ---
 icon: file-input
-tags: [bsn, assets, intermediate]
+tags: [bsn, assets]
 ---
 # Templates and assets
 

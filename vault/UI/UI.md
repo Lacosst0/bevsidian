@@ -1,10 +1,10 @@
 ---
 icon: layout-template
-tags: [ui, beginner]
+tags: [ui]
 ---
 # UI
 
-Menus, health bars, inventories, dialogs. Bevy's UI is made of ordinary entities: boxes laid out with flexbox or grid, with text and images inside. #ui #beginner
+Menus, health bars, inventories, dialogs. Bevy's UI is made of ordinary entities: boxes laid out with flexbox or grid, with text and images inside. #ui
 
 ## Hello, UI
 
@@ -41,7 +41,6 @@ That is the whole model: a root [`Node`] filling the screen, children inside it.
 | [[Text input]] | typing into a field |
 | [[Theming]] | consistent colours with Feathers |
 | [[Scenes and BSN]] | build UI trees compactly |
-| [[UI kit]] | the components of **this** app, as a worked example |
 | [[Picking]] | clicks, hovers, dragging on anything |
 
 ## Mental model

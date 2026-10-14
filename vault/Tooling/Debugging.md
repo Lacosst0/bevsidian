@@ -1,10 +1,10 @@
 ---
 icon: bug
-tags: [tooling, beginner]
+tags: [tooling]
 ---
 # Debugging
 
-A short field guide: what to try when the game does the wrong thing. #tooling #beginner
+A short field guide: what to try when the game does the wrong thing. #tooling
 
 ## "My screen is black / nothing shows"
 

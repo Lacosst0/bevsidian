@@ -1,11 +1,11 @@
 ---
 icon: gem
-tags: [assets, advanced]
+tags: [assets]
 crates: serde={ version = "1", features = ["derive"] }; ron="0.12"
 ---
 # Custom assets
 
-Level files, item tables, dialogue: define your own asset type and Bevy loads, caches and hot-reloads it like an image. #assets #advanced
+Level files, item tables, dialogue: define your own asset type and Bevy loads, caches and hot-reloads it like an image. #assets
 
 ## An asset type
 

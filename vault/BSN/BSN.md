@@ -1,6 +1,6 @@
 ---
 icon: braces
-tags: [bsn, start-here]
+tags: [bsn]
 ---
 # BSN
 
@@ -28,7 +28,7 @@ Everything on the screen of this app is BSN.
 5. [[Scene components]]: scenes with props, and when to prefer required components.
 6. [[Spawning scenes]]: every way to put a scene in the world.
 
-Then see it used for real in [[UI layout]], [[UI kit]] and [[bevy_radioactive]] (reactive scenes).
+Then see it used for real in [[UI layout]], [[Buttons and widgets]] and [[bevy_radioactive]] (reactive scenes).
 
 ## Plain `spawn` or BSN?
 

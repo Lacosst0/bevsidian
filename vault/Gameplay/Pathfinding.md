@@ -1,6 +1,6 @@
 ---
 icon: route
-tags: [gameplay, ai, intermediate]
+tags: [gameplay, ai]
 ---
 # Pathfinding
 

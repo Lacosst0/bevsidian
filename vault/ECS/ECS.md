@@ -1,10 +1,10 @@
 ---
 icon: boxes
-tags: [ecs, beginner]
+tags: [ecs]
 ---
 # ECS
 
-Bevy is built on an **Entity Component System**. Once this clicks, the rest of Bevy is easy, because the engine itself works the same way. #ecs #beginner
+Bevy is built on an **Entity Component System**. Once this clicks, the rest of Bevy is easy, because the engine itself works the same way. #ecs
 
 | Letter | What | Is |
 |:--|:--|:--|

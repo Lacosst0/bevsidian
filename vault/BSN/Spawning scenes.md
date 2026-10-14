@@ -1,10 +1,10 @@
 ---
 icon: rocket
-tags: [bsn, scenes, intermediate]
+tags: [bsn]
 ---
 # Spawning scenes
 
-You have a scene. Here is every way to put it in the world, and which to pick. #bsn #scenes
+You have a scene. Here is every way to put it in the world, and which to pick. #bsn
 
 ## Now or when ready
 

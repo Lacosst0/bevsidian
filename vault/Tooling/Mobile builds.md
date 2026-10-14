@@ -1,11 +1,11 @@
 ---
 icon: smartphone
-tags: [tooling, shipping, advanced]
+tags: [tooling]
 check: skip
 ---
 # Mobile builds
 
-Bevy runs on Android and iOS. The same game code, a different project wrapper around it. This note is the map; the exact commands change with each tool release, so follow the official example for the version you use. #tooling #shipping
+Bevy runs on Android and iOS. The same game code, a different project wrapper around it. This note is the map; the exact commands change with each tool release, so follow the official example for the version you use. #tooling
 
 > [!WARNING]
 > Mobile has more moving parts than desktop or web: SDKs, signing, a device or emulator. Get the game running well on desktop and in the browser ([[Web build]]) first, and test on a phone early, not at the end.

@@ -1,10 +1,10 @@
 ---
 icon: database
-tags: [ecs, beginner]
+tags: [ecs]
 ---
 # Resources
 
-A **resource** is data there is only one of: the score, the settings, the clock. Entities have many components; the world has one `Score`. #ecs #beginner
+A **resource** is data there is only one of: the score, the settings, the clock. Entities have many components; the world has one `Score`. #ecs
 
 ## Define and insert
 

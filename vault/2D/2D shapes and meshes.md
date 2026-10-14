@@ -1,10 +1,10 @@
 ---
 icon: shapes
-tags: [2d, intermediate]
+tags: [2d]
 ---
 # 2D shapes and meshes
 
-Sprites are pictures. When you want a circle, a polygon or your own geometry, draw a **mesh**. #2d #intermediate
+Sprites are pictures. When you want a circle, a polygon or your own geometry, draw a **mesh**. #2d
 
 ## A mesh and a material
 

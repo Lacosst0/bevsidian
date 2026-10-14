@@ -1,10 +1,10 @@
 ---
 icon: box
-tags: [ecs, beginner]
+tags: [ecs]
 ---
 # Entities and components
 
-An **entity** is an id. A **component** is a piece of data you hang on it. Behaviour comes from which components an entity has. #ecs #beginner
+An **entity** is an id. A **component** is a piece of data you hang on it. Behaviour comes from which components an entity has. #ecs
 
 ## Components
 

@@ -1,10 +1,10 @@
 ---
 icon: git-branch
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Relationships and hierarchy
 
-Entities can point at other entities. Bevy keeps both ends in sync for you. The famous example is the parent/child tree. #ecs #intermediate
+Entities can point at other entities. Bevy keeps both ends in sync for you. The famous example is the parent/child tree. #ecs
 
 ## Parents and children
 

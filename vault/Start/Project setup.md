@@ -1,10 +1,10 @@
 ---
 icon: wrench
-tags: [start, beginner]
+tags: [start]
 ---
 # Project setup
 
-Settings that make Bevy pleasant to work with. Copy them once, forget them. #start #beginner
+Settings that make Bevy pleasant to work with. Copy them once, forget them. #start
 
 ## Cargo.toml
 

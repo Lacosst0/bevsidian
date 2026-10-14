@@ -1,10 +1,10 @@
 ---
 icon: volume-2
-tags: [audio, beginner]
+tags: [audio]
 ---
 # Audio
 
-Music and sound effects. In Bevy a sound is an entity: spawn it to play, despawn it to stop. #audio #beginner
+Music and sound effects. In Bevy a sound is an entity: spawn it to play, despawn it to stop. #audio
 
 ## Play a sound
 

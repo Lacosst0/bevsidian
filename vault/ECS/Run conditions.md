@@ -1,10 +1,10 @@
 ---
 icon: list-checks
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Run conditions
 
-A **run condition** is a function that returns `bool`. Attach it to a system and the system only runs when it returns `true`. #ecs #intermediate
+A **run condition** is a function that returns `bool`. Attach it to a system and the system only runs when it returns `true`. #ecs
 
 ## Attach a condition
 

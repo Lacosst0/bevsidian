@@ -1,10 +1,10 @@
 ---
 icon: keyboard
-tags: [ui, intermediate]
+tags: [ui]
 ---
 # Text input
 
-A field where the player types: a name, a chat message, a search box. #ui #intermediate
+A field where the player types: a name, a chat message, a search box. #ui
 
 ## The two parts
 

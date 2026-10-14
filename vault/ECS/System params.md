@@ -1,10 +1,10 @@
 ---
 icon: sliders-horizontal
-tags: [ecs, advanced]
+tags: [ecs]
 ---
 # System params
 
-Beyond `Query`, `Res` and `Commands`: the other things a system can ask for. #ecs #advanced
+Beyond `Query`, `Res` and `Commands`: the other things a system can ask for. #ecs
 
 ## Local
 

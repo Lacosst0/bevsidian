@@ -1,10 +1,10 @@
 ---
 icon: sprout
-tags: [ecs, advanced]
+tags: [ecs]
 ---
 # Component lifecycle
 
-What happens when a component is added, changed or removed, and how to hook in. #ecs #advanced
+What happens when a component is added, changed or removed, and how to hook in. #ecs
 
 ## Required components
 

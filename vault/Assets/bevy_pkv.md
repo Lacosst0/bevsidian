@@ -1,6 +1,6 @@
 ---
 icon: package
-tags: [tooling]
+tags: [assets, tooling]
 bevy: 0.19
 crates: bevy_pkv=0.16; serde={ version = "1", features = ["derive"] }
 ---

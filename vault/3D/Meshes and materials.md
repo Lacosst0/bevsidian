@@ -1,10 +1,10 @@
 ---
 icon: cuboid
-tags: [3d, beginner]
+tags: [3d]
 ---
 # Meshes and materials
 
-A 3D object is a **mesh** (its shape) plus a **material** (its surface). Both are [[Assets|assets]] on an entity. #3d #beginner
+A 3D object is a **mesh** (its shape) plus a **material** (its surface). Both are [[Assets|assets]] on an entity. #3d
 
 ## A cube, the classic way
 

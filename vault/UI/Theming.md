@@ -1,10 +1,10 @@
 ---
 icon: palette
-tags: [ui, intermediate]
+tags: [ui]
 ---
 # Theming
 
-**Feathers** is Bevy's own set of styled, themeable widgets: buttons, sliders, checkboxes, number inputs, menus, tabs. It is the quickest way to a decent-looking UI, and the basis for Bevy's editor. #ui #intermediate
+**Feathers** is Bevy's own set of styled, themeable widgets: buttons, sliders, checkboxes, number inputs, menus, tabs. It is the quickest way to a decent-looking UI, and the basis for Bevy's editor. #ui
 
 ## Add the plugin and a theme
 
@@ -86,7 +86,7 @@ Read the `feathers_gallery` example for every control and token.
 
 ## Your own design system
 
-This repo's UI kit ([[UI kit]]) is a worked example of a custom design system on Bevy: **design tokens** for colour, spacing and type, and one file per component that follows shadcn/ui. Its README maps CSS-like classes to tokens. Copy the idea, not the code.
+Feathers is one theme. To make your own, keep **design tokens** (colour, spacing, type) in one place and write one small function per component that reads them. Then a restyle is a change to the tokens, not to every screen. (This app does exactly that: see [[Bevsidian]] if you are curious.)
 
 ## Next
 

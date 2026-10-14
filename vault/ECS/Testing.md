@@ -1,10 +1,10 @@
 ---
 icon: flask-conical
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Testing
 
-Because systems are plain functions and the world is plain data, tests are easy: build a world, run a system, check the result. #ecs #intermediate
+Because systems are plain functions and the world is plain data, tests are easy: build a world, run a system, check the result. #ecs
 
 ## Test a system
 

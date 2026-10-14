@@ -1,10 +1,10 @@
 ---
 icon: terminal
-tags: [tooling, beginner]
+tags: [tooling]
 ---
 # Dev tools
 
-Ready-made debugging helpers, available behind the `bevy_dev_tools` feature (switched on by the `dev` feature in [[Project setup]]). #tooling #beginner
+Ready-made debugging helpers, available behind the `bevy_dev_tools` feature (switched on by the `dev` feature in [[Project setup]]). #tooling
 
 ## FPS overlay
 

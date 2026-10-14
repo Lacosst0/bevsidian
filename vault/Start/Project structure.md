@@ -1,10 +1,10 @@
 ---
 icon: folder
-tags: [start, intermediate]
+tags: [start]
 ---
 # Project structure
 
-How to split a game before `main.rs` gets out of hand. #start #intermediate
+How to split a game before `main.rs` gets out of hand. #start
 
 ## One plugin per feature
 

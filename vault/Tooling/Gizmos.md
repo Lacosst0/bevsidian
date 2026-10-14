@@ -1,10 +1,10 @@
 ---
 icon: compass
-tags: [tooling, beginner]
+tags: [tooling]
 ---
 # Gizmos
 
-Gizmos draw temporary lines and shapes for one frame. They are the quickest way to **see** invisible things: velocities, ranges, paths, colliders. #tooling #beginner
+Gizmos draw temporary lines and shapes for one frame. They are the quickest way to **see** invisible things: velocities, ranges, paths, colliders. #tooling
 
 ## Draw in a system
 

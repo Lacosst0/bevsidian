@@ -1,10 +1,10 @@
 ---
 icon: accessibility
-tags: [gameplay, ui, polish, intermediate]
+tags: [gameplay, ui]
 ---
 # Accessibility and localization
 
-Two ways to let more people play: make the game usable by people with different abilities, and make it readable in their language. Both are far cheaper if you plan them before the first menu is built. #ui #polish
+Two ways to let more people play: make the game usable by people with different abilities, and make it readable in their language. Both are far cheaper if you plan them before the first menu is built. #ui
 
 ## Accessibility settings that cost little
 

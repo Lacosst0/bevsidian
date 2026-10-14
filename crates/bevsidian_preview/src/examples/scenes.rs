@@ -115,7 +115,7 @@ mod bsn {
     }
 }
 
-/// `UI kit.md`
+/// `Bevsidian/UI kit.md`
 mod kit {
     use bevsidian_ui::prelude::*;
     use bevy::{prelude::*, ui_widgets::Activate};

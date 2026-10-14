@@ -1,10 +1,10 @@
 ---
 icon: calendar
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Schedules and sets
 
-A **schedule** is a list of systems that run together. Bevy runs a fixed set of them every frame, in a fixed order. You pick *when* a system runs by picking its schedule. #ecs #intermediate
+A **schedule** is a list of systems that run together. Bevy runs a fixed set of them every frame, in a fixed order. You pick *when* a system runs by picking its schedule. #ecs
 
 ## One frame
 

@@ -1,10 +1,10 @@
 ---
 icon: keyboard
-tags: [input, beginner]
+tags: [input]
 ---
 # Input
 
-Read what the player does and turn it into game actions. #input #beginner
+Read what the player does and turn it into game actions. #input
 
 ## Three layers
 

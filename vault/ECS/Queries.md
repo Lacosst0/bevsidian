@@ -1,10 +1,10 @@
 ---
 icon: filter
-tags: [ecs, beginner]
+tags: [ecs]
 ---
 # Queries
 
-A [`Query`] asks the world: *give me every entity that has these components*. It is how almost every system gets its data. #ecs #beginner
+A [`Query`] asks the world: *give me every entity that has these components*. It is how almost every system gets its data. #ecs
 
 ## A first query
 

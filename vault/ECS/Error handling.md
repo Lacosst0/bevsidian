@@ -1,10 +1,10 @@
 ---
 icon: triangle-alert
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # Error handling
 
-Systems can fail: the entity you wanted is gone, a file is missing. Instead of `unwrap()` crashing the game, return a `Result`. #ecs #intermediate
+Systems can fail: the entity you wanted is gone, a file is missing. Instead of `unwrap()` crashing the game, return a `Result`. #ecs
 
 ## Fallible systems
 

@@ -1,10 +1,10 @@
 ---
 icon: layers
-tags: [bsn, scenes, ui, beginner]
+tags: [bsn, ui]
 ---
 # Scenes and BSN
 
-Your first scene. By the end you will have spawned a menu, made a wider copy of it without repeating anything, and seen the same scene style build a 3D world. #bsn #scenes
+Your first scene. By the end you will have spawned a menu, made a wider copy of it without repeating anything, and seen the same scene style build a 3D world. #bsn
 
 > [!NOTE]
 > You can always spawn with `commands.spawn((A, B))`. BSN is for when you spawn *trees*, reuse pieces, or want less boilerplate. The two mix freely. The map of all BSN notes is [[BSN]].
@@ -167,7 +167,7 @@ Compare with [[Meshes and materials]], which builds the same scene with `command
 
 ## Where BSN shines: UI
 
-UI is a tree of entities, so BSN fits it best: see [[UI layout]], and [[UI kit]], which this very app is built with.
+UI is a tree of entities, so BSN fits it best: see [[UI layout]] and [[Buttons and widgets]].
 
 ## Next
 

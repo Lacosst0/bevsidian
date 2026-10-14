@@ -1,10 +1,10 @@
 ---
 icon: mouse-pointer
-tags: [ui, beginner]
+tags: [ui]
 ---
 # Buttons and widgets
 
-Bevy's widgets are **headless**: they give you behaviour (clicks, values, keyboard focus) and you draw them however you like. #ui #beginner
+Bevy's widgets are **headless**: they give you behaviour (clicks, values, keyboard focus) and you draw them however you like. #ui
 
 ## A button
 
@@ -125,7 +125,7 @@ Checkbox and slider need a `SliderThumb` child (or checked-state styling) to loo
 Wiring the colours of every state yourself is tedious. Two ways out:
 
 - **Feathers**, Bevy's own styled widget set: [[Theming]].
-- **This app's UI kit** ([[UI kit]]), a shadcn/ui-style set built on exactly these widgets.
+- **Your own** small set of component functions that wrap these widgets, with colours from one place.
 
 ## Next
 

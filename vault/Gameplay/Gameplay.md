@@ -1,6 +1,6 @@
 ---
 icon: swords
-tags: [gameplay, start-here]
+tags: [gameplay]
 ---
 # Gameplay
 

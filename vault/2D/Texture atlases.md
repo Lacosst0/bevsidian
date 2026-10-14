@@ -1,10 +1,10 @@
 ---
 icon: table
-tags: [2d, beginner]
+tags: [2d]
 ---
 # Texture atlases
 
-Many small pictures in one image. Faster to load and draw, and how animation frames and tilesets are stored. #2d #beginner
+Many small pictures in one image. Faster to load and draw, and how animation frames and tilesets are stored. #2d
 
 ## A sprite sheet
 

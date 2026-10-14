@@ -1,10 +1,10 @@
 ---
 icon: sparkles
-tags: [rendering, intermediate]
+tags: [rendering]
 ---
 # Post-processing
 
-Effects applied to the finished image: glow, colour grading, edge smoothing. Each one is a component you add to the **camera**. #rendering #intermediate
+Effects applied to the finished image: glow, colour grading, edge smoothing. Each one is a component you add to the **camera**. #rendering
 
 ## Bloom: glow
 

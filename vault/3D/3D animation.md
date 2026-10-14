@@ -1,10 +1,10 @@
 ---
 icon: clapperboard
-tags: [3d, intermediate]
+tags: [3d]
 ---
 # 3D animation
 
-Models bring clips (idle, walk, attack). An [`AnimationPlayer`] plays them, and an [`AnimationGraph`] says which and how they mix. #3d #intermediate
+Models bring clips (idle, walk, attack). An [`AnimationPlayer`] plays them, and an [`AnimationGraph`] says which and how they mix. #3d
 
 ## Play one clip
 

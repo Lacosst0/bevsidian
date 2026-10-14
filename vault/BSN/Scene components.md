@@ -1,10 +1,10 @@
 ---
 icon: puzzle
-tags: [bsn, scenes, intermediate]
+tags: [bsn]
 ---
 # Scene components
 
-A **scene component** is a component that comes with a scene. Add `Player` and you also get its sword and its shield. Systems that query for `Player` can rely on the rest being there. #bsn #scenes
+A **scene component** is a component that comes with a scene. Add `Player` and you also get its sword and its shield. Systems that query for `Player` can rely on the rest being there. #bsn
 
 ## Make one
 

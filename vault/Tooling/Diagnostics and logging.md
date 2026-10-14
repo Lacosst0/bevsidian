@@ -1,10 +1,10 @@
 ---
 icon: chart-line
-tags: [tooling, beginner]
+tags: [tooling]
 ---
 # Diagnostics and logging
 
-Know what the game is doing: messages for you, numbers for tools. #tooling #beginner
+Know what the game is doing: messages for you, numbers for tools. #tooling
 
 ## Logging
 

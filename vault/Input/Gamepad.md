@@ -1,10 +1,10 @@
 ---
 icon: gamepad-2
-tags: [input, intermediate]
+tags: [input]
 ---
 # Gamepad
 
-Each connected controller is an **entity** with a [`Gamepad`] component. #input #intermediate
+Each connected controller is an **entity** with a [`Gamepad`] component. #input
 
 ## Buttons and sticks
 

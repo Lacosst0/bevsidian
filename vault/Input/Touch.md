@@ -1,10 +1,10 @@
 ---
 icon: smartphone
-tags: [input, intermediate]
+tags: [input]
 ---
 # Touch
 
-Phones and tablets give you fingers instead of a mouse. #input #intermediate
+Phones and tablets give you fingers instead of a mouse. #input
 
 ## Touches resource
 

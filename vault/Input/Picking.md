@@ -1,10 +1,10 @@
 ---
 icon: mouse-pointer
-tags: [input, beginner]
+tags: [input]
 ---
 # Picking
 
-"What is under the pointer?" Bevy answers it for sprites, meshes and UI, and turns it into **events on those entities**. #input #beginner
+"What is under the pointer?" Bevy answers it for sprites, meshes and UI, and turns it into **events on those entities**. #input
 
 ## Click, over, out, drag
 

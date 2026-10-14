@@ -1,10 +1,10 @@
 ---
 icon: chart-bar
-tags: [tooling, advanced]
+tags: [tooling]
 ---
 # Profiling
 
-You can't make a game faster until you know **what** is slow. Measure first. #tooling #advanced
+You can't make a game faster until you know **what** is slow. Measure first. #tooling
 
 ## First look: is it CPU or GPU?
 

@@ -1,10 +1,10 @@
 ---
 icon: palette
-tags: [rendering, beginner]
+tags: [rendering]
 ---
 # Colors and math
 
-The small types you use everywhere: [`Color`], `Vec2`, `Vec3`, `Quat`. #rendering #beginner
+The small types you use everywhere: [`Color`], `Vec2`, `Vec3`, `Quat`. #rendering
 
 ## Colors
 

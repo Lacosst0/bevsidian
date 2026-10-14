@@ -1,10 +1,10 @@
 ---
 icon: wrench
-tags: [tooling, beginner]
+tags: [tooling]
 ---
 # Tooling
 
-Everything around the game: seeing what it does, finding bugs, shipping it. #tooling #beginner
+Everything around the game: seeing what it does, finding bugs, shipping it. #tooling
 
 ## While you build
 

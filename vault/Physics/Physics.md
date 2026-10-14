@@ -1,10 +1,10 @@
 ---
 icon: atom
-tags: [physics, intermediate]
+tags: [physics]
 ---
 # Physics
 
-Bevy has **no physics engine built in**. For simple games you write a few systems yourself; for anything with stacking, rolling or joints you add a physics library. #physics #intermediate
+Bevy has **no physics engine built in**. For simple games you write a few systems yourself; for anything with stacking, rolling or joints you add a physics library. #physics
 
 ## Do it yourself first
 

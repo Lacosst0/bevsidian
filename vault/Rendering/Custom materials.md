@@ -1,10 +1,10 @@
 ---
 icon: wand-sparkles
-tags: [rendering, advanced]
+tags: [rendering]
 ---
 # Custom materials
 
-Write your own look with a shader. Bevy shaders are written in WGSL (or WESL, an extension that adds `import`). #rendering #advanced
+Write your own look with a shader. Bevy shaders are written in WGSL (or WESL, an extension that adds `import`). #rendering
 
 ## The idea
 

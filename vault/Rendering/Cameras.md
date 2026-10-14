@@ -1,10 +1,10 @@
 ---
 icon: camera
-tags: [rendering, beginner]
+tags: [rendering]
 ---
 # Cameras
 
-A camera is an entity. Where it is and what component it has decides what you see. #rendering #beginner
+A camera is an entity. Where it is and what component it has decides what you see. #rendering
 
 ## 2D and 3D
 

@@ -1,11 +1,10 @@
 ---
 icon: orbit
 hub: true
-tags: [start-here]
 ---
 # Bevy
 
-Everything you need to make a game with **Bevy 0.20**, one small step at a time. Each note is short, has code you can run right on the page, and links to the next thing to learn. #bevy #beginner
+Everything you need to make a game with **Bevy 0.20**, one small step at a time. Each note is short, has code you can run right on the page, and links to the next thing to learn. #bevy
 
 > [!TIP]
 > Open the **Graph** (`Ctrl+G`). Bevy sits in the middle; every area is a branch. Pick a path at the top of the graph to see its steps in order.
@@ -14,7 +13,7 @@ Everything you need to make a game with **Bevy 0.20**, one small step at a time.
 
 | Area | You learn | Start with |
 |:--|:--|:--|
-| **Start** | install, first window, plugins | [[Hello Bevy]] |
+| **Start** | install, first window, first game | [[Start]] |
 | **ECS** | the heart of Bevy: data and logic | [[ECS]] |
 | **BSN** | scenes in code: the new way to spawn | [[BSN]] |
 | **Assets** | images, sounds, models, scenes | [[Assets]] |

@@ -1,10 +1,10 @@
 ---
 icon: image
-tags: [2d, beginner]
+tags: [2d]
 ---
 # Sprites
 
-A [`Sprite`] is a 2D picture or a coloured rectangle. Spawn one with a `Transform` and a camera sees it. #2d #beginner
+A [`Sprite`] is a 2D picture or a coloured rectangle. Spawn one with a `Transform` and a camera sees it. #2d
 
 ## From an image, or a colour
 

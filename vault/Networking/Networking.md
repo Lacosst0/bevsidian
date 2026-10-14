@@ -1,11 +1,11 @@
 ---
 icon: globe
-tags: [networking, advanced]
+tags: [networking]
 crates: serde={ version = "1", features = ["derive"] }
 ---
 # Networking
 
-Making a game multiplayer is mostly a *design* problem, and only then a library problem. This note gives you the concepts; the libraries do the plumbing. #networking #advanced
+Making a game multiplayer is mostly a *design* problem, and only then a library problem. This note gives you the concepts; the libraries do the plumbing. #networking
 
 ## The big idea
 

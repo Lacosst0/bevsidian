@@ -1,10 +1,10 @@
 ---
 icon: lightbulb
-tags: [3d, beginner]
+tags: [3d]
 ---
 # Lighting
 
-3D objects are black until something lights them. Bevy has three light types, plus ambient and environment light. #3d #beginner
+3D objects are black until something lights them. Bevy has three light types, plus ambient and environment light. #3d
 
 ## The three lights
 

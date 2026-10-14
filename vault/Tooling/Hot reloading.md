@@ -1,10 +1,10 @@
 ---
 icon: flame
-tags: [tooling, intermediate]
+tags: [tooling]
 ---
 # Hot reloading
 
-Change something, see it in the running game, no restart. #tooling #intermediate
+Change something, see it in the running game, no restart. #tooling
 
 ## Assets
 

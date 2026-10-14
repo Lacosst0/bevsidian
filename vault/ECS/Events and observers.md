@@ -1,10 +1,10 @@
 ---
 icon: zap
-tags: [ecs, beginner]
+tags: [ecs]
 ---
 # Events and observers
 
-An **event** says "this just happened". An **observer** is a system that runs *immediately* when a matching event is triggered. No polling, no waiting for the next frame. #ecs #beginner
+An **event** says "this just happened". An **observer** is a system that runs *immediately* when a matching event is triggered. No polling, no waiting for the next frame. #ecs
 
 ## Trigger and observe
 

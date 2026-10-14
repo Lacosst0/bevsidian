@@ -1,10 +1,10 @@
 ---
 icon: sliders-horizontal
-tags: [input, intermediate]
+tags: [input]
 ---
 # Input mapping
 
-Games do not have "Space pressed". They have **Jump**. Mapping keys to actions lets players rebind, use a gamepad, and lets you reuse code. #input #intermediate
+Games do not have "Space pressed". They have **Jump**. Mapping keys to actions lets players rebind, use a gamepad, and lets you reuse code. #input
 
 ## By hand: a resource of actions
 

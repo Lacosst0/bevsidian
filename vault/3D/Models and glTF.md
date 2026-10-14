@@ -1,10 +1,10 @@
 ---
 icon: package
-tags: [3d, beginner]
+tags: [3d]
 ---
 # Models and glTF
 
-You do not hand-write most 3D art. Make it in Blender (or buy it), export **glTF**, and load it. #3d #beginner
+You do not hand-write most 3D art. Make it in Blender (or buy it), export **glTF**, and load it. #3d
 
 ## Load a model
 

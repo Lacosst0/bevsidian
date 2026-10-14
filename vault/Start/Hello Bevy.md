@@ -1,10 +1,10 @@
 ---
 icon: rocket
-tags: [start, beginner]
+tags: [start]
 ---
 # Hello Bevy
 
-Make a window, put something in it, and see how the pieces fit. About ten minutes. #start #beginner
+Make a window, put something in it, and see how the pieces fit. About ten minutes. #start
 
 ## Install
 

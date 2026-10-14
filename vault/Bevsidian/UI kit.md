@@ -1,10 +1,11 @@
 ---
 check: skip
 icon: component
+tags: [bevsidian]
 ---
 # UI kit
 
-Bevsidian's interface is built from a small component library, `bevsidian_ui`, modelled on [shadcn/ui](https://ui.shadcn.com): its dark *neutral* palette, sizes and states, with one orange accent kept for links. Every component is a plain function returning a BSN scene (`bsn!`, or `view!` when it reads signals), so you use it with `@{...}` and patch it like any other scene. The previews below are the real components. #ui #bsn
+Bevsidian's interface is built from a small component library, `bevsidian_ui`, modelled on [shadcn/ui](https://ui.shadcn.com): its dark *neutral* palette, sizes and states, with one orange accent kept for links. Every component is a plain function returning a BSN scene (`bsn!`, or `view!` when it reads signals), so you use it with `@{...}` and patch it like any other scene. The previews below are the real components. This is how *this app* is built, not part of Bevy: for Bevy's own UI start at [[UI]]. #bevsidian
 
 ## Buttons
 

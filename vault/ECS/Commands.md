@@ -1,10 +1,10 @@
 ---
 icon: terminal
-tags: [ecs, beginner]
+tags: [ecs]
 ---
 # Commands
 
-Systems run in parallel, so they cannot add and remove entities on the spot. [`Commands`] **queues** the change; Bevy applies the queue between systems. #ecs #beginner
+Systems run in parallel, so they cannot add and remove entities on the spot. [`Commands`] **queues** the change; Bevy applies the queue between systems. #ecs
 
 ## The four everyday commands
 

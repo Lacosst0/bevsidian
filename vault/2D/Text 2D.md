@@ -1,10 +1,10 @@
 ---
 icon: type
-tags: [2d, beginner]
+tags: [2d]
 ---
 # Text 2D
 
-Words that live **in the world**: damage numbers, labels over enemies, signs. They move with the camera like sprites. (For menus and HUD use [[Text and images|UI text]].) #2d #beginner
+Words that live **in the world**: damage numbers, labels over enemies, signs. They move with the camera like sprites. (For menus and HUD use [[Text and images|UI text]].) #2d
 
 ## Hello, world
 

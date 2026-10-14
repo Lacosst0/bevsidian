@@ -1,6 +1,6 @@
 ---
 icon: mountain
-tags: [gameplay, math, intermediate]
+tags: [gameplay, math]
 crates: rand="0.10"
 ---
 # Procedural generation

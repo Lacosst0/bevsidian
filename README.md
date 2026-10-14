@@ -20,7 +20,7 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 | [`bevy_ui_commonmark`](crates/bevy_ui_commonmark) | CommonMark + GFM + Obsidian wikilinks/tags parser, and a builder that turns documents into BSN scenes of selectable text. |
 | [`bevy_ui_touchscroll`](crates/bevy_ui_touchscroll) | Native-feeling touch scrolling for `ScrollArea`s: 1:1 drags, Android/Flutter fling physics, tap-to-stop, and eased wheel scrolling. |
 | [`bevsidian_core`](crates/bevsidian_core) | The note vault (links, backlinks, tags, search), navigation state (`Nav` signals, shortcuts, links) and the note icons. |
-| [`bevsidian_ui`](crates/bevsidian_ui) | The UI kit, modelled on [shadcn/ui](https://ui.shadcn.com): design tokens (colours, radii, spacing, shadows, layers, Geist type) and one file per component (buttons, tabs, segmented controls, badges, keys, rows and trees, inputs, switches, steppers, dialogs, menus, toasts, alerts, entity cards) as `bsn!`/`view!` scenes. Its [README](crates/bevsidian_ui/README.md) explains the conventions; the [`UI kit`](vault/UI%20kit.md) note previews the components live, and [`design/`](design) holds the mockups. |
+| [`bevsidian_ui`](crates/bevsidian_ui) | The UI kit, modelled on [shadcn/ui](https://ui.shadcn.com): design tokens (colours, radii, spacing, shadows, layers, Geist type) and one file per component (buttons, tabs, segmented controls, badges, keys, rows and trees, inputs, switches, steppers, dialogs, menus, toasts, alerts, entity cards) as `bsn!`/`view!` scenes. Its [README](crates/bevsidian_ui/README.md) explains the conventions; the [`UI kit`](vault/Bevsidian/UI%20kit.md) note previews the components live, and [`design/`](design) holds the mockups. |
 | [`bevsidian_graph`](crates/bevsidian_graph) | The graph view: force-directed notes with pan, pinch/wheel zoom and click-to-open. |
 | [`bevsidian_preview`](crates/bevsidian_preview) | Bevy-in-Bevy: live previews above code blocks. A preview runs an example program with the block's systems in a world of its own: as entity cards, one system at a time with Bevy's stepping (back, play/pause, forward, highlighting the lines that just ran), or as a playable 2D game. |
 | `bevsidian` (root) | The app: the shell (`src/shell`: sidebar, top bar), pages (`src/pages`: note, graph), overlays (`src/overlays`: settings, quick switcher, context menu, toast, selection toolbar, on-screen keyboard), responsive layout, the note editor, the FPS readout and the embedded vault. |
@@ -64,7 +64,7 @@ To add one, write the program in a file there, list its functions with `startup!
 
 Examples list their functions with `startup!`, `update!`, `update_if!(f, condition)` (a system with a run condition), `observer!` and `scheduled!(f, OnEnter(State))` (a system in another schedule). `examples/states.rs` shows how to run Bevy's real state machinery in a bare world.
 
-`preview=NAME` shows a UI scene instead (see [`UI kit`](vault/UI%20kit.md)); those live in `examples/scenes.rs`.
+`preview=NAME` shows a UI scene instead (see [`UI kit`](vault/Bevsidian/UI%20kit.md)); those live in `examples/scenes.rs`.
 
 ### Pick blocks
 

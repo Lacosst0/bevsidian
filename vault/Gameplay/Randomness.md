@@ -1,6 +1,6 @@
 ---
 icon: dices
-tags: [gameplay, math, beginner]
+tags: [gameplay, math]
 crates: rand="0.10"
 ---
 # Randomness

@@ -1,10 +1,10 @@
 ---
 icon: map
-tags: [2d, intermediate]
+tags: [2d]
 ---
 # Tilemaps
 
-A level made of a grid of repeating tiles: grass, water, walls. The map is just numbers; the pictures come from a tileset. #2d #intermediate
+A level made of a grid of repeating tiles: grass, water, walls. The map is just numbers; the pictures come from a tileset. #2d
 
 ## Grid maths first
 

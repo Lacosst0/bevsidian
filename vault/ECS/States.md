@@ -1,10 +1,10 @@
 ---
 icon: waypoints
-tags: [ecs, intermediate]
+tags: [ecs]
 ---
 # States
 
-A **state** is "what the game is doing right now": `Menu`, `Playing`, `Paused`. Bevy stores it in a resource and runs systems when you *enter* or *leave* it. #ecs #intermediate
+A **state** is "what the game is doing right now": `Menu`, `Playing`, `Paused`. Bevy stores it in a resource and runs systems when you *enter* or *leave* it. #ecs
 
 ## Define and use
 

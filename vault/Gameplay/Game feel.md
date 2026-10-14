@@ -1,10 +1,10 @@
 ---
 icon: vibrate
-tags: [gameplay, polish, intermediate]
+tags: [gameplay]
 ---
 # Game feel
 
-Two games can have identical rules and feel completely different. The difference is **feedback**: how much the world answers when you act. These are the cheap tricks that carry most of it. Each is a small system. #gameplay #polish
+Two games can have identical rules and feel completely different. The difference is **feedback**: how much the world answers when you act. These are the cheap tricks that carry most of it. Each is a small system. #gameplay
 
 > [!TIP]
 > Add them in this order: **sound, screen shake, hit stop, easing**. A punch with a sound and a shake already feels twice as strong, and nothing here changes the rules of the game.

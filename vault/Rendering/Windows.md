@@ -1,10 +1,10 @@
 ---
 icon: panel-left
-tags: [rendering, beginner]
+tags: [rendering]
 ---
 # Windows
 
-The window is an entity too: it has a [`Window`] component you can read and change at any time. #rendering #beginner
+The window is an entity too: it has a [`Window`] component you can read and change at any time. #rendering
 
 ## Set it up front
 

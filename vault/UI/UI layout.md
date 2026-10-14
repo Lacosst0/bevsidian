@@ -1,10 +1,10 @@
 ---
 icon: panel-left
-tags: [ui, beginner]
+tags: [ui]
 ---
 # UI layout
 
-UI layout is **flexbox** and **grid**, like CSS. A [`Node`] describes the box; Bevy computes where everything goes. #ui #beginner
+UI layout is **flexbox** and **grid**, like CSS. A [`Node`] describes the box; Bevy computes where everything goes. #ui
 
 ## Try it
 
