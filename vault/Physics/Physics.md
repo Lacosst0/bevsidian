@@ -129,6 +129,16 @@ You need one for: rigid bodies that stack and tumble, joints, many shapes collid
 
 Both give you components (`RigidBody`, `Collider`) and take over `Transform`.
 
+## Libraries
+
+Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+
+| Crate | For | Bevy 0.20 |
+|:--|:--|:--|
+| [[bevy_rapier]] | the Rapier engine, 2D and 3D | ✅ `0.37` |
+| [[Avian]] | ECS-native engine, 2D and 3D | ⏳ `0.7` |
+| [[bevy_transform_interpolation]] | smooth fixed-timestep motion | ⏳ `0.5` |
+
 ## Next
 
 [[Networking]] to put players together, or follow [[A 2D game]].

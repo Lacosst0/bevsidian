@@ -90,7 +90,7 @@ Edit the file while the game runs (with `file_watcher`) and `levels.get` returns
 
 ## Ready-made loaders
 
-You often don't need to write one: `bevy_common_assets` ([[Libraries]]) loads RON, JSON, TOML and more into any `serde` type.
+You often don't need to write one: [[bevy_common_assets]] loads RON, JSON, TOML and more into any `serde` type.
 
 ## Next
 

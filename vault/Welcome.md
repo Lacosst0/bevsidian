@@ -17,7 +17,7 @@ Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**
 1. [[Bevy]]: the map of all areas.
 2. [[Your first game]]: the fastest path to something playable.
 3. [[ECS]]: the heart of Bevy.
-4. [[Libraries]]: the best crates, and which work with 0.20 today.
+4. [[BSN]]: Bevy 0.20's scene notation.
 
 Or pick a path: [[Getting started]], [[Understanding ECS]], [[A 2D game]], [[A 3D game]], [[Multiplayer]], [[Building UI]], [[Make it look good]], [[Ship it]]. In the graph, solid lines are the main route, dashed ones optional steps and dotted ones extras.
 

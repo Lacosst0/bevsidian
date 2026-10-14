@@ -203,6 +203,16 @@ Web browsers refuse to start audio until the player has interacted with the page
 
 Store music volume, effects volume and mute in a [[Resources|resource]] and apply on change. Separate music from effects so players can turn down one. See [[Saving and loading]].
 
+## Libraries
+
+Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+
+| Crate | For | Bevy 0.20 |
+|:--|:--|:--|
+| [[bevy_kira_audio]] | channels, tweens, effects | ✅ `0.27` |
+| [[bevy_seedling]] | audio graph, effects | ⏳ `0.8` |
+| [[bevy_fmod]] | FMOD middleware | ⏳ `0.11` (Bevy 0.19) |
+
 ## Next
 
 Bevy's audio is basic by design. For buses, effects (reverb, EQ), crossfades and dynamic music use a library: [[bevy_kira_audio]] (works with Bevy 0.20 now), [[bevy_seedling]] (Firewheel based), or [[bevy_fmod]] (professional FMOD middleware).

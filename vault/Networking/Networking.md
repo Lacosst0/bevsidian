@@ -61,7 +61,7 @@ Write the game so the **same systems** run on server and client wherever you can
 | [[bevy_http_client]] | HTTP requests | leaderboards, accounts, REST | **released** |
 | [[bevy_steamworks]] | Steam lobbies, achievements | shipping on Steam | in progress |
 
-See [[Libraries]] for the live version table.
+The table at the end of this note has the current version status.
 
 ## A sane way to build it
 
@@ -76,6 +76,20 @@ Follow the path [[Multiplayer]] for the order.
 ## Browsers
 
 WebSockets and WebTransport work in wasm; raw UDP does not. Pick a library and transport that support the web if you ship there ([[Web build]]).
+
+## Libraries
+
+Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+
+| Crate | For | Bevy 0.20 |
+|:--|:--|:--|
+| [[bevy_replicon]] | server-authoritative replication | ✅ `0.45` |
+| [[lightyear]] | replication + prediction + interpolation | ⏳ `0.30` |
+| [[bevy_renet]] | UDP transport with channels | ⏳ `5.0` |
+| [[bevy_ggrs]] | rollback, peer to peer | ⏳ `0.22` |
+| [[bevy_matchbox]] | WebRTC peers + signalling | ⏳ `0.14` (Bevy 0.18) |
+| [[bevy_steamworks]] | Steam features | ⏳ `0.17` |
+| [[bevy_http_client]] | HTTP requests | ✅ `0.12` |
 
 ## Next
 

@@ -105,7 +105,7 @@ fn main() {
 }
 ```
 
-`is_loaded_with_dependencies` also waits for things the asset needs (a model's textures). For many assets use `bevy_asset_loader` ([[Libraries]]).
+`is_loaded_with_dependencies` also waits for things the asset needs (a model's textures). For many assets use [[bevy_asset_loader]].
 
 ## Progress, and what to do when a load fails
 
@@ -227,6 +227,16 @@ For a single-file game (a jam entry, a tool) embed small assets in the executabl
 ## Formats
 
 Out of the box: `.png`, `.ogg` (Vorbis), `.gltf`/`.glb`, `.wgsl`/`.wesl` shaders. Others (`.jpg`, `.mp3`, `.wav`, `.ktx2`...) are Cargo features: see [[Project setup]] and [[Audio]].
+
+## Libraries
+
+Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+
+| Crate | For | Bevy 0.20 |
+|:--|:--|:--|
+| [[bevy_asset_loader]] | declare assets in a struct, loading states | ✅ `0.28` |
+| [[bevy_common_assets]] | RON / JSON / TOML... as assets | ✅ `0.18` |
+| [[bevy_pkv]] | key-value saves, desktop and web | ⏳ `0.16` |
 
 ## Next
 

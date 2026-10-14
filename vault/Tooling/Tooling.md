@@ -29,4 +29,22 @@ The path [[Ship it]] puts these in order.
 
 ## Libraries
 
-[[bevy-inspector-egui]] (see and edit the world), [[bevy_egui]] (debug windows), [[bevy_mod_debugdump]] (draw your schedule), [[bevy_pkv]] (save settings).
+Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+
+| Crate | For | Bevy 0.20 |
+|:--|:--|:--|
+| [[bevy-inspector-egui]] | live world inspector | ⏳ `0.37` |
+| [[bevy_mod_debugdump]] | draw the schedule graph | ⏳ `0.16` |
+| `bevy_mod_scripting` | Lua, Rhai and other scripting | ✅ `0.22` |
+
+## Choosing libraries
+
+Bevy is small on purpose; the ecosystem fills the gaps. Every area of this vault ends with a **Libraries** table: what each crate is for and whether it works with Bevy 0.20 today.
+
+1. **Check the compatibility table** in the crate's README before adding it.
+2. **Prefer built-in** when it is enough ([[Picking]], camera controllers, text input and atmosphere all moved into Bevy).
+3. **Prefer a released crate** to a git branch; use git only for a crate you need now.
+4. If two crates do the same job, read both examples and choose the one whose *style* you like: that is what you will live with.
+5. Do not add libraries speculatively. Add one when you feel the pain it removes.
+
+A good Bevy library is **one plugin**, configured through resources, not a framework. The Bevy Book's chapter "Creating libraries for Bevy" has the checklist for writing your own.

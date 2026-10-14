@@ -28,7 +28,8 @@ Everything you need to make a game with **Bevy 0.20**, one small step at a time.
 | **Gameplay** | AI, pathfinding, generation, inventory | [[Gameplay]] |
 | **Networking** | multiplayer | [[Networking]] |
 | **Tooling** | debugging, web, shipping | [[Tooling]] |
-| **Libraries** | the best crates, one note each | [[Libraries]] |
+
+Every area ends with a **Libraries** table: the best crates for that topic, and which work with 0.20 today.
 
 ## Paths
 

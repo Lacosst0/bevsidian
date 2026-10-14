@@ -12,4 +12,4 @@ The core of Bevy, from data to pixels to a small game.
 4. [[Rendering]]: cameras, meshes, materials and UI.
 5. [[Physics]]: make things move and collide.
 6. [[Assets]] (optional): load images and sounds.
-7. [[Libraries]] (extra): the ecosystem map.
+7. [[Gameplay]] (extra): AI, pathfinding, inventory.

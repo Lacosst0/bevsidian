@@ -121,7 +121,7 @@ Bevy 0.20 builds shaders with WESL: `import` other files and share code. See the
 
 - Bevy's `examples/shader` folder: one example per technique (storage buffers, compute, post-process, instancing...).
 - The [Learn Wgpu](https://sotrh.github.io/learn-wgpu/) tutorial for the GPU side.
-- For particles, `bevy_hanabi` ([[Libraries]]) saves a lot of work.
+- For particles, [[bevy_hanabi]] saves a lot of work.
 
 ## Next
 

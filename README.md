@@ -27,7 +27,7 @@ Bevy's documentation lives in many places: the book, examples, API docs, release
 
 ## The Bevy 0.20 course
 
-The vault is a hands-on course. [`Bevy`](vault/Bevy.md) is the hub (drawn largest in the graph); each area has an index note and short notes with code you can run on the page: [`ECS`](vault/ECS), [`Assets`](vault/Assets), [`Rendering`](vault/Rendering), [`2D`](vault/2D), [`3D`](vault/3D), [`UI`](vault/UI), [`Input`](vault/Input), [`Audio`](vault/Audio), [`Physics`](vault/Physics), [`Networking`](vault/Networking), [`Tooling`](vault/Tooling) and one note per ecosystem crate in [`Libraries`](vault/Libraries).
+The vault is a hands-on course. [`Bevy`](vault/Bevy.md) is the hub (drawn largest in the graph); each area has an index note and short notes with code you can run on the page: [`ECS`](vault/ECS), [`Assets`](vault/Assets), [`Rendering`](vault/Rendering), [`2D`](vault/2D), [`3D`](vault/3D), [`UI`](vault/UI), [`Input`](vault/Input), [`Audio`](vault/Audio), [`Physics`](vault/Physics), [`Networking`](vault/Networking), [`Tooling`](vault/Tooling) and a note per ecosystem crate inside the area it belongs to (each area index ends with a Libraries table).
 
 **Reading paths** (`vault/Paths/`) are notes with `path: true` whose links are the steps. A step line ending in `(optional)` or `(extra)` hangs off the previous core step in the graph with a dashed or dotted line; plain steps form the solid main route.
 
@@ -68,7 +68,7 @@ Examples list their functions with `startup!`, `update!`, `update_if!(f, conditi
 
 ### Pick blocks
 
-A ```` ```rust pick ```` block is a program whose parts the reader switches on and off with chips (see [`bevy_radioactive`](vault/Libraries/bevy_radioactive.md)). Everything before the first `//@ option` is the base. `//@ anchor NAME` marks a line where options insert code (the marker is not shown); `//@ option ID Label` starts a chip, and each `//@ at NAME` below it starts the lines inserted at that anchor, indented like the anchor. Added lines are highlighted. `tools/check_snippets.py` compiles the base, every option alone and all of them together. The code is in `crates/bevy_ui_commonmark/src/pick.rs`.
+A ```` ```rust pick ```` block is a program whose parts the reader switches on and off with chips (see [`bevy_radioactive`](vault/UI/bevy_radioactive.md)). Everything before the first `//@ option` is the base. `//@ anchor NAME` marks a line where options insert code (the marker is not shown); `//@ option ID Label` starts a chip, and each `//@ at NAME` below it starts the lines inserted at that anchor, indented like the anchor. Added lines are highlighted. `tools/check_snippets.py` compiles the base, every option alone and all of them together. The code is in `crates/bevy_ui_commonmark/src/pick.rs`.
 
 ## Running
 

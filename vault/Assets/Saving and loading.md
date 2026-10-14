@@ -57,7 +57,7 @@ fn save(world: &mut World) {
 }
 ```
 
-(On native only. The browser has no files; use `bevy_pkv` from [[Libraries]].)
+(On native only. The browser has no files; use [[bevy_pkv]].)
 
 ## Load
 
@@ -77,7 +77,7 @@ The entities appear as children of that root. For a glTF or model scene use `Wor
 
 - Save **data**, not state of the engine: score, inventory, position, level number.
 - Keep the saved components small and stable. Add a version number to your save so you can migrate it.
-- For a few settings a `Resource` + `serde` + a JSON file is simpler. Or use `bevy_pkv` ([[Libraries]]): a key-value store that works on desktop and web.
+- For a few settings a `Resource` + `serde` + a JSON file is simpler. Or use [[bevy_pkv]]: a key-value store that works on desktop and web.
 
 ## Next
 
