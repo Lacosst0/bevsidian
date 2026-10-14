@@ -94,9 +94,9 @@ pub const MAP_STAR: Color = Color::srgb(0.961, 0.961, 0.957);
 pub const MAP_STAR_DIM: Color = Color::srgb(0.478, 0.478, 0.478);
 /// The glow around a read star, an unread one and the one being read (the middle of the
 /// glow; it fades to nothing).
-pub const MAP_GLOW: Color = Color::srgba(1.0, 1.0, 1.0, 0.11);
-pub const MAP_GLOW_DIM: Color = Color::srgba(1.0, 1.0, 1.0, 0.03);
-pub const MAP_GLOW_LINK: Color = Color::srgba(0.984, 0.573, 0.235, 0.3);
+pub const MAP_GLOW: Color = Color::srgba(1.0, 1.0, 1.0, 0.045);
+pub const MAP_GLOW_DIM: Color = Color::srgba(1.0, 1.0, 1.0, 0.012);
+pub const MAP_GLOW_LINK: Color = Color::srgba(0.984, 0.573, 0.235, 0.16);
 /// `#3a3a3a`: the outline of a note's shape.
 pub const MAP_RING: Color = Color::srgb(0.227, 0.227, 0.227);
 /// `#6b6b6b`: the lines of the routes shown.

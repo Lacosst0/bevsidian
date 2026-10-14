@@ -5,7 +5,7 @@ quest: main
 ---
 # Your first game
 
-The main quest: the ring road around Bevy, from a blank window to Dodge, a small game you build yourself. Every other route on the map leaves from it.
+The main quest: a spiral out of Bevy, from a blank window to Dodge, a small game you build yourself. Every other route on the map branches off it.
 
 1. [[Start]]: the village where everyone begins.
 2. [[Hello Bevy]]: a window and a moving box.

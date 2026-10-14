@@ -4,7 +4,7 @@ map: true
 ---
 # Map
 
-Where everything sits on the map (`Ctrl+G`). Bevy is the brightest star, in the middle; the main quest, [[Your first game]], is the ring of stars around it, and every other route on [[Bevy]] leaves from the ring for its own region of the sky.
+Where everything sits on the map (`Ctrl+G`). Bevy is the brightest star, in the middle; the main quest, [[Your first game]], spirals out of it, and every other route on [[Bevy]] branches off the spiral toward its own region of the sky.
 
 Edit the map with the pencil under the zoom buttons: drag notes and objects, change a note's shape, add landmarks, labels and nebulae. Changes are saved here, in the block below, which you can also edit by hand.
 
@@ -31,23 +31,23 @@ Every note is a star: dim until you have read it, lit after. Its shape is a thin
 | square | a crate: a library |
 
 ```map
-# ── The capital and the ring road (the main quest) ──────────────
+# ── The capital and the main quest, spiralling out of it ───────
 Bevy                          @      0,      0   octagon large
-Start                         @      0,   -600
-Hello Bevy                    @   -300,   -520   diamond
-Entities and components       @   -520,   -300
-Systems                       @   -600,      0
-Queries                       @   -520,    300
-Sprites                       @   -300,    520
-Commands                      @      0,    600
-Resources                     @    300,    520
-Time and timers               @    520,    300
+Start                         @      0,   -240
+Hello Bevy                    @   -140,   -242   diamond
+Entities and components       @   -277,   -160
+Systems                       @   -360,      0
+Queries                       @   -346,    200
+Sprites                       @   -220,    381
+Commands                      @      0,    480
+Resources                     @    260,    450
+Time and timers               @    485,    280
 Events and observers          @    600,      0
-Run conditions                @    520,   -300
-Make a game                   @    300,   -520   star large
-Game feel                     @    620,   -740
-Project setup                 @   -470,   -820
-App and plugins               @   -230,   -860
+Run conditions                @    554,   -320
+Make a game                   @    340,   -589   star large
+Game feel                     @    602,   -669
+Project setup                 @   -345,   -441
+App and plugins               @   -145,   -582
 
 # ── The Shipyard: tooling (south) ────────────────────────────────
 Tooling                       @     40,  -1120
@@ -197,26 +197,8 @@ Avian                         @  -1100,   -820   star
 bevy_transform_interpolation  @  -1340,   -700
 bevy_rapier                   @  -1080,  -1060
 
-# ── Region names ────────────────────────────────────────────────
-label: Bevy | The capital     @      0,    190   size 22
-label: Spawn Village | Start  @   -260,  -1020   size 22
-label: The Shipyard | Tooling @   -640,  -2180
-label: Asset Docks | Assets   @    460,  -1760   size 24
-label: Echo Valley | Audio    @   1400,  -1640
-label: The Lightworks | Rendering @ 1560, -1180
-label: Polygon Peaks | 3D     @   2050,    420
-label: The Far Shores | Networking @ 2000, 860
-label: Interface Isles | UI   @   1260,   1780
-label: The Scene Forge | BSN  @    560,   2000
-label: ECS Heartlands | ECS   @    -40,   2400
-label: The Questwood | Gameplay @ -640,   2200
-label: Dice Hills | Procedural generation @ -1180, 1640   size 24
-label: Pixel Plains | 2D      @  -1240,    260
-label: Controller Crossing | Input @ -1420, -560
-label: Collision Canyon | Physics @ -1120, -1280
 
 # ── Landmarks ───────────────────────────────────────────────────
-landmark: crown               @    -10,    330   size 52
 landmark: telescope           @    170,   -830   size 40
 landmark: sparkle             @   -120,   -770   size 28
 landmark: satellite           @    780,  -1840   size 40
@@ -246,16 +228,4 @@ landmark: crown               @    260,   2240   size 36
 landmark: sparkles            @   1720,   1720   size 40
 landmark: sparkle             @  -1880,    700   size 30
 
-# ── Nebulae ─────────────────────────────────────────────────────
-nebula:                       @    -80,     60   r 760
-nebula:                       @   -150,  -1650   r 640
-nebula:                       @    900,  -1350   r 560
-nebula:                       @   1500,   -650   r 520
-nebula:                       @   1850,    150   r 620
-nebula:                       @   1350,   1050   r 640
-nebula:                       @    200,   1650   r 600
-nebula:                       @   -750,   1600   r 680
-nebula:                       @  -1350,    800   r 620
-nebula:                       @  -1350,   -250   r 560
-nebula:                       @  -1050,   -900   r 440
 ```

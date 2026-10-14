@@ -587,9 +587,11 @@ fn spawn_nodes(
                 ));
                 node.spawn((
                     GraphLabel,
-                    GraphText { size: label_size },
+                    GraphText {
+                        size: label_size * ICON_SCALE,
+                    },
                     Text2d::new(note.icon.to_string()),
-                    font("lucide", label_size, FontWeight::NORMAL),
+                    font("lucide", label_size * ICON_SCALE, FontWeight::NORMAL),
                     TextColor(color::MUTED_FOREGROUND),
                     Transform::from_xyz(0.0, -radius * reach(shape) - 14.0, 0.0),
                     RenderLayers::layer(LAYER),
@@ -749,8 +751,10 @@ fn fit_plates(
     }
 }
 
-/// How far a star's glow reaches, in radii of its bright point.
-const GLOW: f32 = 9.0;
+/// How far a star's glow reaches, in radii of its bright point: a faint halo, not a blob.
+const GLOW: f32 = 3.5;
+/// A label's icon, as a share of its text's size.
+const ICON_SCALE: f32 = 1.5;
 /// Width of a shape's outline, as a share of its radius.
 const RING_WIDTH: f32 = 0.07;
 

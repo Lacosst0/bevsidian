@@ -5,7 +5,8 @@
 //! secrets (extra steps) dotted. Lines keep their width on screen at any zoom. The followed
 //! route burns orange, with a faint wider line under it as its glow. Routes that share a line
 //! draw it once. Notes no shown line reaches hang from their parent by a faint dotted trail,
-//! and a hovered note shows its links as thin dashes.
+//! the capital sends a dotted ray to every region's town, and a hovered note shows its links
+//! as thin dashes.
 
 use bevy::prelude::*;
 
@@ -245,10 +246,13 @@ pub(crate) fn draw_roads(
             out.line(ends, kind, width, px, z, tint);
         }
     }
-    // Trails to the parent of notes no line reaches (not to the capital: they would cut
-    // across the ring).
+    // Trails to the parent of notes no line reaches, and rays from the capital to every
+    // region's town: the capital links to them all.
     for &(child, parent) in &state.trails {
-        if reached.contains(&child) || nodes.get(parent).is_ok_and(|(_, n)| n.rank == 0) {
+        let ray = nodes.get(child).is_ok_and(|(_, n)| n.rank == 1)
+            && nodes.get(parent).is_ok_and(|(_, n)| n.rank == 0);
+        let to_capital = nodes.get(parent).is_ok_and(|(_, n)| n.rank == 0);
+        if !ray && (reached.contains(&child) || to_capital) {
             continue;
         }
         if let (Some((a, ra)), Some((b, rb))) = (star(child), star(parent))
