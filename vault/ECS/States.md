@@ -192,12 +192,12 @@ fn main() {
 
 ## Debug transitions
 
-With `bevy_dev_tools`, `bevy::dev_tools::states::log_transitions::<AppState>` prints every change. See [[Dev tools]].
+With `bevy_dev_tools`, `bevy::dev_tools::states::log_transitions::<AppState>` prints every change. See [[Diagnostics and logging#Dev tools|Dev tools]].
 
 ## State and game design
 
 - Use one `enum` per question: "which screen?" vs "paused?". Do not create `PlayingPaused`.
-- Put `OnEnter` setup and `DespawnOnExit` cleanup *next to each other* in the same plugin ([[Project structure]]).
+- Put `OnEnter` setup and `DespawnOnExit` cleanup *next to each other* in the same plugin ([[Project setup#Project structure|Project structure]]).
 - Trigger the change from where the decision is made (a button's observer, a game-over system).
 
 ## Next

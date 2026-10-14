@@ -1,9 +1,13 @@
 ---
 icon: package
 tags: [input]
-crates: bevy_enhanced_input={ git = "https://github.com/simgine/bevy_enhanced_input" }
+crates: bevy_enhanced_input={ git = "https://github.com/simgine/bevy_enhanced_input" }; leafwing-input-manager={ git = "https://github.com/Leafwing-Studios/leafwing-input-manager" }
 ---
-# bevy_enhanced_input
+# Input crates
+
+Two crates for actions and rebinding, both on the way to Bevy 0.20. Start with [[Input mapping]] to choose.
+
+## bevy_enhanced_input
 
 An **observer-based input manager**: you describe *contexts* (on foot, in a car) with *actions* (Move, Jump) and *bindings* (keys, sticks); your game just observes the actions. Inspired by Unreal's Enhanced Input. #input
 
@@ -16,7 +20,7 @@ bevy = "0.20"
 bevy_enhanced_input = { git = "https://github.com/simgine/bevy_enhanced_input" }
 ```
 
-## Why choose it
+### Why choose it
 
 - Input is **data on entities**, so every player or vehicle has its own context ([[Relationships and hierarchy|entities with children]]).
 - **Modifiers** shape raw input: dead zones, smoothing, scaling, negating, delta-time scaling.
@@ -24,7 +28,7 @@ bevy_enhanced_input = { git = "https://github.com/simgine/bevy_enhanced_input" }
 - Actions arrive as [[Events and observers|observer events]] (`Start`, `Fire`, `Complete`...), no polling.
 - Rebinding screens are easy: bindings are components you can change.
 
-## The four ideas
+### The four ideas
 
 | Idea | In code |
 |:--|:--|
@@ -33,7 +37,7 @@ bevy_enhanced_input = { git = "https://github.com/simgine/bevy_enhanced_input" }
 | **Binding**: a key/stick/button for an action | `bindings![KeyCode::Space]`, `Cardinal::wasd_keys()`, `Axial::left_stick()` |
 | **Modifier / condition**: shape or gate the input | components on the action: `Scale`, `DeadZone`, `DeltaScale`... |
 
-## A player that moves and jumps
+### A player that moves and jumps
 
 ```rust
 use bevy::prelude::*;
@@ -95,7 +99,7 @@ fn on_jump(jump: On<Start<Jump>>) {
 }
 ```
 
-## Events
+### Events
 
 | Event | When |
 |:--|:--|
@@ -106,19 +110,103 @@ fn on_jump(jump: On<Start<Jump>>) {
 
 Pick the event that matches the feel: `Start` for a jump, `Fire` for movement.
 
-## Contexts: switch the controls
+### Contexts: switch the controls
 
 Add or remove the context component to change what the keys mean: walking → driving → menu. Several contexts can be layered with priorities (`context_layering` example).
 
-## Alternatives
+### Alternatives
 
-- [[leafwing-input-manager]]: the other mature action library; polling style.
+- [[Input crates#leafwing-input-manager|leafwing-input-manager]]: the other mature action library; polling style.
 - By hand: [[Input mapping]].
 
-## Links
+### Links
 
 [crates.io](https://crates.io/crates/bevy_enhanced_input) · [docs.rs](https://docs.rs/bevy_enhanced_input) · [repo](https://github.com/simgine/bevy_enhanced_input) · examples: `basic_action_management`, `character_controller`, `keybinding_menu`.
 
-## Next
+## leafwing-input-manager
 
-[[Input]].
+Map physical inputs to your own **action enum**, then ask `ActionState` whether an action is pressed. A long-established crate with a very full feature set. #input
+
+> [!IMPORTANT]
+> **Bevy 0.20 status** (checked 2026-10-13): release `0.21` is for Bevy 0.19; the `main` branch is on **0.20**. Use `git` until it is released.
+
+```toml
+leafwing-input-manager = { git = "https://github.com/Leafwing-Studios/leafwing-input-manager" }
+```
+
+### The idea
+
+1. An `enum` of everything the player can *do* (derive `Actionlike`).
+2. An `InputMap<Action>` component: which keys/buttons/sticks trigger each action.
+3. An `ActionState<Action>` component (added for you): the current state of each action. Systems read it.
+
+```rust
+use bevy::prelude::*;
+use leafwing_input_manager::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, InputManagerPlugin::<PlayerAction>::default()))
+        .add_systems(Startup, spawn_player)
+        .add_systems(Update, act)
+        .run();
+}
+
+#[derive(Actionlike, PartialEq, Eq, Clone, Copy, Hash, Debug, Reflect)]
+enum PlayerAction {
+    #[actionlike(DualAxis)]
+    Run,
+    Jump,
+    UseItem,
+}
+
+#[derive(Component)]
+struct Player;
+
+fn spawn_player(mut commands: Commands) {
+    let mut map = InputMap::default();
+    // Gamepad
+    map.insert_dual_axis(PlayerAction::Run, GamepadStick::LEFT);
+    map.insert(PlayerAction::Jump, GamepadButton::South);
+    // Keyboard and mouse
+    map.insert_dual_axis(PlayerAction::Run, VirtualDPad::wasd());
+    map.insert(PlayerAction::Jump, KeyCode::Space);
+    map.insert(PlayerAction::UseItem, MouseButton::Left);
+
+    commands.spawn((Player, map));
+}
+
+fn act(player: Single<&ActionState<PlayerAction>, With<Player>>) {
+    let run = player.clamped_axis_pair(&PlayerAction::Run);
+    if run != Vec2::ZERO {
+        info!("moving {run}");
+    }
+    if player.just_pressed(&PlayerAction::Jump) {
+        info!("jump!");
+    }
+}
+```
+
+### What it adds over reading keys yourself
+
+- **Remapping** at runtime (change the `InputMap`, save it).
+- **Chords** (`Ctrl+S`), **press duration** (`action_state.current_duration`), double taps.
+- **Axes** with dead zones and sensitivity processing.
+- **Several players**: one entity per player, each with its own map and gamepad.
+- **Clash handling**: `Ctrl+S` doesn't also fire `S`.
+- Sending actions over the network (`send_actions_over_network` example).
+
+### Choosing
+
+| | [[Input crates#bevy_enhanced_input|bevy_enhanced_input]] | leafwing-input-manager |
+|:--|:--|:--|
+| Style | observer events with `On<Fire<A>>` | poll `ActionState` |
+| Actions are | types with their own output | enum variants |
+| Rebinding | components | `InputMap` methods |
+| Maturity | newer, Unreal-inspired | older, widely used |
+
+Either beats hand-written key checks as soon as you want a settings screen.
+
+### Links
+
+[crates.io](https://crates.io/crates/leafwing-input-manager) · [docs.rs](https://docs.rs/leafwing-input-manager) · [repo](https://github.com/Leafwing-Studios/leafwing-input-manager)

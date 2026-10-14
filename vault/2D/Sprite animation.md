@@ -109,7 +109,7 @@ fn on_action_change(mut query: Query<(&Action, &mut Sprite), Changed<Action>>) {
 
 ## Not only sprites
 
-Anything numeric can be animated the same way. For smooth movement, scaling, colour and easing look at [[bevy_tweening]]. For skeletal and 3D animation Bevy has `AnimationPlayer` and `AnimationGraph` ([[3D animation]]). For sprite sheets with named clips and events, there is [[bevy_spritesheet_animation]].
+Anything numeric can be animated the same way. For smooth movement, scaling, colour and easing look at [[Animation crates#bevy_tweening|bevy_tweening]]. For skeletal and 3D animation Bevy has `AnimationPlayer` and `AnimationGraph` ([[3D animation]]). For sprite sheets with named clips and events, there is [[Animation crates#bevy_spritesheet_animation|bevy_spritesheet_animation]].
 
 ## Next
 

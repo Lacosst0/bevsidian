@@ -6,8 +6,9 @@
 //! hovering, clicking, dragging nodes, panning (with momentum) and zooming (wheel, pinch
 //! and buttons). A press only opens a note if the pointer did not move: drags never click.
 //!
-//! Lines say how two notes are connected ([`Connection`]): solid when they link to each
-//! other, dashed when one links to the other, dotted when they only share a tag.
+//! The whole graph is a tree grown from the hub ([`layout::tree`]) and draws only its
+//! branches. A hovered note also shows its other links ([`Connection`]): solid when they link
+//! to each other, dashed when one links to the other, dotted when they only share a tag.
 
 use bevy::{
     camera::{RenderTarget, visibility::RenderLayers},
@@ -80,7 +81,7 @@ struct GraphNode {
     neighbors: Vec<Entity>,
     /// Off the reading path being followed: not drawn, simulated or picked.
     hidden: bool,
-    /// Its place in the whole graph: first from [`layout::clusters`], then wherever it was
+    /// Its place in the whole graph: first from [`layout::tree`], then wherever it was
     /// last pushed or dropped. It floats there when the graph opens or a path is left.
     home: Vec2,
     /// Floating to its home (the graph just opened, or a path was left).
@@ -120,8 +121,8 @@ pub struct GraphState {
     /// The springs of the simulation: a link and its length in the layout.
     springs: Vec<(Entity, Entity, f32)>,
     /// The lines drawn, one per connected pair, and whether the whole graph shows it: only
-    /// lines inside a cluster and from the hub to cluster centres do, the others only for
-    /// the hovered note (they would tangle the clusters together).
+    /// the branches of the tree do, the others only for the hovered note (they would tangle
+    /// the branches together).
     lines: Vec<(Entity, Entity, Connection, bool)>,
     /// The steps of the reading path being followed, in order (empty when none is).
     path: Vec<Entity>,
@@ -368,17 +369,23 @@ fn spawn_nodes(
     }
     let slot = |id: NoteId| shown.iter().position(|&n| n == id);
     let mut edges = Vec::new();
-    let mut springs = Vec::new();
     for (i, note) in vault.notes.iter().enumerate() {
         for &target in &note.outgoing {
-            if let (Some(a), Some(b), Some(sa), Some(sb)) = (
-                note_entities[i],
-                note_entities[target],
-                slot(i),
-                slot(target),
-            ) {
+            if let (Some(a), Some(b)) = (note_entities[i], note_entities[target]) {
                 edges.push((a, b));
-                springs.push((a, b, layout.homes[sa].distance(layout.homes[sb])));
+            }
+        }
+    }
+    // Only the trunk and branches hold the layout together and are drawn in the overview;
+    // every other link shows when its note is hovered.
+    let mut springs = Vec::new();
+    let mut branches = std::collections::HashSet::new();
+    for (child, parent) in layout.parent.iter().enumerate() {
+        if let Some(parent) = *parent {
+            let (a, b) = (shown[child], shown[parent]);
+            if let (Some(ea), Some(eb)) = (note_entities[a], note_entities[b]) {
+                springs.push((ea, eb, layout.homes[child].distance(layout.homes[parent])));
+                branches.insert((a.min(b), a.max(b)));
             }
         }
     }
@@ -387,13 +394,25 @@ fn spawn_nodes(
     state.lines = connections(&vault)
         .into_iter()
         .filter_map(|(a, b, kind)| {
-            let (sa, sb) = (slot(a)?, slot(b)?);
-            // Inside a cluster, and the spokes from the hub to each cluster's centre.
-            let spoke = |hub: usize, centre: usize| hub == layout.root && layout.centres[centre];
-            let overview = layout.groups[sa] == layout.groups[sb] || spoke(sa, sb) || spoke(sb, sa);
-            Some((note_entities[a]?, note_entities[b]?, kind, overview))
+            slot(a)?;
+            slot(b)?;
+            let branch = branches.contains(&(a, b));
+            // The tree is drawn solid: it is the structure, not a kind of link.
+            let kind = if branch { Connection::Mutual } else { kind };
+            Some((note_entities[a]?, note_entities[b]?, kind, branch))
         })
         .collect();
+    // A branch no link makes (a note hung from its folder's index) is a line too.
+    for &(a, b) in &branches {
+        if let (Some(ea), Some(eb)) = (note_entities[a], note_entities[b])
+            && !state
+                .lines
+                .iter()
+                .any(|&(x, y, ..)| (x, y) == (ea, eb) || (x, y) == (eb, ea))
+        {
+            state.lines.push((ea, eb, Connection::Mutual, true));
+        }
+    }
     state.anchor = None;
     if kept.is_empty() {
         state.alpha = 1.0;
@@ -420,26 +439,66 @@ const ORBIT_MARGIN: f32 = 22.0;
 struct Layout {
     /// Home of each shown note, in the order given.
     homes: Vec<Vec2>,
-    /// Its cluster (its top folder).
-    groups: Vec<usize>,
-    /// Whether it is its cluster's centre.
-    centres: Vec<bool>,
-    /// The hub's place in the order given.
-    root: usize,
+    /// The note each one grows from (`None` for the hub), in the order given.
+    parent: Vec<Option<usize>>,
 }
 
-/// Home positions of the `shown` notes (in that order): a cluster per top folder around the
-/// hub's (`hub: true`, or else the best-linked note).
-fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
+/// The tree of the vault: every shown note hangs from one other, back to the hub. A note
+/// hangs from the first note of its own folder that links to it (an area's index lists its
+/// notes), the areas from the hub; what no such link reaches hangs from any note linking to
+/// it, and the rest from its folder's index or the hub.
+fn spanning_tree(vault: &VaultData, shown: &[NoteId], root: usize) -> Vec<Option<usize>> {
     let slot = |id: NoteId| shown.iter().position(|&n| n == id);
-    let mut links = Vec::new();
-    for (a, &id) in shown.iter().enumerate() {
-        for &target in &vault.notes[id].outgoing {
-            if let Some(b) = slot(target) {
-                links.push((a, b));
+    let folder = |n: usize| {
+        vault.notes[shown[n]]
+            .folder
+            .split('/')
+            .next()
+            .unwrap_or("")
+            .to_owned()
+    };
+    let out: Vec<Vec<usize>> = shown
+        .iter()
+        .map(|&id| {
+            vault.notes[id]
+                .outgoing
+                .iter()
+                .filter_map(|&t| slot(t))
+                .collect()
+        })
+        .collect();
+    let mut parent = vec![None; shown.len()];
+    let mut seen = vec![false; shown.len()];
+    seen[root] = true;
+    // First the links inside a folder (and out of the hub), then any link at all.
+    for strict in [true, false] {
+        let mut queue: std::collections::VecDeque<usize> =
+            (0..shown.len()).filter(|&n| seen[n]).collect();
+        while let Some(from) = queue.pop_front() {
+            for &to in &out[from] {
+                let allowed = !strict || from == root || folder(from) == folder(to);
+                if !seen[to] && allowed {
+                    seen[to] = true;
+                    parent[to] = Some(from);
+                    queue.push_back(to);
+                }
             }
         }
     }
+    for n in 0..shown.len() {
+        if !seen[n] {
+            let index = (0..shown.len())
+                .find(|&i| vault.notes[shown[i]].name == folder(n))
+                .filter(|&i| i != n);
+            parent[n] = Some(index.unwrap_or(root));
+        }
+    }
+    parent
+}
+
+/// Home positions of the `shown` notes (in that order): the vault grown like a tree from the
+/// hub (`hub: true`, or else the best-linked note).
+fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
     let hub = shown.iter().position(|&id| {
         vault.notes[id]
             .doc
@@ -449,36 +508,18 @@ fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
     });
     let root = hub.unwrap_or_else(|| {
         (0..shown.len())
-            .max_by_key(|&a| links.iter().filter(|&&(x, y)| x == a || y == a).count())
+            .max_by_key(|&a| {
+                vault.notes[shown[a]].outgoing.len() + vault.notes[shown[a]].backlinks.len()
+            })
             .unwrap_or(0)
     });
-    let mut folders: Vec<&str> = Vec::new();
-    let groups: Vec<usize> = shown
-        .iter()
-        .map(|&id| {
-            let folder = vault.notes[id].folder.split('/').next().unwrap_or("");
-            folders
-                .iter()
-                .position(|&f| f == folder)
-                .unwrap_or_else(|| {
-                    folders.push(folder);
-                    folders.len() - 1
-                })
-        })
-        .collect();
+    let parent = spanning_tree(vault, shown, root);
     let space: Vec<f32> = shown
         .iter()
         .map(|&id| 2.0 * orbit(20.0, &vault.notes[id].name))
         .collect();
-    let homes = layout::clusters(&groups, &links, root, &space);
-    let centre = layout::centres(&groups, &links);
-    let centres = (0..shown.len()).map(|n| centre[groups[n]] == n).collect();
-    Layout {
-        homes,
-        groups,
-        centres,
-        root,
-    }
+    let homes = layout::tree(&parent, root, &space);
+    Layout { homes, parent }
 }
 
 /// Icon colours.
@@ -682,7 +723,8 @@ fn simulate(
         ));
     }
     let index = |e: Entity| positions.iter().position(|(p, ..)| *p == e);
-    let weights = state.anchor.map(|anchor| mobility(&state.edges, anchor));
+    let branches: Vec<(Entity, Entity)> = state.springs.iter().map(|&(a, b, _)| (a, b)).collect();
+    let weights = state.anchor.map(|anchor| mobility(&branches, anchor));
     let mobility = |e: Entity| {
         weights
             .as_ref()
@@ -1649,5 +1691,84 @@ mod tests {
         let pieces: Vec<_> = pattern(50.0, 10.0, 5.0).collect();
         assert_eq!(pieces, vec![(5.0, 15.0), (20.0, 30.0), (35.0, 45.0)]);
         assert_eq!(pattern(5.0, 10.0, 5.0).count(), 0);
+    }
+
+    /// The real vault, read from disk.
+    fn real_vault() -> VaultData {
+        fn collect(dir: &std::path::Path, out: &mut Vec<(String, String)>) {
+            let mut entries: Vec<_> = std::fs::read_dir(dir)
+                .unwrap()
+                .flatten()
+                .map(|e| e.path())
+                .collect();
+            entries.sort();
+            for path in entries {
+                if path.is_dir() {
+                    collect(&path, out);
+                } else if path.extension().is_some_and(|e| e == "md") {
+                    let name = path
+                        .strip_prefix(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vault"))
+                        .unwrap();
+                    out.push((
+                        name.to_string_lossy().into_owned(),
+                        std::fs::read_to_string(&path).unwrap(),
+                    ));
+                }
+            }
+        }
+        let mut notes = Vec::new();
+        collect(
+            std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../vault")),
+            &mut notes,
+        );
+        VaultData::from_sources(notes.iter().map(|(p, s)| (p.as_str(), s.as_str())))
+    }
+
+    #[test]
+    fn the_vault_grows_into_a_tree_from_the_hub() {
+        let vault = real_vault();
+        let shown: Vec<NoteId> = (0..vault.notes.len())
+            .filter(|&i| vault.path(i).is_none())
+            .collect();
+        let layout = home_positions(&vault, &shown);
+        let root = layout
+            .parent
+            .iter()
+            .position(Option::is_none)
+            .expect("a root");
+        assert_eq!(vault.notes[shown[root]].name, "Bevy");
+        // Every note reaches the hub through its parents, without a loop.
+        for start in 0..shown.len() {
+            let (mut at, mut steps) = (start, 0);
+            while at != root {
+                at = layout.parent[at].expect("a parent");
+                steps += 1;
+                assert!(
+                    steps < 8,
+                    "{} is too deep or loops",
+                    vault.notes[shown[start]].name
+                );
+            }
+        }
+        // The areas hang straight off the hub.
+        for area in ["ECS", "2D", "UI", "Networking"] {
+            let n = shown
+                .iter()
+                .position(|&i| vault.notes[i].name == area)
+                .unwrap();
+            assert_eq!(layout.parent[n], Some(root), "{area}");
+        }
+        // Nothing lands on top of something else.
+        for a in 0..shown.len() {
+            for b in (a + 1)..shown.len() {
+                let apart = layout.homes[a].distance(layout.homes[b]);
+                assert!(
+                    apart > 25.0,
+                    "{} and {}: {apart}",
+                    vault.notes[shown[a]].name,
+                    vault.notes[shown[b]].name
+                );
+            }
+        }
     }
 }

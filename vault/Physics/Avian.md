@@ -2,7 +2,7 @@
 icon: package
 tags: [physics]
 bevy: 0.19
-crates: avian2d=0.7
+crates: avian2d=0.7; bevy_transform_interpolation=0.5
 ---
 # Avian
 
@@ -19,7 +19,7 @@ avian2d = "0.7"      # or avian3d = "0.7"
 
 - Feels like Bevy: forces, velocities and mass are components; collisions are observable; the physics schedule is just schedules ([[Schedules and sets]]).
 - Rigid bodies (dynamic, kinematic, static), colliders with layers and materials, joints, ray/shape casts via `SpatialQuery`, continuous collision detection, sleeping.
-- Built-in **transform interpolation** for fixed-timestep physics ([[bevy_transform_interpolation]] exists for engines without it).
+- Built-in **transform interpolation** for fixed-timestep physics ([[Avian#bevy_transform_interpolation|bevy_transform_interpolation]] exists for engines without it).
 - Debug rendering of colliders, contacts and joints.
 
 ## Bodies and colliders
@@ -89,6 +89,62 @@ Both are good. Choose by the Bevy version you need and the features you use.
 ## Links
 
 [crates.io (2D)](https://crates.io/crates/avian2d) · [crates.io (3D)](https://crates.io/crates/avian3d) · [docs.rs](https://docs.rs/avian2d) · [repo](https://github.com/avianphysics/avian)
+
+## bevy_transform_interpolation
+
+When game logic runs at a **fixed rate** ([[Time and timers]]) but the screen refreshes faster, moving things look jittery. This crate **interpolates** (or extrapolates) `Transform` between fixed steps so motion stays smooth. #physics
+
+> [!WARNING]
+> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.5` targets **Bevy 0.19**. Compiled against 0.19.
+
+```toml
+bevy_transform_interpolation = "0.5"
+```
+
+### Turn it on per entity
+
+```rust
+use bevy::prelude::*;
+use bevy_transform_interpolation::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, TransformInterpolationPlugin::default()))
+        .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, spin)
+        .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Sprite::from_color(Color::srgb(0.4, 0.8, 0.5), Vec2::splat(50.0)),
+        Transform::default(),
+        TransformInterpolation,          // smooth translation, rotation and scale
+    ));
+}
+
+fn spin(mut query: Query<&mut Transform, With<TransformInterpolation>>) {
+    for mut transform in &mut query {
+        transform.rotate_z(0.05);        // moved once per fixed step...
+        transform.translation.x += 1.0;  // ...but drawn smoothly every frame
+    }
+}
+```
+
+Use `TransformInterpolationPlugin::interpolate_all()` to smooth every entity, or just `TranslationInterpolation`, `RotationInterpolation`, `ScaleInterpolation` for parts.
+
+### When you need it
+
+- You run physics or movement in `FixedUpdate` ([[bevy_rapier]], [[Avian]], your own, see [[Physics]]).
+- It looks stuttery on a high-refresh-rate monitor.
+- **Not** when logic runs in `Update`: movement there is already per frame.
+
+Interpolation shows the world slightly in the past; *extrapolation* guesses the future and may overshoot. The crate supports both.
+
+### Links
+
+[crates.io](https://crates.io/crates/bevy_transform_interpolation) · [docs.rs](https://docs.rs/bevy_transform_interpolation) · [repo](https://github.com/Jondolf/bevy_transform_interpolation)
 
 ## Next
 

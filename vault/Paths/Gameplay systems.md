@@ -15,4 +15,3 @@ The pieces most games need, each small enough to build in an afternoon.
 7. [[Dialogue]] (optional): talk to people.
 8. [[Game feel]] (optional): make hits land.
 9. [[Accessibility and localization]] (optional): more players, more languages.
-10. [[bevy_rand]] (extra): random numbers the ECS way.

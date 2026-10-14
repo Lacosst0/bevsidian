@@ -104,7 +104,7 @@ fn pop(time: Res<Time>, mut buttons: Query<(&mut Pop, &mut Transform)>) {
 | `ElasticOut` | wobbles | rewards, jelly |
 | `BounceOut` | bounces | things dropping |
 
-For many animations at once, [[bevy_tweening]] wraps all this in components.
+For many animations at once, [[Animation crates#bevy_tweening|bevy_tweening]] wraps all this in components.
 
 ## Squash and stretch
 

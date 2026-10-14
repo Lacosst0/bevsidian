@@ -3,7 +3,11 @@ icon: package
 tags: [audio]
 crates: bevy_kira_audio=0.27
 ---
-# bevy_kira_audio
+# Audio crates
+
+When Bevy's [[Audio]] is not enough: Kira for channels, tweens and effects, FMOD for professional sound design.
+
+## bevy_kira_audio
 
 Audio with **channels**, tweens and effects, powered by the Kira engine. Use it when Bevy's built-in audio ([[Audio]]) is not enough: separate music/effects buses, fades, loops with intros, reverb, spatial sound, and finer control of playing sounds. #audio
 
@@ -16,7 +20,7 @@ bevy_kira_audio = "0.27"
 
 It replaces Bevy's own audio: add `AudioPlugin` from the crate **instead of** the built-in one (turn off `bevy_audio` in `default-features`).
 
-## Play a sound
+### Play a sound
 
 ```rust
 use bevy::prelude::*;
@@ -40,7 +44,7 @@ fn music(asset_server: Res<AssetServer>, audio: Res<Audio>) {
 
 `Audio` is a global channel: call `.play(handle)` and chain settings. The returned handle controls that one sound (pause, stop, seek).
 
-## Channels: buses for music and effects
+### Channels: buses for music and effects
 
 A channel is a typed bus with its own volume, pause and effects:
 
@@ -73,7 +77,7 @@ fn start(asset_server: Res<AssetServer>, music: Res<AudioChannel<Music>>, effect
 
 Your options menu becomes two sliders that call `set_volume` on the channels.
 
-## More
+### More
 
 - **Tweens**: smooth changes to volume, pitch and panning.
 - **Spatial audio** (`spatial` example): position emitters in the world.
@@ -81,18 +85,35 @@ Your options menu becomes two sliders that call `set_volume` on the channels.
 - **Dynamic channels** (`dynamic_channels`): create channels by name at runtime.
 - **Peak meter** for visualisers.
 
-## Compared to alternatives
+### Compared to alternatives
 
-| | Bevy audio | bevy_kira_audio | [[bevy_seedling]] | [[bevy_fmod]] |
+| | Bevy audio | bevy_kira_audio | [[bevy_seedling]] | [[Audio crates#bevy_fmod|bevy_fmod]] |
 |:--|:--|:--|:--|:--|
 | Setup | built in | one plugin | one plugin | FMOD install + licence |
 | Buses / mixing | no | channels | a full audio graph | professional mixer |
 | Bevy 0.20 | yes | **yes** | release pending | release pending |
 
-## Links
+### Links
 
 [crates.io](https://crates.io/crates/bevy_kira_audio) · [docs.rs](https://docs.rs/bevy_kira_audio) · [repo](https://github.com/NiklasEi/bevy_kira_audio)
 
-## Next
+## bevy_fmod
 
-[[Audio]].
+**FMOD** in Bevy: the middleware used by many shipped games. Sound designers build events, mixing and adaptive music in the FMOD Studio app; your game triggers events and sets parameters. #audio
+
+> [!WARNING]
+> **Bevy 0.20 status** (checked 2026-10-13): the README states `0.11` works with **Bevy 0.19** and FMOD 2.02.22; a 0.20 release is pending.
+
+### What you need
+
+- A free FMOD account, the **FMOD Engine** download, and linking it by hand (licence terms prevent bundling).
+- Attribution as FMOD's licence requires.
+- Sound designers who use FMOD Studio.
+
+### When it is worth it
+
+Large audio-driven games: adaptive music, complex mixing, a dedicated audio person. Otherwise [[Audio crates#bevy_kira_audio|bevy_kira_audio]] (released for 0.20), [[bevy_seedling]] or Bevy's own audio ([[Audio]]) are far simpler.
+
+### Links
+
+[crates.io](https://crates.io/crates/bevy_fmod) · [repo](https://github.com/Salzian/bevy_fmod) · [FMOD](https://www.fmod.com)

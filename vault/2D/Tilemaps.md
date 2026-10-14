@@ -134,8 +134,8 @@ Change a tile later by editing the list in `TilemapChunkTileData`.
 
 For huge or multi-layer maps, load levels drawn in an editor:
 
-- [[bevy_ecs_ldtk]]: levels from LDtk, with entities and auto-tiling rules.
-- [[bevy_ecs_tilemap]]: a full tilemap engine; also loads Tiled maps through add-ons.
+- [[Tilemap crates#bevy_ecs_ldtk|bevy_ecs_ldtk]]: levels from LDtk, with entities and auto-tiling rules.
+- [[Tilemap crates#bevy_ecs_tilemap|bevy_ecs_tilemap]]: a full tilemap engine; also loads Tiled maps through add-ons.
 
 ## Collisions
 

@@ -73,7 +73,7 @@ fn handle_error(mut errors: MessageReader<TypedResponseError<IpInfo>>) {
 
 ## For real-time multiplayer
 
-HTTP is request/response. For live games use [[bevy_replicon]], [[lightyear]] or [[bevy_renet]] ([[Networking]]).
+HTTP is request/response. For live games use [[bevy_replicon]], [[Netcode crates#lightyear|lightyear]] or [[bevy_renet]] ([[Networking]]).
 
 ## Links
 

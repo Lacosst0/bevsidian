@@ -10,7 +10,7 @@ You can't make a game faster until you know **what** is slow. Measure first. #to
 
 - Shrink the window or lower the resolution. Faster → GPU (fill-rate) bound.
 - Disable systems or reduce entities. Faster → CPU bound.
-- Show frame time in [[Dev tools|the FPS overlay]]. A steady 16.6 ms is 60 fps.
+- Show frame time in [[Diagnostics and logging#Dev tools|the FPS overlay]]. A steady 16.6 ms is 60 fps.
 
 ## Bevy's built-in spans
 

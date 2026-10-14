@@ -116,7 +116,7 @@ fn main() {
 }
 ```
 
-Because the world only changes at fixed steps, draw it smoothly with `bevy_transform_interpolation` ([[bevy_transform_interpolation]]).
+Because the world only changes at fixed steps, draw it smoothly with `bevy_transform_interpolation` ([[Avian#bevy_transform_interpolation|bevy_transform_interpolation]]).
 
 ## When to use a physics engine
 
@@ -137,7 +137,7 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 |:--|:--|:--|
 | [[bevy_rapier]] | the Rapier engine, 2D and 3D | released `0.37` |
 | [[Avian]] | ECS-native engine, 2D and 3D | pending `0.7` |
-| [[bevy_transform_interpolation]] | smooth fixed-timestep motion | pending `0.5` |
+| [[Avian#bevy_transform_interpolation|bevy_transform_interpolation]] | smooth fixed-timestep motion | pending `0.5` |
 
 ## Next
 

@@ -3,7 +3,11 @@ icon: package
 tags: [ui]
 crates: bevy_hui={ version = "0.8", features = ["picking"] }
 ---
-# bevy_hui
+# UI crates
+
+Two other ways to describe a UI: HTML-like files, and a layout engine for world-space interfaces. See [[UI]].
+
+## bevy_hui
 
 Build Bevy UI in **pseudo-HTML files**, reload them while the game runs, and bind logic from Rust by function name. Templates work like web components. #ui
 
@@ -14,7 +18,7 @@ Build Bevy UI in **pseudo-HTML files**, reload them while the game runs, and bin
 bevy_hui = { version = "0.8", features = ["picking"] }   # "picking" enables hover/press styles and events
 ```
 
-## A template
+### A template
 
 `assets/my_button.html`:
 
@@ -42,7 +46,7 @@ bevy_hui = { version = "0.8", features = ["picking"] }   # "picking" enables hov
 - `hover:` / `pressed:` prefixes give state styles and animated transitions.
 - `on_press="greet"` calls a Rust function you registered under that name.
 
-## Use it from Rust
+### Use it from Rust
 
 Register the template as a component named after its tag, bind your functions by name, and spawn a root template:
 
@@ -87,25 +91,44 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
 
 `menu.html` then uses it like a tag: `<my_button text="Start" action="start_game"/>`.
 
-## Why it is attractive
+### Why it is attractive
 
 - **Designers can edit UI** without a rebuild (hot reload, see [[Hot reloading]]).
 - Reusable **templates** with typed properties, recursively.
 - It is plain Bevy UI underneath: [[UI layout]], [[Buttons and widgets]], [[Picking]] all still apply.
 - No built-in look: you bring the design.
 
-## Alternatives
+### Alternatives
 
 | Crate | Approach |
 |:--|:--|
-| [[bevy_lunex]] | layout system for responsive, retained UI |
+| [[UI crates#bevy_lunex|bevy_lunex]] | layout system for responsive, retained UI |
 | `bsn!` ([[Scenes and BSN]]) | Rust macro scenes built into Bevy 0.20 |
 | [[bevy_egui]] | immediate mode, best for tools |
 
-## Links
+### Links
 
 [crates.io](https://crates.io/crates/bevy_hui) · [docs.rs](https://docs.rs/bevy_hui) · [repo](https://github.com/Lommix/bevy_hui)
 
-## Next
+## bevy_lunex
 
-[[UI]].
+A **retained layout engine** for UI built from regular entities: any aspect ratio without distortion, a flexbox-like `flow` layout, **world-space UI** in 2D and 3D, interactivity through normal systems and observers. #ui
+
+> [!NOTE]
+> **Bevy 0.20 status** (checked 2026-10-13): the `main` branch targets **Bevy 0.20**; the last crates.io release `0.7` targets 0.19. Depend on the git repository for 0.20.
+
+```toml
+bevy_lunex = { git = "https://github.com/bytestring-net/bevy_lunex" }
+```
+
+### When to use it
+
+- Menus that must look right on any window shape (ultrawide, phone, 4:3).
+- UI placed **in the 3D world** (a screen on a wall, a health bar over an enemy).
+- You prefer a layout engine to CSS-like flex.
+
+Bevy's own UI ([[UI layout]]) already does flex and grid and is the default; Lunex is the choice when its specific strengths matter. The README's `Bevypunk` demo shows a full game menu.
+
+### Links
+
+[crates.io](https://crates.io/crates/bevy_lunex) · [docs.rs](https://docs.rs/bevy_lunex) · [repo](https://github.com/bytestring-net/bevy_lunex)

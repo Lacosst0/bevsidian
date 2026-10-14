@@ -16,6 +16,5 @@ Cheap changes that make a game look finished.
 8. [[Sprites]] (optional)
 9. [[Text and images]] (optional)
 10. [[bevy_hanabi]] (extra)
-11. [[bevy_mod_outline]] (extra)
-12. [[bevy_rich_text3d]] (extra)
-13. [[bevy_light_2d]] (extra)
+11. [[3D effect crates]] (extra)
+12. [[2D lighting crates]] (extra)

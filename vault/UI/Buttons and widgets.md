@@ -83,7 +83,7 @@ For custom behaviour, every node also receives picking events (`PointerPress`, `
 | Slider | `Slider`, `SliderValue`, `SliderRange` + a thumb | `ValueChange<f32>` |
 | Scrollbar | `Scrollbar`, `ScrollbarThumb` | scrolling |
 | Menu, tabs | `MenuPopup`, headless tabs | selection |
-| Text input | `TextInput` | see [[Text input]] |
+| Text input | `TextInput` | see [[Text and images#Text input|Text input]] |
 
 ```rust
 use bevy::{
@@ -129,4 +129,4 @@ Wiring the colours of every state yourself is tedious. Two ways out:
 
 ## Next
 
-[[Text input]].
+[[Text and images#Text input|Text input]].

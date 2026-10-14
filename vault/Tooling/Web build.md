@@ -98,7 +98,7 @@ Compress with gzip or brotli on the server; this repository's `tools/build-web.s
 - **No raw files or UDP.** Load assets over HTTP ([[Assets]]), use WebSocket/WebTransport for networking ([[Networking]]), and `bevy_pkv` for saves ([[Saving and loading]]).
 - **Audio** only starts after the first click or key press (browser rule).
 - **Autoplay, pointer lock and fullscreen** need a user gesture.
-- **Mobile browsers**: use touch ([[Touch]]) and watch memory.
+- **Mobile browsers**: use touch ([[Gamepad and touch#Touch|Touch]]) and watch memory.
 
 ## Publish
 

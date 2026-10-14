@@ -105,7 +105,7 @@ fn main() {
 }
 ```
 
-`is_loaded_with_dependencies` also waits for things the asset needs (a model's textures). For many assets use [[bevy_asset_loader]].
+`is_loaded_with_dependencies` also waits for things the asset needs (a model's textures). For many assets use [[Asset crates#bevy_asset_loader|bevy_asset_loader]].
 
 ## Progress, and what to do when a load fails
 
@@ -234,8 +234,8 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy_asset_loader]] | declare assets in a struct, loading states | released `0.28` |
-| [[bevy_common_assets]] | RON / JSON / TOML... as assets | released `0.18` |
+| [[Asset crates#bevy_asset_loader|bevy_asset_loader]] | declare assets in a struct, loading states | released `0.28` |
+| [[Asset crates#bevy_common_assets|bevy_common_assets]] | RON / JSON / TOML... as assets | released `0.18` |
 | [[bevy_pkv]] | key-value saves, desktop and web | pending `0.16` |
 
 ## Next

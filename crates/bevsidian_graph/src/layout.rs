@@ -1,9 +1,9 @@
 //! Where notes belong in the graph, before the simulation polishes it.
 //!
-//! - [`clusters`]: the whole vault as clusters of related notes (a folder each) packed
-//!   around the hub's cluster in the middle, biggest first, each near the clusters it links
-//!   to. A cluster is a sunflower around its centre note (its index), the best-linked notes
-//!   closest, and a note linking out of its cluster sits on the side facing where it links.
+//! - [`tree`]: the vault grown like a tree. The hub is the trunk in the middle; its branches
+//!   (the areas) leave it in every direction, each branch splits into the notes under it, and
+//!   every generation sits further out than the one before. A branch with more notes below it
+//!   gets a wider wedge of the circle.
 //! - [`line`]: a reading path in a straight line, its core steps in order and its optional
 //!   and extra steps hanging above and below the step they branch from.
 
@@ -12,204 +12,102 @@ use std::f32::consts::TAU;
 use bevsidian_core::vault::StepKind;
 use bevy::math::Vec2;
 
-/// Distance between neighbouring clusters, and between the middle cluster and the others.
-pub const CLUSTER_GAP: f32 = 70.0;
-/// Distance between a cluster's notes, as a share of the room they need: the simulation
-/// pushes apart the few that end up too close.
-const PACKING: f32 = 0.8;
 /// Distance between consecutive core steps of a path.
 pub const STEP_GAP: f32 = 190.0;
 /// Distance between the rows of steps hanging off a path.
 pub const BRANCH_GAP: f32 = 150.0;
 
-/// Directions tried for each cluster.
-const DIRECTIONS: usize = 96;
-/// How much being near linked clusters counts against being near the middle.
-const AFFINITY: f32 = 0.5;
+/// Room between one generation and the next.
+const RING_GAP: f32 = 110.0;
+/// Distance between the staggered rows of one generation, when its notes do not fit side by
+/// side.
+const ROW_GAP: f32 = 64.0;
+/// Most staggered rows a generation of one branch may need before the ring moves outwards.
+const MAX_ROWS: usize = 8;
 
-/// The golden angle: consecutive sunflower seeds turn by it, so none line up.
-const GOLDEN: f32 = 2.399_963;
-
-/// The centre of each group: the member with most links inside it (the earliest on a tie).
-pub fn centres(groups: &[usize], links: &[(usize, usize)]) -> Vec<usize> {
-    let group_count = groups.iter().max().map_or(0, |g| g + 1);
-    let mut inner = vec![0_usize; groups.len()];
-    for &(a, b) in links {
-        if a != b && groups[a] == groups[b] {
-            inner[a] += 1;
-            inner[b] += 1;
-        }
-    }
-    let mut centres = vec![usize::MAX; group_count];
-    for (node, &group) in groups.iter().enumerate() {
-        let best = centres[group];
-        if best == usize::MAX || inner[node] > inner[best] {
-            centres[group] = node;
-        }
-    }
-    centres
-}
-
-/// Home positions for the nodes in `groups` (a group index per node), linked by `links`
-/// (undirected, by index). `root`'s group sits in the middle with `root` at the origin; every
-/// other group is a cluster around its [`centres`], packed around the middle. `space[i]` is the
-/// room node `i` needs (its diameter, with its label).
-pub fn clusters(
-    groups: &[usize],
-    links: &[(usize, usize)],
-    root: usize,
-    space: &[f32],
-) -> Vec<Vec2> {
-    let count = groups.len();
-    if count == 0 {
-        return Vec::new();
-    }
-    let group_count = groups.iter().max().map_or(0, |g| g + 1);
-    let middle = groups[root.min(count - 1)];
-    let mut centre = centres(groups, links);
-    centre[middle] = root.min(count - 1);
-    let mut members = vec![Vec::new(); group_count];
-    for (node, &group) in groups.iter().enumerate() {
-        members[group].push(node);
-    }
-    // Links between groups, and inside them.
-    let mut between = vec![vec![0_usize; group_count]; group_count];
-    let mut inner = vec![0_usize; count];
-    for &(a, b) in links {
-        let (ga, gb) = (groups[a], groups[b]);
-        if a == b {
-            continue;
-        }
-        if ga == gb {
-            inner[a] += 1;
-            inner[b] += 1;
-        } else {
-            between[ga][gb] += 1;
-            between[gb][ga] += 1;
-        }
-    }
-    // Each cluster's sunflower: seed spacing and how far it reaches.
-    let spacing: Vec<f32> = members
-        .iter()
-        .map(|nodes| {
-            let needed: f32 = nodes.iter().map(|&n| space[n]).sum();
-            PACKING * needed / nodes.len().max(1) as f32
-        })
-        .collect();
-    let reach: Vec<f32> = (0..group_count)
-        .map(|g| {
-            // The outermost seat, and room for a note there.
-            spacing[g] * (members[g].len().saturating_sub(1) as f32).sqrt()
-                + spacing[g] / PACKING / 2.0
-        })
-        .collect();
-    // Pack the clusters around the middle, biggest first: each as close to the middle as
-    // it fits, near the clusters it links to.
-    let mut order: Vec<usize> = (0..group_count)
-        .filter(|&g| g != middle && !members[g].is_empty())
-        .collect();
-    order.sort_by_key(|&g| (std::cmp::Reverse(members[g].len()), g));
-    let mut middle_at = vec![Vec2::ZERO; group_count];
-    let mut placed = vec![middle];
-    for g in order {
-        let linked: f32 = placed.iter().map(|&p| between[g][p] as f32).sum();
-        let best = (0..DIRECTIONS)
-            .map(|i| {
-                let direction = Vec2::from_angle(TAU * i as f32 / DIRECTIONS as f32);
-                let at = direction * nearest_free(direction, reach[g], &placed, &middle_at, &reach);
-                // Average distance to the clusters it links to, by how much it links.
-                let apart: f32 = placed
-                    .iter()
-                    .map(|&p| between[g][p] as f32 * at.distance(middle_at[p]))
-                    .sum::<f32>()
-                    / linked.max(1.0);
-                (at, at.length() + AFFINITY * apart)
-            })
-            .min_by(|a, b| a.1.total_cmp(&b.1))
-            .map_or(Vec2::ZERO, |(at, _)| at);
-        middle_at[g] = best;
-        placed.push(g);
-    }
-    // Seats in each sunflower: the centre in the middle, the best-linked closest, and a note
-    // linking out on the side facing where it links.
+/// Home positions for the notes of a tree: `parent[n]` is the note `n` grows from (`None`
+/// for the root, and for notes that are not part of the tree), `space[n]` the room it needs
+/// (its diameter, with its label). The root sits at the origin.
+pub fn tree(parent: &[Option<usize>], root: usize, space: &[f32]) -> Vec<Vec2> {
+    let count = parent.len();
     let mut homes = vec![Vec2::ZERO; count];
-    let mut neighbours = vec![Vec::new(); count];
-    for &(a, b) in links {
-        if a != b {
-            neighbours[a].push(b);
-            neighbours[b].push(a);
+    if count == 0 {
+        return homes;
+    }
+    let mut children = vec![Vec::new(); count];
+    for (child, &up) in parent.iter().enumerate() {
+        if let Some(up) = up.filter(|_| child != root) {
+            children[up].push(child);
         }
     }
-    for g in 0..group_count {
-        let mut nodes = members[g].clone();
-        if nodes.is_empty() {
-            continue;
-        }
-        nodes.sort_by_key(|&n| (n != centre[g], std::cmp::Reverse(inner[n]), n));
-        let seats: Vec<Vec2> = (0..nodes.len())
-            .map(|k| Vec2::from_angle(k as f32 * GOLDEN) * spacing[g] * (k as f32).sqrt())
+    // Generations, from the root outwards.
+    let mut generations = vec![vec![root]];
+    loop {
+        let next: Vec<usize> = generations
+            .last()
+            .into_iter()
+            .flatten()
+            .flat_map(|&n| children[n].iter().copied())
             .collect();
-        let outer = seats.iter().map(|s| s.length()).fold(1.0, f32::max);
-        let mut free = vec![true; seats.len()];
-        for &node in &nodes {
-            // Where its links outside the cluster go, and how many of its links do.
-            let outside: Vec<Vec2> = neighbours[node]
-                .iter()
-                .filter(|&&n| groups[n] != g)
-                .map(|&n| (middle_at[groups[n]] - middle_at[g]).normalize_or_zero())
-                .collect();
-            let pull = outside.iter().copied().sum::<Vec2>() / neighbours[node].len().max(1) as f32;
-            let facing = pull.normalize_or_zero();
-            let strength = pull.length();
-            let seat = (0..seats.len())
-                .filter(|&k| free[k])
-                .min_by(|&a, &b| {
-                    let cost = |k: usize| {
-                        let seat: Vec2 = seats[k];
-                        let away = 1.0 - seat.normalize_or_zero().dot(facing);
-                        seat.length() / outer + away * strength
-                    };
-                    cost(a).total_cmp(&cost(b))
-                })
-                .unwrap_or(0);
-            free[seat] = false;
-            homes[node] = middle_at[g] + seats[seat];
-        }
-    }
-    homes
-}
-
-/// The smallest distance along `direction` (a unit vector) where a circle of radius `reach`
-/// stays [`CLUSTER_GAP`] clear of every `placed` cluster.
-fn nearest_free(
-    direction: Vec2,
-    reach: f32,
-    placed: &[usize],
-    centres: &[Vec2],
-    reaches: &[f32],
-) -> f32 {
-    // Each placed cluster rules out an interval of distances along the ray.
-    let mut blocked: Vec<(f32, f32)> = placed
-        .iter()
-        .filter_map(|&p| {
-            let (centre, clear) = (centres[p], reach + reaches[p] + CLUSTER_GAP);
-            let along = direction.dot(centre);
-            let discriminant = along * along - centre.length_squared() + clear * clear;
-            (discriminant > 0.0).then(|| {
-                let half = discriminant.sqrt();
-                (along - half, along + half)
-            })
-        })
-        .collect();
-    blocked.sort_by(|a, b| a.0.total_cmp(&b.0));
-    let mut distance = 0.0_f32;
-    for (from, to) in blocked {
-        if from > distance {
+        if next.is_empty() || generations.len() > count {
             break;
         }
-        distance = distance.max(to);
+        generations.push(next);
     }
-    distance
+    // Notes at the tips below each note: the more, the wider its wedge.
+    let mut tips = vec![1.0_f32; count];
+    for generation in generations.iter().rev() {
+        for &n in generation {
+            if !children[n].is_empty() {
+                tips[n] = children[n].iter().map(|&c| tips[c]).sum();
+            }
+        }
+    }
+    // Each note's wedge of the circle: (start, width).
+    let mut wedge = vec![(0.0_f32, TAU); count];
+    for generation in &generations {
+        for &n in generation {
+            let (mut at, width) = wedge[n];
+            for &c in &children[n] {
+                let part = width * tips[c] / tips[n];
+                wedge[c] = (at, part);
+                at += part;
+            }
+        }
+    }
+    let mut outer = space[root] / 2.0;
+    for generation in generations.iter().skip(1) {
+        // The ring: far enough out that no branch needs more than MAX_ROWS rows.
+        let mut radius = outer + RING_GAP;
+        let rows = |radius: f32| -> Vec<(usize, usize)> {
+            let mut parents: Vec<usize> = generation.iter().filter_map(|&n| parent[n]).collect();
+            parents.dedup();
+            parents
+                .into_iter()
+                .map(|p| {
+                    let widest = children[p].iter().map(|&c| space[c]).fold(1.0, f32::max);
+                    let fits = ((wedge[p].1 * radius / widest).floor() as usize).max(1);
+                    (p, children[p].len().div_ceil(fits))
+                })
+                .collect()
+        };
+        while rows(radius).iter().any(|&(_, r)| r > MAX_ROWS) {
+            radius *= 1.1;
+        }
+        let rows = rows(radius);
+        let mut deepest = 0;
+        for (p, count) in rows {
+            deepest = deepest.max(count);
+            for (k, &c) in children[p].iter().enumerate() {
+                let (start, width) = wedge[c];
+                let angle = start + width / 2.0;
+                let row = if count > 1 { k % count } else { 0 };
+                homes[c] = Vec2::from_angle(angle) * (radius + row as f32 * ROW_GAP);
+            }
+        }
+        outer = radius + deepest.saturating_sub(1) as f32 * ROW_GAP + 30.0;
+    }
+    homes
 }
 
 /// Positions for the steps of a path, in their order: core steps left to right on one line
@@ -244,59 +142,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn groups_cluster_around_the_middle() {
-        // Group 0: the root (0) and 1. Group 1: 2, its centre, with 3, 4, 7 and 8.
-        // Group 2: 5 and 6.
-        let groups = [0, 0, 1, 1, 1, 2, 2, 1, 1];
-        let links = [
-            (0, 2),
-            (0, 5),
-            (2, 3),
-            (2, 4),
-            (2, 7),
-            (2, 8),
-            (5, 6),
-            (4, 6),
+    fn a_tree_grows_outwards_in_generations() {
+        // 0 is the trunk; 1, 2, 3 its branches; 4, 5 grow from 1; 6 from 2; 7 from 4.
+        let parent = [
+            None,
+            Some(0),
+            Some(0),
+            Some(0),
+            Some(1),
+            Some(1),
+            Some(2),
+            Some(4),
         ];
-        assert_eq!(centres(&groups, &links), [0, 2, 5]);
-        let homes = clusters(&groups, &links, 0, &[80.0; 9]);
+        let homes = tree(&parent, 0, &[80.0; 8]);
         assert_eq!(homes[0], Vec2::ZERO);
-        assert!(
-            (homes[1].length() - PACKING * 80.0).abs() < 0.01,
-            "next to the root"
-        );
-        // Each note is nearer its own centre than the other cluster's.
-        for (node, own, other) in [(3, 2, 5), (4, 2, 5), (6, 5, 2), (8, 2, 5)] {
-            assert!(homes[node].distance(homes[own]) < homes[node].distance(homes[other]));
+        for (child, up) in [(1, 0), (2, 0), (3, 0), (4, 1), (5, 1), (6, 2), (7, 4)] {
+            assert!(
+                homes[child].length() > homes[up].length(),
+                "{child} is further out than {up}"
+            );
         }
-        // 4 links into the other cluster: it sits on the side facing it.
-        for other in [7, 8] {
-            assert!(homes[4].distance(homes[5]) < homes[other].distance(homes[5]));
-        }
-        // No two notes on the same spot; clusters well clear of each other.
-        for a in 0..9 {
-            for b in (a + 1)..9 {
-                assert!(homes[a].distance(homes[b]) > 30.0, "{a} and {b}");
+        // No two notes on the same spot.
+        for a in 0..8 {
+            for b in (a + 1)..8 {
+                assert!(homes[a].distance(homes[b]) > 40.0, "{a} and {b}");
             }
         }
-        assert!(homes[2].distance(homes[5]) > CLUSTER_GAP);
+        // The bigger branch (1, with three notes below) has the wider wedge: its children
+        // spread further apart than 2's single child is from anything.
+        assert!(homes[4].distance(homes[5]) > 40.0);
     }
 
     #[test]
-    fn linked_groups_sit_side_by_side() {
-        // Four groups of two around a lone root; 1 and 3 link, 2 and 4 do not link at all.
-        let groups = [0, 1, 1, 2, 2, 3, 3, 4, 4];
-        let links = [(1, 2), (5, 6), (3, 4), (7, 8), (1, 5), (2, 6)];
-        let homes = clusters(&groups, &links, 0, &[60.0; 9]);
-        let angle = |n: usize| homes[n].to_angle();
-        let apart = |a: usize, b: usize| {
-            let d = (angle(a) - angle(b)).rem_euclid(TAU);
-            d.min(TAU - d)
-        };
-        assert!(
-            apart(1, 5) < apart(1, 3).max(apart(1, 7)),
-            "linked neighbours"
-        );
+    fn many_notes_in_one_branch_stagger_into_rows() {
+        let mut parent = vec![None, Some(0)];
+        parent.extend((0..30).map(|_| Some(1)));
+        let homes = tree(&parent, 0, &[80.0; 32]);
+        for a in 0..32 {
+            for b in (a + 1)..32 {
+                assert!(homes[a].distance(homes[b]) > 30.0, "{a} and {b}");
+            }
+        }
     }
 
     #[test]

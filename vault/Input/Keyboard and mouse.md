@@ -178,8 +178,8 @@ fn turn(mut ships: Query<(&mut Transform, &Target)>) {
 
 ## Text typed, not keys
 
-For typing characters (chat, names) use [[Text input]] or the `KeyboardInput` message's `logical_key`.
+For typing characters (chat, names) use [[Text and images#Text input|Text input]] or the `KeyboardInput` message's `logical_key`.
 
 ## Next
 
-[[Gamepad]]. Or [[Picking]] for clicking on things.
+[[Gamepad and touch#Gamepad|Gamepad]]. Or [[Picking]] for clicking on things.

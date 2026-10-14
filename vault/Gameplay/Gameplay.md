@@ -48,7 +48,7 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy_rand]] | seeded random numbers | released `0.16` |
+| [[Randomness#bevy_rand|bevy_rand]] | seeded random numbers | released `0.16` |
 | `bevy_northstar`, `vleue_navigator` | pathfinding, navmeshes | pending `0.7`, `0.16` |
 | `bevy_yarnspinner` | Yarn dialogue | pending `0.9` |
 | `bevy_behave` | behaviour trees | pending `0.5` (Bevy 0.18) |

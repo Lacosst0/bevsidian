@@ -219,7 +219,7 @@ A few habits keep scenes pleasant:
 - One scene function = one *idea* (`button`, `health_bar`, `enemy`).
 - Put the **defaults** in the base function, and **variants** as small patches on top.
 - Pass things that vary as parameters, not options. Callers who want a different look just patch.
-- Name roots with `#Name`: they show up in the inspector ([[Dev tools]]) and in `Query<&Name>`.
+- Name roots with `#Name`: they show up in the inspector ([[Diagnostics and logging#Dev tools|Dev tools]]) and in `Query<&Name>`.
 
 ## Next
 

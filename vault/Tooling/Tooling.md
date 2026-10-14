@@ -12,7 +12,7 @@ Everything around the game: seeing what it does, finding bugs, shipping it. #too
 |:--|:--|
 | [[Gizmos]] | draw lines, circles, grids on top of the game, for debugging |
 | [[Diagnostics and logging]] | read FPS, entity counts, write log messages |
-| [[Dev tools]] | FPS overlay, state logging, remote inspection |
+| [[Diagnostics and logging#Dev tools|Dev tools]] | FPS overlay, state logging, remote inspection |
 | [[Debugging]] | inspectors, the schedule graph, common bugs |
 | [[Hot reloading]] | change assets and code without restarting |
 
@@ -33,8 +33,8 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy-inspector-egui]] | live world inspector | pending `0.37` |
-| [[bevy_mod_debugdump]] | draw the schedule graph | pending `0.16` |
+| [[Debug crates#bevy-inspector-egui|bevy-inspector-egui]] | live world inspector | pending `0.37` |
+| [[Debug crates#bevy_mod_debugdump|bevy_mod_debugdump]] | draw the schedule graph | pending `0.16` |
 | `bevy_mod_scripting` | Lua, Rhai and other scripting | released `0.22` |
 
 ## Choosing libraries

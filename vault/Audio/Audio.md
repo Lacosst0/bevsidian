@@ -209,10 +209,10 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy_kira_audio]] | channels, tweens, effects | released `0.27` |
+| [[Audio crates#bevy_kira_audio|bevy_kira_audio]] | channels, tweens, effects | released `0.27` |
 | [[bevy_seedling]] | audio graph, effects | pending `0.8` |
-| [[bevy_fmod]] | FMOD middleware | pending `0.11` (Bevy 0.19) |
+| [[Audio crates#bevy_fmod|bevy_fmod]] | FMOD middleware | pending `0.11` (Bevy 0.19) |
 
 ## Next
 
-Bevy's audio is basic by design. For buses, effects (reverb, EQ), crossfades and dynamic music use a library: [[bevy_kira_audio]] (works with Bevy 0.20 now), [[bevy_seedling]] (Firewheel based), or [[bevy_fmod]] (professional FMOD middleware).
+Bevy's audio is basic by design. For buses, effects (reverb, EQ), crossfades and dynamic music use a library: [[Audio crates#bevy_kira_audio|bevy_kira_audio]] (works with Bevy 0.20 now), [[bevy_seedling]] (Firewheel based), or [[Audio crates#bevy_fmod|bevy_fmod]] (professional FMOD middleware).

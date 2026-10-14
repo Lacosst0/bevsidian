@@ -30,7 +30,7 @@ fn on_image_changed(mut events: MessageReader<AssetEvent<Image>>) {
 
 ## Data-driven design
 
-Put game numbers in files (RON, JSON): enemy health, weapon damage, level layout. Load them as [[Custom assets]], and tune them while the game runs. This is the most productive trick in this note. `bevy_common_assets` ([[bevy_common_assets]]) makes it a few lines.
+Put game numbers in files (RON, JSON): enemy health, weapon damage, level layout. Load them as [[Custom assets]], and tune them while the game runs. This is the most productive trick in this note. `bevy_common_assets` ([[Asset crates#bevy_common_assets|bevy_common_assets]]) makes it a few lines.
 
 ## Code
 

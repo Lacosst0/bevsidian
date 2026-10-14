@@ -86,7 +86,7 @@ On the active animation returned by `play(...)`: `.repeat()`, `.set_speed(2.0)`,
 
 ## Animate anything: AnimationClip in code
 
-Clips are not only for skeletons: animate a `Transform`, a colour or a light with a clip built in code (see Bevy's `animated_transform`, `color_animation` and `eased_motion` examples), or use `bevy_tweening` ([[bevy_tweening]]) for quick tweens.
+Clips are not only for skeletons: animate a `Transform`, a colour or a light with a clip built in code (see Bevy's `animated_transform`, `color_animation` and `eased_motion` examples), or use `bevy_tweening` ([[Animation crates#bevy_tweening|bevy_tweening]]) for quick tweens.
 
 ## Events and masks
 

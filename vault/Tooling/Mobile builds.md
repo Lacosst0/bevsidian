@@ -66,7 +66,7 @@ The example project in `examples/mobile` has a Makefile and an Xcode project tha
 
 | Topic | On a phone |
 |:--|:--|
-| input | no keyboard or mouse: use [[Touch]] and on-screen controls; draw big touch targets |
+| input | no keyboard or mouse: use [[Gamepad and touch#Touch|Touch]] and on-screen controls; draw big touch targets |
 | screen | notches and rounded corners: keep UI away from the edges ("safe area") |
 | orientation | decide portrait or landscape and set it in the project |
 | size | the screen is small: raise UI scale ([[Accessibility and localization]]) |
@@ -81,4 +81,4 @@ Both stores want a signed, release build, an icon set, screenshots and a privacy
 
 ## Next
 
-[[Touch]] for input, [[Release builds]] for size, [[Ship it]] for the whole path.
+[[Gamepad and touch#Touch|Touch]] for input, [[Release builds]] for size, [[Ship it]] for the whole path.

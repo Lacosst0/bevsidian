@@ -8,7 +8,7 @@ Read what the player does and turn it into game actions. #input
 
 ## Three layers
 
-1. **Raw state**: "is Space down right now?" ([[Keyboard and mouse]], [[Gamepad]], [[Touch]]). Easy, and enough for most games.
+1. **Raw state**: "is Space down right now?" ([[Keyboard and mouse]], [[Gamepad and touch#Gamepad|Gamepad]], [[Gamepad and touch#Touch|Touch]]). Easy, and enough for most games.
 2. **Events on things**: "the player clicked *this entity*" ([[Picking]]). Great for UI, menus, board games, strategy.
 3. **Actions**: "Jump", "Fire", mapped to many devices and rebindable ([[Input mapping]]). The way to ship a game.
 
@@ -29,8 +29,8 @@ fn jump(keys: Res<ButtonInput<KeyCode>>, mouse: Res<ButtonInput<MouseButton>>) {
 | Note | You learn |
 |:--|:--|
 | [[Keyboard and mouse]] | pressed, just pressed, axes, mouse position and motion |
-| [[Gamepad]] | buttons, sticks, rumble |
-| [[Touch]] | taps and drags on phones |
+| [[Gamepad and touch#Gamepad|Gamepad]] | buttons, sticks, rumble |
+| [[Gamepad and touch#Touch|Touch]] | taps and drags on phones |
 | [[Picking]] | clicks and drags on entities |
 | [[Input mapping]] | actions, rebinding, plus the best crates |
 
@@ -40,6 +40,6 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy_enhanced_input]] | actions, contexts, modifiers; **observer based** | git |
-| [[leafwing-input-manager]] | action enum + `InputMap`, remapping | git |
+| [[Input crates#bevy_enhanced_input|bevy_enhanced_input]] | actions, contexts, modifiers; **observer based** | git |
+| [[Input crates#leafwing-input-manager|leafwing-input-manager]] | action enum + `InputMap`, remapping | git |
 | `bevy_mod_picking` | old picking crate | built in built into Bevy ([[Picking]]) |

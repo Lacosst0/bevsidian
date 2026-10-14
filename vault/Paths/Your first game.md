@@ -23,5 +23,5 @@ The fastest road to something playable. Solid steps first; dashed ones are worth
 15. [[Audio]] (optional): sound effects and music.
 16. [[Game feel]] (optional): make hits land.
 17. [[Project setup]] (optional): faster builds.
-18. [[bevy_tweening]] (extra): juicy motion.
+18. [[Animation crates]] (extra)
 19. [[Web build]] (extra): put it online.

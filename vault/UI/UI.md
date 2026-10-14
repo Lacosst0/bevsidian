@@ -38,7 +38,7 @@ That is the whole model: a root [`Node`] filling the screen, children inside it.
 | [[UI layout]] | size, flex, grid, margins, absolute position, scrolling |
 | [[Text and images]] | fonts, spans, colours, images, borders |
 | [[Buttons and widgets]] | buttons, checkboxes, sliders, hover and press |
-| [[Text input]] | typing into a field |
+| [[Text and images#Text input|Text input]] | typing into a field |
 | [[Theming]] | consistent colours with Feathers |
 | [[Scenes and BSN]] | build UI trees compactly |
 | [[Picking]] | clicks, hovers, dragging on anything |
@@ -64,6 +64,6 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
 | [[bevy_egui]] | immediate-mode UI for tools | released `0.43` |
-| [[bevy_hui]] | UI in HTML-like files | released `0.8` |
-| [[bevy_lunex]] | retained layout engine, world-space UI | git |
+| [[UI crates#bevy_hui|bevy_hui]] | UI in HTML-like files | released `0.8` |
+| [[UI crates#bevy_lunex|bevy_lunex]] | retained layout engine, world-space UI | git |
 | [[bevy_radioactive]] | reactive BSN: `watch`, `subscribe`, `hooks`, `view!` | git |

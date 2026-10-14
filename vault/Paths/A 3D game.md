@@ -20,5 +20,4 @@ Shapes, light, models and movement.
 12. [[Post-processing]] (optional)
 13. [[Custom materials]] (optional)
 14. [[bevy_rapier]] (extra)
-15. [[bevy_trenchbroom]] (extra)
-16. [[bevy_skein]] (extra)
+15. [[3D authoring crates]] (extra)

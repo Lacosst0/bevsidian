@@ -56,8 +56,8 @@ Enough for a jam game. For rebinding screens, several players, input *contexts* 
 
 | Crate | Style | Choose it when |
 |:--|:--|:--|
-| [[bevy_enhanced_input]] | **contexts, actions, bindings** as components; actions trigger **observer events** (`Start`, `Fire`, `Complete`...) | you want modern Bevy style, per-entity input, modifiers (dead zones, scaling) and conditions (hold, tap, chords) |
-| [[leafwing-input-manager]] | an `ActionState<Action>` + `InputMap<Action>` per entity, where your own enum names the actions | you like polling `action_state.pressed(&Action::Jump)` and want a long track record |
+| [[Input crates#bevy_enhanced_input|bevy_enhanced_input]] | **contexts, actions, bindings** as components; actions trigger **observer events** (`Start`, `Fire`, `Complete`...) | you want modern Bevy style, per-entity input, modifiers (dead zones, scaling) and conditions (hold, tap, chords) |
+| [[Input crates#leafwing-input-manager|leafwing-input-manager]] | an `ActionState<Action>` + `InputMap<Action>` per entity, where your own enum names the actions | you like polling `action_state.pressed(&Action::Jump)` and want a long track record |
 
 Both support keyboard, mouse, gamepad and rebinding. The status column in [[Input]] says which supports Bevy 0.20 today.
 

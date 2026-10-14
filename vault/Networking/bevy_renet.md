@@ -75,7 +75,7 @@ A client is the mirror image: `RenetClient`, `NetcodeClientTransport`, `ClientAu
 
 - You want **control** and a minimal base: renet.
 - You want replication on top: [[bevy_replicon]] + `bevy_replicon_renet`.
-- You need prediction: [[lightyear]].
+- You need prediction: [[Netcode crates#lightyear|lightyear]].
 - Browsers cannot use UDP; use WebSocket/WebTransport backends ([[Web build]]).
 
 ## Links

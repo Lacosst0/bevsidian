@@ -11,10 +11,8 @@ Menus, HUDs and tools with Bevy UI.
 3. [[UI layout]]: flexbox and grid.
 4. [[Text and images]]
 5. [[Buttons and widgets]]
-6. [[Text input]] (optional)
-7. [[Theming]] (optional)
-8. [[Picking]] (optional)
-9. [[bevy_egui]] (extra): tools and debug panels.
-10. [[bevy_radioactive]] (optional): reactive UI, pick the style you like.
-11. [[bevy_hui]] (extra): UI in HTML-like files.
-12. [[bevy_lunex]] (extra)
+6. [[Theming]] (optional)
+7. [[Picking]] (optional)
+8. [[bevy_egui]] (extra): tools and debug panels.
+9. [[bevy_radioactive]] (optional): reactive UI, pick the style you like.
+10. [[UI crates]] (extra)

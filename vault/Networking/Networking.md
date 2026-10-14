@@ -55,17 +55,17 @@ Write the game so the **same systems** run on server and client wherever you can
 | Library | What it gives | Pick it when | Bevy 0.20 |
 |:--|:--|:--|:--|
 | [[bevy_replicon]] | replication + events, transport-agnostic | you want a clean, simple, modern base | **released** |
-| [[lightyear]] | replication, prediction, interpolation, lag compensation | action games that need prediction | in progress |
+| [[Netcode crates#lightyear|lightyear]] | replication, prediction, interpolation, lag compensation | action games that need prediction | in progress |
 | [[bevy_renet]] | reliable channels over UDP | you want a transport and make the rest yourself | in progress |
-| [[bevy_ggrs]] + [[bevy_matchbox]] | rollback + WebRTC matchmaking | fighters, small peer-to-peer games | in progress |
+| [[Netcode crates#bevy_ggrs|bevy_ggrs]] + [[Netcode crates#bevy_matchbox|bevy_matchbox]] | rollback + WebRTC matchmaking | fighters, small peer-to-peer games | in progress |
 | [[bevy_http_client]] | HTTP requests | leaderboards, accounts, REST | **released** |
-| [[bevy_steamworks]] | Steam lobbies, achievements | shipping on Steam | in progress |
+| [[Netcode crates#bevy_steamworks|bevy_steamworks]] | Steam lobbies, achievements | shipping on Steam | in progress |
 
 The table at the end of this note has the current version status.
 
 ## A sane way to build it
 
-1. Make the game single-player, with clean separation of **input → simulation → rendering** ([[Project structure]]).
+1. Make the game single-player, with clean separation of **input → simulation → rendering** ([[Project setup#Project structure|Project structure]]).
 2. Make the simulation run on a fixed tick and take inputs as data.
 3. Add a replication library; mark what the server owns.
 4. Add prediction only where it hurts (your own player).
@@ -84,11 +84,11 @@ Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
 | [[bevy_replicon]] | server-authoritative replication | released `0.45` |
-| [[lightyear]] | replication + prediction + interpolation | pending `0.30` |
+| [[Netcode crates#lightyear|lightyear]] | replication + prediction + interpolation | pending `0.30` |
 | [[bevy_renet]] | UDP transport with channels | pending `5.0` |
-| [[bevy_ggrs]] | rollback, peer to peer | pending `0.22` |
-| [[bevy_matchbox]] | WebRTC peers + signalling | pending `0.14` (Bevy 0.18) |
-| [[bevy_steamworks]] | Steam features | pending `0.17` |
+| [[Netcode crates#bevy_ggrs|bevy_ggrs]] | rollback, peer to peer | pending `0.22` |
+| [[Netcode crates#bevy_matchbox|bevy_matchbox]] | WebRTC peers + signalling | pending `0.14` (Bevy 0.18) |
+| [[Netcode crates#bevy_steamworks|bevy_steamworks]] | Steam features | pending `0.17` |
 | [[bevy_http_client]] | HTTP requests | released `0.12` |
 
 ## Next

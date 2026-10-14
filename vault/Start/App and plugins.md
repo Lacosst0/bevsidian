@@ -114,7 +114,7 @@ For tests and servers there is [`MinimalPlugins`]: just the loop and time, no wi
 
 - Plugins run in the order you add them. If one needs another, add that first.
 - Adding the same plugin twice panics.
-- One plugin per feature (`InventoryPlugin`, `AudioPlugin`): see [[Project structure]].
+- One plugin per feature (`InventoryPlugin`, `AudioPlugin`): see [[Project setup#Project structure|Project structure]].
 
 ## Next
 
