@@ -205,13 +205,13 @@ Store music volume, effects volume and mute in a [[Resources|resource]] and appl
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy_kira_audio]] | channels, tweens, effects | ✅ `0.27` |
-| [[bevy_seedling]] | audio graph, effects | ⏳ `0.8` |
-| [[bevy_fmod]] | FMOD middleware | ⏳ `0.11` (Bevy 0.19) |
+| [[bevy_kira_audio]] | channels, tweens, effects | released `0.27` |
+| [[bevy_seedling]] | audio graph, effects | pending `0.8` |
+| [[bevy_fmod]] | FMOD middleware | pending `0.11` (Bevy 0.19) |
 
 ## Next
 

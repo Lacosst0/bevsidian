@@ -130,7 +130,7 @@ Talking is only worth it if it **changes the game**. Add conditions and effects 
 
 ## Writing tools
 
-For a big script, use a language made for it. **Yarn Spinner** is a dialogue language with a Bevy plugin, `bevy_yarnspinner` 0.9 (⏳ on Bevy 0.19 as of 2026-10-13). Others: Ink (via a runtime), or your own RON.
+For a big script, use a language made for it. **Yarn Spinner** is a dialogue language with a Bevy plugin, `bevy_yarnspinner` 0.9 (pending on Bevy 0.19 as of 2026-10-13). Others: Ink (via a runtime), or your own RON.
 
 ```
 title: hello

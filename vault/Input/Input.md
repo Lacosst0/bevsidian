@@ -36,10 +36,10 @@ fn jump(keys: Res<ButtonInput<KeyCode>>, mouse: Res<ButtonInput<MouseButton>>) {
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy_enhanced_input]] | actions, contexts, modifiers; **observer based** | 🌿 git |
-| [[leafwing-input-manager]] | action enum + `InputMap`, remapping | 🌿 git |
-| `bevy_mod_picking` | old picking crate | 🚫 built into Bevy ([[Picking]]) |
+| [[bevy_enhanced_input]] | actions, contexts, modifiers; **observer based** | git |
+| [[leafwing-input-manager]] | action enum + `InputMap`, remapping | git |
+| `bevy_mod_picking` | old picking crate | built in built into Bevy ([[Picking]]) |

@@ -79,17 +79,17 @@ WebSockets and WebTransport work in wasm; raw UDP does not. Pick a library and t
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy_replicon]] | server-authoritative replication | ✅ `0.45` |
-| [[lightyear]] | replication + prediction + interpolation | ⏳ `0.30` |
-| [[bevy_renet]] | UDP transport with channels | ⏳ `5.0` |
-| [[bevy_ggrs]] | rollback, peer to peer | ⏳ `0.22` |
-| [[bevy_matchbox]] | WebRTC peers + signalling | ⏳ `0.14` (Bevy 0.18) |
-| [[bevy_steamworks]] | Steam features | ⏳ `0.17` |
-| [[bevy_http_client]] | HTTP requests | ✅ `0.12` |
+| [[bevy_replicon]] | server-authoritative replication | released `0.45` |
+| [[lightyear]] | replication + prediction + interpolation | pending `0.30` |
+| [[bevy_renet]] | UDP transport with channels | pending `5.0` |
+| [[bevy_ggrs]] | rollback, peer to peer | pending `0.22` |
+| [[bevy_matchbox]] | WebRTC peers + signalling | pending `0.14` (Bevy 0.18) |
+| [[bevy_steamworks]] | Steam features | pending `0.17` |
+| [[bevy_http_client]] | HTTP requests | released `0.12` |
 
 ## Next
 

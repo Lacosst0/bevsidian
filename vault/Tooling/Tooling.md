@@ -29,13 +29,13 @@ The path [[Ship it]] puts these in order.
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: ✅ released · 🌿 `main` branch is on 0.20 (use a git dependency) · ⏳ latest release targets an older Bevy · 🚫 built into Bevy now. Check crates.io before you start.
+Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| [[bevy-inspector-egui]] | live world inspector | ⏳ `0.37` |
-| [[bevy_mod_debugdump]] | draw the schedule graph | ⏳ `0.16` |
-| `bevy_mod_scripting` | Lua, Rhai and other scripting | ✅ `0.22` |
+| [[bevy-inspector-egui]] | live world inspector | pending `0.37` |
+| [[bevy_mod_debugdump]] | draw the schedule graph | pending `0.16` |
+| `bevy_mod_scripting` | Lua, Rhai and other scripting | released `0.22` |
 
 ## Choosing libraries
 

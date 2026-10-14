@@ -159,7 +159,7 @@ fn play_button() -> impl Scene {
 
 | Crate | For | Bevy 0.20 |
 |:--|:--|:--|
-| `bevy_fluent` 0.15 | Mozilla's Fluent files (plurals, genders) as assets | ⏳ on 0.19 |
+| `bevy_fluent` 0.15 | Mozilla's Fluent files (plurals, genders) as assets | pending on 0.19 |
 | `fluent-templates` | Fluent without a Bevy plugin | works today |
 
 Status checked 2026-10-13.
