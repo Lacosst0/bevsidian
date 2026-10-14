@@ -30,7 +30,10 @@ use bevsidian_core::{
 use bevsidian_ui::{Size, Tooltip, Variant, caption, color, icon_button, radius, shadow};
 
 mod fold;
+mod hint;
 mod layout;
+
+pub use hint::hover_hint;
 
 const LAYER: usize = 1;
 
@@ -45,6 +48,7 @@ pub fn plugin(app: &mut App) {
                 follow_path,
                 fold::fold_nodes,
                 show_legend,
+                hint::show_hint,
                 attach_viewport,
                 toggle_camera,
                 resize_target,
@@ -166,6 +170,8 @@ pub struct GraphState {
     /// A note to fold or unfold, and a request to unfold (`true`) or fold every note.
     fold_toggle: Option<Entity>,
     fold_all: Option<bool>,
+    /// The node clicked last, to tell a double click on it.
+    last_click: Option<Entity>,
     /// How far right of the course's tree the app's is, and how far it reaches.
     app_shift: f32,
     app_reach: f32,
@@ -185,8 +191,8 @@ struct NodePaint {
     /// The badge of a note holding folded notes, and of one whose notes are unfolded.
     badge_folded: Handle<ColorMaterial>,
     badge_open: Handle<ColorMaterial>,
-    /// The rings around a note holding folded notes, inner first.
-    stack: [Handle<ColorMaterial>; 2],
+    /// The dots around a note holding folded notes.
+    stack: [Handle<ColorMaterial>; 1],
 }
 
 impl GraphState {
@@ -207,8 +213,6 @@ struct Press {
     node: Option<Entity>,
     /// Whether the pointer moved far enough to count as a drag (then it never clicks).
     moved: bool,
-    /// It pressed the node's fold badge.
-    badge: bool,
 }
 
 /// How far (logical px) a press may move and still count as a click.
@@ -266,10 +270,7 @@ fn setup(
         current_ring: materials.add(color::LINK_RING),
         badge_folded: materials.add(color::FOREGROUND),
         badge_open: materials.add(color::CARD),
-        stack: [
-            materials.add(color::SUBTLE_FOREGROUND),
-            materials.add(color::DISABLED_FOREGROUND),
-        ],
+        stack: [materials.add(color::MUTED_FOREGROUND)],
     };
     state.circle = meshes.add(Circle::new(1.0));
 }
@@ -278,7 +279,6 @@ fn setup(
 /// Notes keep their place.
 fn spawn_nodes(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
     vault: Res<Vault>,
     mut state: ResMut<GraphState>,
     old: Query<(Entity, &GraphNode, &Transform)>,
@@ -420,7 +420,7 @@ fn spawn_nodes(
                     RenderLayers::layer(LAYER),
                 ));
                 if folds[slot] > 0 {
-                    fold::spawn_badge(node, radius, &state, &mut meshes);
+                    fold::spawn_badge(node, radius, folds[slot], &state);
                 }
             });
     }
@@ -1388,7 +1388,7 @@ fn on_move(
     let Some(world) = to_world(event.pointer.position, event.entity, &nodes_ui, &camera) else {
         return;
     };
-    let hovered = pick(world, &nodes);
+    let hovered = fold::badge_at(world, &nodes).or_else(|| pick(world, &nodes));
     if state.hovered != hovered {
         state.hovered = hovered;
     }
@@ -1428,11 +1428,7 @@ fn on_press(
     let badge = world.and_then(|world| fold::badge_at(world, &nodes));
     let node = badge.or_else(|| world.and_then(|world| pick(world, &nodes)));
     state.hovered = node;
-    state.press = Some(Press {
-        node,
-        moved: false,
-        badge: badge.is_some(),
-    });
+    state.press = Some(Press { node, moved: false });
     state.pan_velocity = Vec2::ZERO;
     state.camera_goal = None;
     state.framing = false;
@@ -1458,7 +1454,6 @@ fn on_click(
     let Some(Press {
         node: Some(entity),
         moved: false,
-        badge,
     }) = state.press
     else {
         return;
@@ -1466,12 +1461,15 @@ fn on_click(
     let Ok(node) = nodes.get(entity) else {
         return;
     };
-    // The badge folds and unfolds; a note holding folded notes unfolds them first, and
-    // opens on the next click.
-    let following = !state.path.is_empty();
-    if !following && node.folds > 0 && (badge || !node.open) {
+    // A note holding folded notes folds and unfolds on a click and opens on a double click
+    // (which puts back what its first click folded); any other note opens on a click.
+    let foldable = state.path.is_empty() && node.folds > 0;
+    let double = event.count >= 2 && state.last_click == Some(entity);
+    state.last_click = Some(entity);
+    if foldable {
         state.fold_toggle = Some(entity);
-    } else {
+    }
+    if !foldable || double {
         nav.open(node.note, None);
     }
 }
@@ -1842,7 +1840,7 @@ pub fn legend() -> impl Scene {
             --
             @{row((0..4).map(|_| piece(4.0, true)).collect(), "Shared tag", false)}
             --
-            @{row(badge, "Holds folded notes: click to open", false)}
+            @{row(badge, "Holds folded notes: click to show", false)}
             --
             @{row(vec![piece(24.0, false)], "Core step", true)}
             --

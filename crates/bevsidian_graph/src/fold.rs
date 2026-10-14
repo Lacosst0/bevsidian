@@ -1,10 +1,11 @@
 //! Folding the graph: notes beyond the concepts' ring start folded into the note they grow
 //! from, so the whole graph opens on the hub, the areas and their concepts.
 //!
-//! A note holding folded notes shows how many with a "+N" badge and two rings around its
-//! disc; clicking it (or the badge) unfolds them, and they float out of it. An unfolded
-//! note shows a "−" badge, which folds them back in. The note being read is always unfolded
-//! into view, and a followed path shows its steps whatever is folded.
+//! A note holding folded notes shows how many with a "+N" badge and a dot around its disc
+//! for each (up to a dozen): a cluster with more inside. A click on it unfolds them, and they
+//! float out of it; a click on an unfolded note (with a "−" badge) folds them back in. A
+//! double click opens the note. The note being read is always unfolded into view, and a
+//! followed path shows its steps whatever is folded.
 
 use bevy::{camera::visibility::RenderLayers, prelude::*, text::FontWeight};
 
@@ -23,10 +24,14 @@ pub const BADGE_RADIUS: f32 = 11.0;
 const BADGE_AT: f32 = 0.72;
 /// Size of the badge's text (world units).
 const BADGE_TEXT: f32 = 12.0;
-/// The rings around a note holding folded notes: how far past its disc each starts, and how
-/// wide they are (world units).
-const RINGS: [f32; 2] = [4.0, 9.0];
-const RING_WIDTH: f32 = 1.5;
+/// The dots around a note holding folded notes: how far past its disc, how big, and at most
+/// how many (one per folded note).
+const DOTS_GAP: f32 = 7.0;
+const DOT_RADIUS: f32 = 2.5;
+const MAX_DOTS: usize = 12;
+/// The dots leave a gap around the badge (at 45°): they run from 45° + this angle round to
+/// 45° − it.
+const DOTS_CLEAR: f32 = 0.55;
 /// How far (world units) the app's tree may be from its wanted distance before it moves:
 /// notes settling nudge the course's reach a little all the time.
 const SHIFT_SLACK: f32 = 120.0;
@@ -108,7 +113,7 @@ pub(crate) struct GraphBadgeFill;
 #[derive(Component)]
 pub(crate) struct GraphBadgeOutline;
 
-/// The rings around a note while it holds folded notes.
+/// The dots around a note while it holds folded notes.
 #[derive(Component)]
 pub(crate) struct GraphStack;
 
@@ -117,26 +122,39 @@ pub(crate) fn badge_offset(radius: f32) -> Vec2 {
     Vec2::splat(radius * BADGE_AT)
 }
 
-/// Spawns the badge and the rings of a note that can hold folded notes.
+/// Spawns the badge and the dots of a note holding `folds` folded notes.
 pub(crate) fn spawn_badge(
     node: &mut ChildSpawnerCommands,
     radius: f32,
+    folds: usize,
     state: &GraphState,
-    meshes: &mut Assets<Mesh>,
 ) {
     let paint = &state.paint;
-    for (i, gap) in RINGS.iter().enumerate() {
-        let inner = radius + gap;
-        node.spawn((
-            GraphStack,
-            Mesh2d(meshes.add(Annulus::new(inner, inner + RING_WIDTH))),
-            // The inner ring brighter: ripples around a note with more inside.
-            MeshMaterial2d(paint.stack[i].clone()),
-            Transform::from_xyz(0.0, 0.0, -0.3),
-            Visibility::Hidden,
-            RenderLayers::layer(LAYER),
-        ));
-    }
+    let dots = folds.clamp(1, MAX_DOTS);
+    let start = std::f32::consts::FRAC_PI_4 + DOTS_CLEAR;
+    let span = std::f32::consts::TAU - 2.0 * DOTS_CLEAR;
+    node.spawn((
+        GraphStack,
+        Transform::from_xyz(0.0, 0.0, -0.3),
+        Visibility::Hidden,
+        RenderLayers::layer(LAYER),
+    ))
+    .with_children(|ring| {
+        for i in 0..dots {
+            let share = if dots == 1 {
+                0.5
+            } else {
+                i as f32 / (dots - 1) as f32
+            };
+            let at = Vec2::from_angle(start + span * share) * (radius + DOTS_GAP);
+            ring.spawn((
+                Mesh2d(state.circle.clone()),
+                MeshMaterial2d(paint.stack[0].clone()),
+                Transform::from_translation(at.extend(0.0)).with_scale(Vec3::splat(DOT_RADIUS)),
+                RenderLayers::layer(LAYER),
+            ));
+        }
+    });
     let font = TextFont {
         font: bevy::text::FontSource::families("Geist, sans-serif"),
         font_size: BADGE_TEXT.into(),

@@ -4,14 +4,14 @@ use bevy::{prelude::*, ui_widgets::Activate};
 use bevy_radioactive::view::{memo, signal, view};
 
 use bevsidian_core::{Nav, Vault};
-use bevsidian_graph::{GraphViewport, legend, zoom_controls};
+use bevsidian_graph::{GraphViewport, hover_hint, legend, zoom_controls};
 use bevsidian_ui::prelude::*;
 
 pub fn graph_page(nav: Nav, vault: Vault) -> impl Scene {
     bsn! {
         Node { flex_grow: 1.0, flex_basis: px(0), overflow: Overflow::clip() }
         GraphViewport
-        Children [ @{paths(nav, vault)} -- @{legend()} -- @{zoom_controls()} ]
+        Children [ @{paths(nav, vault)} -- @{legend()} -- @{hover_hint()} -- @{zoom_controls()} ]
     }
 }
 
