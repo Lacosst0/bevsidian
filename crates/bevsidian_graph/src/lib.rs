@@ -300,6 +300,7 @@ fn spawn_nodes(
             .iter()
             .any(|(key, value)| key == "hub" && value == "true");
         let radius = if hub { radius * 1.6 } else { radius };
+        let pinned = hub || note.name == "Welcome";
         let icon_size = (radius * 0.9).round();
         let id = commands
             .spawn((
@@ -307,7 +308,7 @@ fn spawn_nodes(
                     note: i,
                     velocity: Vec2::ZERO,
                     radius,
-                    pinned: hub || note.name == "Welcome",
+                    pinned,
                     neighbors: Vec::new(),
                     hidden: false,
                     home,
@@ -317,7 +318,8 @@ fn spawn_nodes(
                 },
                 // Notes float out from the hub to their homes when the graph is first built.
                 Transform::from_translation(kept.get(&i).copied().unwrap_or_else(|| {
-                    let start = if kept.is_empty() {
+                    // Notes float out from the hub; a pinned one never moves, so it starts at home.
+                    let start = if kept.is_empty() && !pinned {
                         home * START_SPREAD
                     } else {
                         home
@@ -624,7 +626,7 @@ fn home_positions(vault: &VaultData, shown: &[NoteId]) -> Layout {
 }
 
 /// Distance between the course's tree and the app's, beyond their reaches.
-const APP_GAP: f32 = 2500.0;
+const APP_GAP: f32 = 1800.0;
 
 /// Icon colours.
 const NOTE_COLOR: Color = color::BODY;
@@ -1931,9 +1933,5 @@ mod tests {
                 );
             }
         }
-        eprintln!(
-            "RINGS {areas:?} {concepts:?} {subs:?} {libs:?} app x {:?}",
-            layout.homes[welcome]
-        );
     }
 }

@@ -18,12 +18,12 @@ pub const STEP_GAP: f32 = 190.0;
 pub const BRANCH_GAP: f32 = 150.0;
 
 /// Room between one generation and the next.
-const RING_GAP: f32 = 110.0;
+const RING_GAP: f32 = 90.0;
 /// Distance between the staggered rows of one generation, when its notes do not fit side by
 /// side.
-const ROW_GAP: f32 = 64.0;
+const ROW_GAP: f32 = 56.0;
 /// Most staggered rows a generation of one branch may need before the ring moves outwards.
-const MAX_ROWS: usize = 4;
+const MAX_ROWS: usize = 6;
 
 /// Home positions for the notes of a tree: `parent[n]` is the note `n` grows from (`None`
 /// for the root), `ring[n]` the ring it sits on (1 is nearest the root: a note's ring need
