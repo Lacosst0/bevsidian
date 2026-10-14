@@ -1,4 +1,5 @@
 ---
+parent: Hello Bevy
 icon: gamepad-2
 tags: [start]
 crates: rand="0.10"

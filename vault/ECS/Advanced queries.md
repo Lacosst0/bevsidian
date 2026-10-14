@@ -1,4 +1,5 @@
 ---
+parent: Queries
 icon: search
 tags: [ecs]
 ---

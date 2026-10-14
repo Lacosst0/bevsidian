@@ -1,4 +1,5 @@
 ---
+parent: Systems
 icon: triangle-alert
 tags: [ecs]
 ---

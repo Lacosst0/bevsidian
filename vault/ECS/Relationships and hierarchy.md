@@ -1,4 +1,5 @@
 ---
+parent: Entities and components
 icon: git-branch
 tags: [ecs]
 ---

@@ -1,4 +1,5 @@
 ---
+parent: Entities and components
 icon: sprout
 tags: [ecs]
 ---

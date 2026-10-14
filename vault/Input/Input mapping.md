@@ -1,4 +1,5 @@
 ---
+parent: Keyboard and mouse
 icon: sliders-horizontal
 tags: [input]
 ---

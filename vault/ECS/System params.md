@@ -1,4 +1,5 @@
 ---
+parent: Systems
 icon: sliders-horizontal
 tags: [ecs]
 ---

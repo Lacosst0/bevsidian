@@ -1,4 +1,5 @@
 ---
+parent: BSN syntax
 icon: file-input
 tags: [bsn, assets]
 ---

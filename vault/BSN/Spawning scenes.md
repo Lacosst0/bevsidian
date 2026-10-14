@@ -1,4 +1,5 @@
 ---
+parent: Scenes and BSN
 icon: rocket
 tags: [bsn]
 ---

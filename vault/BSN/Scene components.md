@@ -1,4 +1,5 @@
 ---
+parent: BSN syntax
 icon: puzzle
 tags: [bsn]
 ---

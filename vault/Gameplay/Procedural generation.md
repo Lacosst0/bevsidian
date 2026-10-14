@@ -1,4 +1,5 @@
 ---
+parent: Randomness
 icon: mountain
 tags: [gameplay, math]
 crates: rand="0.10"

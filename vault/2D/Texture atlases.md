@@ -1,4 +1,5 @@
 ---
+parent: Sprites
 icon: table
 tags: [2d]
 ---

@@ -1,4 +1,5 @@
 ---
+parent: Cameras
 icon: sparkles
 tags: [rendering]
 ---

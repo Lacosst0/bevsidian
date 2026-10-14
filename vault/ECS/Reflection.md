@@ -1,4 +1,5 @@
 ---
+parent: Entities and components
 icon: text-select
 tags: [ecs]
 ---

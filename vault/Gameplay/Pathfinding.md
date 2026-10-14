@@ -1,4 +1,5 @@
 ---
+parent: Game AI
 icon: route
 tags: [gameplay, ai]
 ---

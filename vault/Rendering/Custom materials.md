@@ -1,4 +1,5 @@
 ---
+parent: Cameras
 icon: wand-sparkles
 tags: [rendering]
 ---

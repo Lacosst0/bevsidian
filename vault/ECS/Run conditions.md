@@ -1,4 +1,5 @@
 ---
+parent: Systems
 icon: list-checks
 tags: [ecs]
 ---

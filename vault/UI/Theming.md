@@ -1,4 +1,5 @@
 ---
+parent: Buttons and widgets
 icon: palette
 tags: [ui]
 ---

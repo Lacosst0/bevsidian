@@ -1,4 +1,5 @@
 ---
+parent: Debugging
 icon: flame
 tags: [tooling]
 ---

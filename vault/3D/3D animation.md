@@ -1,4 +1,5 @@
 ---
+parent: Models and glTF
 icon: clapperboard
 tags: [3d]
 ---

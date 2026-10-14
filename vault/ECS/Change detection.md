@@ -1,4 +1,5 @@
 ---
+parent: Queries
 icon: eye
 tags: [ecs]
 ---

@@ -1,4 +1,5 @@
 ---
+parent: Cameras
 icon: panel-left
 tags: [rendering]
 ---

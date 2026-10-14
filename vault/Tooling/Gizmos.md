@@ -1,4 +1,5 @@
 ---
+parent: Debugging
 icon: compass
 tags: [tooling]
 ---

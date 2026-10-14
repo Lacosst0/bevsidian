@@ -1,4 +1,5 @@
 ---
+parent: Events and observers
 icon: mail
 tags: [ecs]
 ---

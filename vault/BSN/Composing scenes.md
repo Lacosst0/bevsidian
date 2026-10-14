@@ -1,4 +1,5 @@
 ---
+parent: BSN syntax
 icon: blocks
 tags: [bsn]
 ---
