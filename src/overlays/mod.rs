@@ -1,5 +1,5 @@
-//! Everything that floats over the page: dialogs (settings, the map's checklist), menus, toolbars, toasts, find in the note,
-//! the autoscroll marker and the on-screen keyboard.
+//! Everything that floats over the page: dialogs (settings, the map's checklist), menus,
+//! toolbars, toasts, find in the note, the autoscroll marker and the on-screen keyboard.
 
 pub mod autoscroll;
 pub mod command;

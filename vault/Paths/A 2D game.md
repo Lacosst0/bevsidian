@@ -6,10 +6,10 @@ feature: 2D sprites and tilemaps
 ---
 # A 2D game
 
-West from the Sprites gate into the Pixel Plains: sprite sheets, animation and levels made of tiles.
+Sprite sheets, animation and levels made of tiles.
 
 1. [[Sprites]]
-2. [[2D]]: the map of the plains.
+2. [[2D]]: the area's index.
 3. [[Texture atlases]]: many frames in one image.
 4. [[Sprite animation]]
 5. [[Animation crates]] (extra)

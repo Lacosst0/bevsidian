@@ -1,6 +1,6 @@
 //! Editing the map in the app (the pencil under the zoom buttons): every note shows, a drag
 //! moves a note or a map object, a click chooses one for the edit bar (its shape and size,
-//! or deleting an object), and new landmarks, labels and land can be added. Every change is
+//! or deleting an object), and landmarks, labels and nebulae can be added. Every change is
 //! written into the map note's ```` ```map ```` block (only the line that changed) and saved
 //! like any edit of a note: the app hears [`MapEdited`] and stores the note.
 
@@ -88,13 +88,13 @@ pub(crate) fn edit_map(
             *pending = None;
         }
     }
-    // A piece of land being dragged redraws the coast as it goes.
+    // A nebula being dragged redraws the sky as it goes.
     if let Some(dragged) = state.dragging
         && things
             .get(dragged)
             .is_ok_and(|(_, t, _)| matches!(t.object, MapObject::Nebula { .. }))
     {
-        state.ground_dirty = true;
+        state.sky_dirty = true;
     }
     let dropped = state.dropped.take();
     let request = state.edit_request.take();
@@ -148,16 +148,7 @@ pub(crate) fn edit_map(
                 place.scale = scale;
                 edited = Some((map::set_place(source, &place), Some(Pick::Note(id))));
             } else if let Some((index, mut object)) = selected.and_then(object_of) {
-                let factor = scale.factor();
-                match &mut object {
-                    MapObject::Label { size, .. } => *size = (map::LABEL_SIZE * factor).round(),
-                    MapObject::Landmark { size, .. } => {
-                        *size = (map::LANDMARK_SIZE * factor).round();
-                    }
-                    MapObject::Nebula { radius, .. } => {
-                        *radius = (map::NEBULA_RADIUS * factor).round();
-                    }
-                }
+                *object.size_mut() = (object.default_size() * scale.factor()).round();
                 edited = Some((
                     map::set_object(source, index, &object),
                     Some(Pick::Object(index)),

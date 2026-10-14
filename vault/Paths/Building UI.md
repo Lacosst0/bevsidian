@@ -6,7 +6,7 @@ feature: Menus and a HUD
 ---
 # Building UI
 
-North-east to the Interface Isles: menus, HUDs and tools with Bevy UI.
+Menus, HUDs and tools with Bevy UI.
 
 1. [[UI]]: the model.
 2. [[Scenes and BSN]] (optional): describe a UI tree with `bsn!`.

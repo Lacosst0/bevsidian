@@ -57,19 +57,19 @@ pub struct Nav {
     pub scrolled: Signal<bool>,
     /// The current note's links popover is open.
     pub links: Signal<bool>,
-    /// The reading path being followed (its note): the graph shows only its notes, and its
-    /// notes link to the previous and next step.
+    /// The reading path being followed (its note): the map lights its line and numbers its
+    /// steps, and its notes link to the previous and next step.
     pub path: Signal<Option<NoteId>>,
     /// The routes chosen in the map's checklist (their path notes), beside the main quest:
-    /// the map shows only their roads. `None` until the reader has chosen.
+    /// the map shows only their lines. `None` until the reader has chosen.
     pub quests: Signal<Option<Vec<NoteId>>>,
-    /// The map shows every note and road, whatever routes are chosen.
+    /// The map shows every note and line, whatever routes are chosen.
     pub whole_map: Signal<bool>,
     /// The map's checklist ("What's in your game?") is open.
     pub map_setup: Signal<bool>,
     /// The map is being edited: notes and objects can be moved, reshaped, added and removed.
     pub map_edit: Signal<bool>,
-    /// Notes the reader has opened, in the order first opened (the map ticks them off).
+    /// Notes the reader has opened, in the order first opened (the map lights their stars).
     pub visited: Signal<Vec<NoteId>>,
     /// Find in the note (`Ctrl+F`): open, what to find, which match is current and how
     /// many there are.

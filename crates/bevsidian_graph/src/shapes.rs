@@ -6,6 +6,8 @@ use bevy::{asset::RenderAssetUsages, mesh::PrimitiveTopology, prelude::*};
 
 use bevsidian_core::map::Shape;
 
+use crate::mesh::Shapes;
+
 /// The corners of a shape of radius 1, as drawn: polygons are a little larger than the
 /// circle so they look the same size.
 pub fn outline(shape: Shape) -> Vec<Vec2> {
@@ -50,41 +52,10 @@ pub fn ring(shape: Shape, width: f32) -> Mesh {
 /// A soft glow of radius 1: opaque white in the middle, fading to nothing at the edge (the
 /// material's colour tints it and sets how strong it is).
 pub fn glow() -> Mesh {
-    const RINGS: usize = 6;
-    const SIDES: usize = 40;
-    let mut positions = vec![[0.0, 0.0, 0.0]];
-    let mut colors = vec![[1.0, 1.0, 1.0, 1.0]];
-    for ring in 1..=RINGS {
-        let r = ring as f32 / RINGS as f32;
-        // Fades like a star's light: fast near the core, a long faint tail.
-        let alpha = (1.0 - r).powi(3);
-        for side in 0..SIDES {
-            let p = Vec2::from_angle(side as f32 * std::f32::consts::TAU / SIDES as f32) * r;
-            positions.push([p.x, p.y, 0.0]);
-            colors.push([1.0, 1.0, 1.0, alpha]);
-        }
-    }
-    let ring_start = |ring: usize| (1 + (ring - 1) * SIDES) as u32;
-    let mut indices = Vec::new();
-    for side in 0..SIDES as u32 {
-        let next = (side + 1) % SIDES as u32;
-        indices.extend([0, 1 + side, 1 + next]);
-    }
-    for ring in 1..RINGS {
-        let (inner, outer) = (ring_start(ring), ring_start(ring + 1));
-        for side in 0..SIDES as u32 {
-            let next = (side + 1) % SIDES as u32;
-            indices.extend([
-                inner + side,
-                outer + side,
-                outer + next,
-                inner + side,
-                outer + next,
-                inner + next,
-            ]);
-        }
-    }
-    flat(positions, indices, Some(colors))
+    let mut glow = Shapes::default();
+    // Fades like a star's light: fast near the core, a long faint tail.
+    glow.fade(Vec2::ZERO, 1.0, (6, 40), 0.0, |r| (1.0 - r).powi(3));
+    glow.into_mesh()
 }
 
 /// Diffraction spikes of length 1: four thin points, bright at the centre, fading to their

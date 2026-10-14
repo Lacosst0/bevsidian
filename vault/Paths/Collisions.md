@@ -6,7 +6,7 @@ feature: Physics and collisions
 ---
 # Collisions
 
-West of the village, down Collision Canyon: gravity, bodies that bump and a physics engine to do it for you.
+Gravity, bodies that bump, and a physics engine to do it for you.
 
 1. [[Physics]]: move and collide by hand first.
 2. [[Avian]]: a full physics engine.

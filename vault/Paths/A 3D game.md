@@ -6,12 +6,12 @@ feature: 3D worlds
 ---
 # A 3D game
 
-East over the Render Ridge to the Polygon Peaks: shapes, light, models and a world around them.
+Shapes, light, models and a world around them.
 
 1. [[Transforms]]
 2. [[Cameras]]
 3. [[Camera crates]] (extra): follow and orbit cameras.
-4. [[3D]]: the map of the peaks.
+4. [[3D]]: the area's index.
 5. [[Meshes and materials]]
 6. [[Lighting]]
 7. [[Models and glTF]]

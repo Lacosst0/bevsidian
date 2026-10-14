@@ -28,7 +28,7 @@ pub fn zoom_controls() -> impl Scene {
             })
         }
     }
-    fn button(icon: &'static str, tip: &'static str, factor: f32, first: bool) -> impl Scene {
+    fn zoom_button(icon: &'static str, tip: &'static str, factor: f32, first: bool) -> impl Scene {
         bsn! {
             @{icon_button(Variant::Ghost, Size::Icon, icon)}
             Tooltip::new(tip)
@@ -39,8 +39,6 @@ pub fn zoom_controls() -> impl Scene {
             BorderColor::all(color::BORDER)
             on(move |_: On<Activate>,
                      camera: Query<(&Transform, &Projection), With<GraphCamera>>,
-                     nodes: Query<(&Transform, &GraphNode), Without<GraphCamera>>,
-                     viewport: Query<&ComputedNode, With<GraphViewport>>,
                      mut state: ResMut<GraphState>| {
                 let Ok((transform, projection)) = camera.single() else {
                     return;
@@ -50,12 +48,24 @@ pub fn zoom_controls() -> impl Scene {
                     .unwrap_or((transform.translation.truncate(), ortho_scale(projection)));
                 state.pan_velocity = Vec2::ZERO;
                 state.framing = false;
-                if factor == 0.0 {
-                    if let Ok(viewport) = viewport.single() {
-                        state.camera_goal = Some(fit(nodes.iter(), viewport));
-                    }
-                } else {
-                    state.camera_goal = Some((position, (scale * factor).clamp(MIN_SCALE, MAX_SCALE)));
+                state.camera_goal = Some((position, (scale * factor).clamp(MIN_SCALE, MAX_SCALE)));
+            })
+        }
+    }
+    fn fit_button() -> impl Scene {
+        bsn! {
+            @{icon_button(Variant::Ghost, Size::Icon, "maximize")}
+            Tooltip::new("Fit to screen")
+            Node { border: UiRect::top(px(1.0)), border_radius: BorderRadius::ZERO }
+            BorderColor::all(color::BORDER)
+            on(|_: On<Activate>,
+                nodes: Query<(&Transform, &GraphNode), Without<GraphCamera>>,
+                viewport: Query<&ComputedNode, With<GraphViewport>>,
+                mut state: ResMut<GraphState>| {
+                state.pan_velocity = Vec2::ZERO;
+                state.framing = false;
+                if let Ok(viewport) = viewport.single() {
+                    state.camera_goal = Some(fit(nodes.iter(), viewport));
                 }
             })
         }
@@ -75,11 +85,11 @@ pub fn zoom_controls() -> impl Scene {
         BorderColor::all(color::INPUT)
         shadow
         Children [
-            @{button("plus", "Zoom in", 0.8, true)}
+            @{zoom_button("plus", "Zoom in", 0.8, true)}
             --
-            @{button("minus", "Zoom out", 1.25, false)}
+            @{zoom_button("minus", "Zoom out", 1.25, false)}
             --
-            @{button("maximize", "Fit to screen", 0.0, false)}
+            @{fit_button()}
             --
             @{fold_button("unfold-vertical", "Expand all", true)}
             --
@@ -120,7 +130,7 @@ pub fn legend() -> impl Scene {
     fn shape(name: &str) -> Box<dyn Scene> {
         Box::new(icon(name, 14.0, color::MUTED_FOREGROUND))
     }
-    fn road(pieces: usize, width: f32, round: bool) -> Box<dyn Scene> {
+    fn line(pieces: usize, width: f32, round: bool) -> Box<dyn Scene> {
         let piece = |_| -> Box<dyn Scene> {
             let node = Node {
                 width: px(width),
@@ -184,24 +194,25 @@ pub fn legend() -> impl Scene {
             --
             @{separator()} Node { margin: UiRect::vertical(px(3)) }
             --
-            @{row(shape("hexagon"), "Region: an area's town")}
+            @{row(shape("hexagon"), "Area")}
             --
             @{row(shape("diamond"), "Milestone")}
             --
             @{row(shape("star"), "Goal of a route")}
             --
+            @{row(shape("pentagon"), "Crates compared")}
+            --
             @{row(shape("square"), "Crate")}
             --
             @{separator()} Node { margin: UiRect::vertical(px(3)) }
             --
-            @{row(road(1, 24.0, false), "Route")}
+            @{row(line(1, 24.0, false), "Route")}
             --
-            @{row(road(3, 6.0, false), "Side quest")}
+            @{row(line(3, 6.0, false), "Side quest")}
             --
-            @{row(road(4, 4.0, true), "Secret")}
+            @{row(line(4, 4.0, true), "Secret")}
             --
             @{row(badge, "Holds folded notes")}
-
         ]
     }
 }
@@ -273,10 +284,10 @@ pub fn edit_bar() -> impl Scene {
                 None => ("sparkles", "The shape of its kind"),
                 Some(Shape::Circle) => ("circle", "Circle: a lesson"),
                 Some(Shape::Diamond) => ("diamond", "Diamond: a milestone"),
-                Some(Shape::Hexagon) => ("hexagon", "Hexagon: a region's town"),
+                Some(Shape::Hexagon) => ("hexagon", "Hexagon: an area"),
                 Some(Shape::Square) => ("square", "Square: a crate"),
-                Some(Shape::Pentagon) => ("pentagon", "Pentagon"),
-                Some(Shape::Octagon) => ("octagon", "Octagon: a capital"),
+                Some(Shape::Pentagon) => ("pentagon", "Pentagon: crates compared"),
+                Some(Shape::Octagon) => ("octagon", "Octagon: the hub"),
                 Some(Shape::Star) => ("star", "Star: a route's goal"),
             };
             Box::new(bsn! {
@@ -305,7 +316,7 @@ pub fn edit_bar() -> impl Scene {
     })
     .collect();
     let region = MapObject::Label {
-        text: "New place".to_owned(),
+        text: "New label".to_owned(),
         caption: String::new(),
         at: Vec2::ZERO,
         size: bevsidian_core::map::LABEL_SIZE,
@@ -354,7 +365,7 @@ pub fn edit_bar() -> impl Scene {
                     Children [ {landmarks} ]
                     --
                     @{icon_text_button(Variant::Ghost, Size::Sm, "type", "Label")}
-                    Tooltip::new("Add a region's name")
+                    Tooltip::new("Add a label")
                     on(request(EditRequest::Add(region)))
                     --
                     @{icon_text_button(Variant::Ghost, Size::Sm, "cloud", "Nebula")}
@@ -457,11 +468,7 @@ pub(crate) fn show_legend(
     let shape = place.and_then(|p| p.shape);
     let scale = place.map(|p| p.scale).or_else(|| {
         thing.map(|t| {
-            let (size, normal) = match &t.object {
-                MapObject::Label { size, .. } => (*size, bevsidian_core::map::LABEL_SIZE),
-                MapObject::Landmark { size, .. } => (*size, bevsidian_core::map::LANDMARK_SIZE),
-                MapObject::Nebula { radius, .. } => (*radius, bevsidian_core::map::NEBULA_RADIUS),
-            };
+            let (size, normal) = (t.object.size(), t.object.default_size());
             if size < normal * 0.95 {
                 Scale::Small
             } else if size > normal * 1.05 {

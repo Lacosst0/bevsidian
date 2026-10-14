@@ -6,7 +6,7 @@ feature: Music and sound effects
 ---
 # Sound and music
 
-South-east to Echo Valley: sound effects, music and the crates that mix them.
+Sound effects, music and the crates that mix them.
 
 1. [[Assets]]: load the sounds.
 2. [[Audio]]: play them.

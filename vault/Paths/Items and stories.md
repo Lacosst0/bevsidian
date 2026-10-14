@@ -6,9 +6,9 @@ feature: Items, dialogue and saves
 ---
 # Items and stories
 
-North of the Questwood to the Archive: things to carry, people to talk to and a game that remembers.
+Things to carry, people to talk to and a game that remembers.
 
-1. [[Gameplay]]: the map of the wood.
+1. [[Gameplay]]: the area's index.
 2. [[Inventory and items]]: carry things.
 3. [[Dialogue]]: talk to people.
 4. [[Custom assets]] (optional): write items and lines in files.

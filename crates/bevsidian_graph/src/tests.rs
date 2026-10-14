@@ -93,7 +93,7 @@ fn notes_on_the_map_do_not_crowd_each_other() {
 }
 
 #[test]
-fn the_routes_make_a_game_map() {
+fn every_route_is_a_quest_on_the_map() {
     let vault = real_vault();
     let main: Vec<_> = vault
         .paths
@@ -114,31 +114,24 @@ fn the_routes_make_a_game_map() {
         assert_eq!(
             path.kinds[0],
             StepKind::Core,
-            "{name} starts on its main road"
+            "{name} starts with a core step"
         );
-        assert!(!path.summary.is_empty(), "{name} has no summary");
         if path.quest != Quest::Main {
             assert_ne!(&path.label, name, "{name} has no feature label");
         }
     }
-    // Roads branch off the ring road: no road but the main quest's leaves the capital.
+    // Routes branch off the main quest: no line but the main quest's leaves the capital.
     let layout = home_positions(&vault);
-    let place = |id: NoteId| {
-        layout
-            .notes
-            .iter()
-            .position(|&n| n == id)
-            .map(|s| layout.homes[s])
-    };
+    let place = |id: NoteId| layout.slot(id).map(|s| layout.homes[s]);
     let hub = layout.notes[layout.root];
-    let roads = routes::roads(&vault, &place, hub);
+    let lines = routes::lines(&vault, &place, hub);
     let main = main[0].note;
-    for (a, b, uses) in &roads {
+    for (a, b, uses) in &lines {
         assert!(place(*a).is_some() && place(*b).is_some());
         if *a == hub || *b == hub {
             assert!(uses.iter().all(|(r, _)| *r == main), "{uses:?}");
         }
-        // No road is longer than half the map.
+        // No line is longer than half the map.
         let length = place(*a).unwrap().distance(place(*b).unwrap());
         assert!(
             length < 1300.0,

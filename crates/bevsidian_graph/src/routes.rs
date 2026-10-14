@@ -1,7 +1,7 @@
 //! Routes on the map: the reading paths drawn as constellation lines.
 //!
 //! The main quest (`quest: main`) starts at the hub; every other route starts at the stop of
-//! the main quest nearest its first step (or at the hub), so lines branch off the ring
+//! the main quest nearest its first step (or at the hub), so lines branch off the spiral
 //! instead of all crossing the capital. The map shows the main quest, the routes chosen in
 //! its checklist and the route being followed: their steps are always on the map (whatever is
 //! folded), and every other note only when unfolded, or with the whole map shown.
@@ -15,16 +15,16 @@ use bevsidian_core::{
 
 use crate::{GraphLabel, GraphLabelName, GraphNode, GraphState, label_text};
 
-/// A road's two notes (lower id first), and the routes that take it, with how.
-pub type RoadEnds = (NoteId, NoteId, Vec<(NoteId, StepKind)>);
+/// A line's two notes (lower id first), and the routes that take it, with how.
+pub type LineEnds = (NoteId, NoteId, Vec<(NoteId, StepKind)>);
 
-/// The roads of every route. `place` says where a note sits; `hub` is where the main quest
+/// The lines of every route. `place` says where a note sits; `hub` is where the main quest
 /// starts.
-pub fn roads(
+pub fn lines(
     vault: &VaultData,
     place: &dyn Fn(NoteId) -> Option<Vec2>,
     hub: NoteId,
-) -> Vec<RoadEnds> {
+) -> Vec<LineEnds> {
     let mut anchors = vec![hub];
     for path in vault.paths.iter().filter(|p| p.quest == Quest::Main) {
         for (&step, &kind) in path.steps.iter().zip(&path.kinds) {
@@ -33,7 +33,7 @@ pub fn roads(
             }
         }
     }
-    let mut out: Vec<RoadEnds> = Vec::new();
+    let mut out: Vec<LineEnds> = Vec::new();
     let mut add = |a: NoteId, b: NoteId, route: NoteId, kind: StepKind| {
         if a == b {
             return;
@@ -46,12 +46,12 @@ pub fn roads(
                 out.push((a, b, Vec::new()));
                 out.len() - 1
             });
-        let road = &mut out[at];
-        match road.2.iter_mut().find(|(r, _)| *r == route) {
-            // A route taking a road twice takes it as its main road if either is.
+        let line = &mut out[at];
+        match line.2.iter_mut().find(|(r, _)| *r == route) {
+            // A route taking a line twice takes it as a core step if either is.
             Some((_, was)) if kind == StepKind::Core => *was = kind,
             Some(_) => {}
-            None => road.2.push((route, kind)),
+            None => line.2.push((route, kind)),
         }
     };
     for path in &vault.paths {
@@ -201,22 +201,22 @@ mod tests {
                 _ => Vec2::ZERO,
             })
         };
-        let roads = roads(&vault, &place, id("Hub"));
-        let road = |a: &str, b: &str| {
+        let lines = lines(&vault, &place, id("Hub"));
+        let line = |a: &str, b: &str| {
             let (a, b) = (id(a).min(id(b)), id(a).max(id(b)));
-            roads
+            lines
                 .iter()
                 .find(|r| (r.0, r.1) == (a, b))
                 .map(|r| r.2.clone())
         };
         let (main, side) = (id("Main"), id("Side"));
-        assert_eq!(road("Hub", "A"), Some(vec![(main, StepKind::Core)]));
-        assert_eq!(road("A", "B"), Some(vec![(main, StepKind::Core)]));
-        assert_eq!(road("B", "C"), Some(vec![(main, StepKind::Optional)]));
+        assert_eq!(line("Hub", "A"), Some(vec![(main, StepKind::Core)]));
+        assert_eq!(line("A", "B"), Some(vec![(main, StepKind::Core)]));
+        assert_eq!(line("B", "C"), Some(vec![(main, StepKind::Optional)]));
         // The side route starts at B, the main stop nearest its first step.
-        assert_eq!(road("B", "D"), Some(vec![(side, StepKind::Core)]));
-        assert_eq!(road("D", "C"), Some(vec![(side, StepKind::Extra)]));
-        assert_eq!(road("Hub", "D"), None);
+        assert_eq!(line("B", "D"), Some(vec![(side, StepKind::Core)]));
+        assert_eq!(line("D", "C"), Some(vec![(side, StepKind::Extra)]));
+        assert_eq!(line("Hub", "D"), None);
         assert_eq!(shown_routes(&vault, None, None), vec![main]);
         assert_eq!(shown_routes(&vault, Some(&[side]), None), vec![main, side]);
     }

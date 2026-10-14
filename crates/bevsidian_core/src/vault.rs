@@ -105,8 +105,6 @@ pub struct NotePath {
     /// What a game that takes it has, for the map's checklist (the `feature:` property, or
     /// the note's name).
     pub label: String,
-    /// The first paragraph of its note.
-    pub summary: String,
 }
 
 /// The kind of route a reading path is on the map.
@@ -176,42 +174,6 @@ fn path_links(source: &str) -> Vec<(String, StepKind)> {
         }
     }
     links
-}
-
-/// The first paragraph of a note: the first lines of text after its front matter and title.
-fn summary(source: &str) -> String {
-    let mut lines = source.lines().peekable();
-    if lines.peek().is_some_and(|l| l.trim() == "---") {
-        lines.next();
-        for line in lines.by_ref() {
-            if line.trim() == "---" {
-                break;
-            }
-        }
-    }
-    let mut paragraph: Vec<&str> = Vec::new();
-    for line in lines {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            if paragraph.is_empty() {
-                continue;
-            }
-            break;
-        }
-        paragraph.push(line);
-    }
-    // A list, a table or a quote is not a summary.
-    let prose = paragraph.first().is_some_and(|first| {
-        !first.starts_with(['-', '*', '>', '|', '`'])
-            && first
-                .split_once(". ")
-                .is_none_or(|(n, _)| n.parse::<u32>().is_err())
-    });
-    if prose {
-        paragraph.join(" ")
-    } else {
-        String::new()
-    }
 }
 
 /// Vault contents.
@@ -338,7 +300,6 @@ impl VaultData {
                     kinds,
                     quest,
                     label: property("feature").unwrap_or_else(|| vault.notes[note].name.clone()),
-                    summary: summary(&vault.notes[note].source),
                 }
             })
             .collect();
@@ -526,7 +487,6 @@ mod tests {
                 kinds: vec![StepKind::Core; 2],
                 quest: Quest::Other,
                 label: "Tour".into(),
-                summary: String::new(),
             }]
         );
         assert!(v.path(tour).is_some());
@@ -582,7 +542,6 @@ mod tests {
         let run = v.path(v.find("Run").unwrap()).unwrap();
         assert_eq!(run.quest, Quest::Feature);
         assert_eq!(run.label, "Running");
-        assert_eq!(run.summary, "Go fast, very fast.");
         let map = v.map.as_ref().unwrap();
         assert_eq!(map.note, v.find("Map").unwrap());
         assert_eq!(map.place("A").unwrap().at, bevy::math::Vec2::new(1.0, 2.0));

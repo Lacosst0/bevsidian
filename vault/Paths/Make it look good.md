@@ -6,9 +6,9 @@ feature: Polished visuals
 ---
 # Make it look good
 
-To the Lightworks, south of the ridge: cheap changes that make a game look finished.
+Cheap changes that make a game look finished.
 
-1. [[Rendering]]: the map of the works.
+1. [[Rendering]]: the area's index.
 2. [[Colors and math]]
 3. [[Custom materials]]
 4. [[Post-processing]]

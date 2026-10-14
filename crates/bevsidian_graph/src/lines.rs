@@ -16,11 +16,11 @@ use bevsidian_core::{
 };
 use bevsidian_ui::color;
 
-use crate::{GraphCamera, GraphNode, GraphState, ortho_scale};
+use crate::{GraphCamera, GraphNode, GraphState, mesh::Shapes, neighbors, ortho_scale};
 
 /// A line between two notes, and the routes that take it (and how).
 #[derive(Clone, Debug)]
-pub struct Road {
+pub struct Line {
     pub a: Entity,
     pub b: Entity,
     pub uses: Vec<(NoteId, StepKind)>,
@@ -28,7 +28,7 @@ pub struct Road {
 
 /// The mesh holding every line as quads.
 #[derive(Component)]
-pub(crate) struct RoadMesh;
+pub(crate) struct LinesMesh;
 
 /// Widths on screen, in render-target pixels: a main line, a side quest, a secret's dots
 /// (their diameter), a trail's dots, a hovered note's links; the followed route's line and
@@ -46,6 +46,14 @@ const DASH_GAP_PX: f32 = 5.0;
 const DOT_GAP_PX: f32 = 5.0;
 /// How far short of a star (beyond its outline) a line stops, in pixels.
 const GAP_PX: f32 = 4.0;
+/// Depths, back to front: trails, the followed route's glow, lines, a hovered note's lines,
+/// the followed route, a hovered note's links.
+const Z_TRAIL: f32 = -0.01;
+const Z_GLOW: f32 = 0.0;
+const Z_LINE: f32 = 0.01;
+const Z_HOVERED: f32 = 0.02;
+const Z_FOLLOWED: f32 = 0.03;
+const Z_LINK: f32 = 0.04;
 
 /// Pieces `piece` long, `gap` apart, centred on `0..length` (start and end of each).
 pub fn pattern(length: f32, piece: f32, gap: f32) -> impl Iterator<Item = (f32, f32)> {
@@ -69,83 +77,49 @@ pub fn between(a: Vec2, ra: f32, b: Vec2, rb: f32) -> Option<(Vec2, Vec2)> {
     Some((a + direction * ra, b - direction * rb))
 }
 
-/// Vertices, colours and indices of the line mesh.
-#[derive(Default)]
-pub(crate) struct LineMesh {
-    positions: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
-    indices: Vec<u32>,
+fn dashed(out: &mut Shapes, (from, to): (Vec2, Vec2), half: f32, px: f32, z: f32, color: [f32; 4]) {
+    let direction = (to - from).normalize_or_zero();
+    for (start, end) in pattern(from.distance(to), DASH_PX * px, DASH_GAP_PX * px) {
+        out.quad(
+            from + direction * start,
+            from + direction * end,
+            half,
+            z,
+            color,
+        );
+    }
 }
 
-impl LineMesh {
-    fn quad(&mut self, from: Vec2, to: Vec2, half: f32, z: f32, color: [f32; 4]) {
-        let normal = (to - from).normalize_or_zero().perp() * half;
-        let base = self.positions.len() as u32;
-        for p in [from + normal, from - normal, to - normal, to + normal] {
-            self.positions.push([p.x, p.y, z]);
-            self.colors.push(color);
-        }
-        self.indices
-            .extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+fn dotted(
+    out: &mut Shapes,
+    (from, to): (Vec2, Vec2),
+    radius: f32,
+    px: f32,
+    z: f32,
+    color: [f32; 4],
+) {
+    let direction = (to - from).normalize_or_zero();
+    for (start, end) in pattern(from.distance(to), radius * 2.0, DOT_GAP_PX * px) {
+        let at = from + direction * f32::midpoint(start, end);
+        out.disc(at, radius, 8, z, color);
     }
+}
 
-    /// A round dot (an octagon).
-    fn dot(&mut self, center: Vec2, radius: f32, z: f32, color: [f32; 4]) {
-        let base = self.positions.len() as u32;
-        self.positions.push([center.x, center.y, z]);
-        self.colors.push(color);
-        for i in 0..8 {
-            let p = center + Vec2::from_angle(i as f32 * std::f32::consts::FRAC_PI_4) * radius;
-            self.positions.push([p.x, p.y, z]);
-            self.colors.push(color);
-            self.indices
-                .extend([base, base + 1 + i, base + 1 + (i + 1) % 8]);
-        }
-    }
-
-    fn dashed(&mut self, (from, to): (Vec2, Vec2), half: f32, px: f32, z: f32, color: [f32; 4]) {
-        let direction = (to - from).normalize_or_zero();
-        for (start, end) in pattern(from.distance(to), DASH_PX * px, DASH_GAP_PX * px) {
-            self.quad(
-                from + direction * start,
-                from + direction * end,
-                half,
-                z,
-                color,
-            );
-        }
-    }
-
-    fn dotted(&mut self, (from, to): (Vec2, Vec2), radius: f32, px: f32, z: f32, color: [f32; 4]) {
-        let direction = (to - from).normalize_or_zero();
-        let gap = DOT_GAP_PX * px;
-        for (start, end) in pattern(from.distance(to), radius * 2.0, gap) {
-            self.dot(
-                from + direction * f32::midpoint(start, end),
-                radius,
-                z,
-                color,
-            );
-        }
-    }
-
-    /// A line in the style of `kind`, `width` pixels wide; `px` is the world size of a pixel.
-    fn line(
-        &mut self,
-        ends: (Vec2, Vec2),
-        kind: StepKind,
-        width: f32,
-        px: f32,
-        z: f32,
-        color: Color,
-    ) {
-        let rgba = color.to_linear().to_f32_array();
-        let half = width * px / 2.0;
-        match kind {
-            StepKind::Core => self.quad(ends.0, ends.1, half, z, rgba),
-            StepKind::Optional => self.dashed(ends, half, px, z, rgba),
-            StepKind::Extra => self.dotted(ends, SECRET_PX * px / 2.0, px, z, rgba),
-        }
+/// A line in the style of `kind`, `width` pixels wide; `px` is the world size of a pixel.
+fn stroke(
+    out: &mut Shapes,
+    ends: (Vec2, Vec2),
+    kind: StepKind,
+    (width, px): (f32, f32),
+    z: f32,
+    color: Color,
+) {
+    let rgba = color.to_linear().to_f32_array();
+    let half = width * px / 2.0;
+    match kind {
+        StepKind::Core => out.quad(ends.0, ends.1, half, z, rgba),
+        StepKind::Optional => dashed(out, ends, half, px, z, rgba),
+        StepKind::Extra => dotted(out, ends, SECRET_PX * px / 2.0, px, z, rgba),
     }
 }
 
@@ -162,9 +136,9 @@ fn stronger(a: StepKind, b: StepKind) -> StepKind {
 /// How a line looks now, if it shows: as the followed route takes it, as the shown routes
 /// do, or (with the whole map shown, or while editing) faintly as any route does. The flag
 /// says it is the followed route's.
-pub(crate) fn look(state: &GraphState, road: &Road) -> Option<(StepKind, Color, bool)> {
+pub(crate) fn look(state: &GraphState, line: &Line) -> Option<(StepKind, Color, bool)> {
     let best = |keep: &dyn Fn(NoteId) -> bool| {
-        road.uses
+        line.uses
             .iter()
             .filter(|(route, _)| keep(*route))
             .map(|&(_, kind)| kind)
@@ -174,26 +148,26 @@ pub(crate) fn look(state: &GraphState, road: &Road) -> Option<(StepKind, Color, 
         return Some((kind, color::LINK, true));
     }
     if let Some(kind) = best(&|r| state.active.contains(&r)) {
-        return Some((kind, color::MAP_ROAD, false));
+        return Some((kind, color::MAP_LINE, false));
     }
     if state.whole || state.editing {
-        return best(&|_| true).map(|kind| (kind, color::MAP_ROAD_FAINT, false));
+        return best(&|_| true).map(|kind| (kind, color::MAP_LINE_FAINT, false));
     }
     None
 }
 
-pub(crate) fn draw_roads(
+pub(crate) fn draw_lines(
     nav: Res<Nav>,
     state: Res<GraphState>,
     nodes: Query<(&Transform, &GraphNode)>,
     camera: Query<&Projection, With<GraphCamera>>,
-    road_mesh: Query<&Mesh2d, With<RoadMesh>>,
+    line_mesh: Query<&Mesh2d, With<LinesMesh>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     if nav.view.get_untracked() != View::Graph {
         return;
     }
-    let (Ok(mesh), Ok(projection)) = (road_mesh.single(), camera.single()) else {
+    let (Ok(mesh), Ok(projection)) = (line_mesh.single(), camera.single()) else {
         return;
     };
     // World units per render-target pixel.
@@ -207,51 +181,50 @@ pub(crate) fn draw_roads(
             .filter(|(_, n)| !n.hidden && !n.tucking)
             .map(|(t, n)| (t.translation.truncate(), n.radius * t.scale.x + GAP_PX * px))
     };
-    let mut out = LineMesh::default();
+    let mut out = Shapes::default();
     let mut reached = std::collections::HashSet::new();
-    for road in &state.roads {
-        let (Some((a, ra)), Some((b, rb))) = (star(road.a), star(road.b)) else {
+    for line in &state.lines {
+        let (Some((a, ra)), Some((b, rb))) = (star(line.a), star(line.b)) else {
             continue;
         };
-        let Some((kind, mut tint, followed)) = look(&state, road) else {
+        let Some((kind, mut tint, followed)) = look(&state, line) else {
             continue;
         };
-        reached.insert(road.a);
-        reached.insert(road.b);
+        reached.insert(line.a);
+        reached.insert(line.b);
         let Some(ends) = between(a, ra, b, rb) else {
             continue;
         };
-        let hovered = focus.is_some_and(|f| f == road.a || f == road.b);
+        let hovered = focus.is_some_and(|f| f == line.a || f == line.b);
         if hovered && !followed {
             tint = color::MUTED_FOREGROUND;
         }
         if followed {
             // Its glow first, under it.
-            out.line(
+            stroke(
+                &mut out,
                 ends,
                 StepKind::Core,
-                FOLLOWED_GLOW_PX,
-                px,
-                0.0,
+                (FOLLOWED_GLOW_PX, px),
+                Z_GLOW,
                 color::MAP_ROUTE_GLOW,
             );
-            out.line(ends, kind, FOLLOWED_PX, px, 0.03, tint);
+            stroke(&mut out, ends, kind, (FOLLOWED_PX, px), Z_FOLLOWED, tint);
         } else {
             let width = if kind == StepKind::Core {
                 MAIN_PX
             } else {
                 SIDE_PX
             };
-            let z = if hovered { 0.02 } else { 0.01 };
-            out.line(ends, kind, width, px, z, tint);
+            let z = if hovered { Z_HOVERED } else { Z_LINE };
+            stroke(&mut out, ends, kind, (width, px), z, tint);
         }
     }
     // Trails to the parent of notes no line reaches, and rays from the capital to every
     // region's town: the capital links to them all.
     for &(child, parent) in &state.trails {
-        let ray = nodes.get(child).is_ok_and(|(_, n)| n.rank == 1)
-            && nodes.get(parent).is_ok_and(|(_, n)| n.rank == 0);
         let to_capital = nodes.get(parent).is_ok_and(|(_, n)| n.rank == 0);
+        let ray = to_capital && nodes.get(child).is_ok_and(|(_, n)| n.rank == 1);
         if !ray && (reached.contains(&child) || to_capital) {
             continue;
         }
@@ -259,34 +232,23 @@ pub(crate) fn draw_roads(
             && let Some(ends) = between(a, ra, b, rb)
         {
             let tint = color::MAP_TRAIL.to_linear().to_f32_array();
-            out.dotted(ends, TRAIL_PX * px / 2.0, px, 0.005, tint);
+            dotted(&mut out, ends, TRAIL_PX * px / 2.0, px, Z_TRAIL, tint);
         }
     }
     // A hovered note's links.
     if let Some(focus) = focus
         && let Some((f, rf)) = star(focus)
     {
-        let link = color::LINK_SOFT_SOLID.to_linear().to_f32_array();
-        for &(a, b) in &state.edges {
-            let other = if a == focus {
-                b
-            } else if b == focus {
-                a
-            } else {
-                continue;
-            };
+        let link = color::MAP_LINK.to_linear().to_f32_array();
+        for other in neighbors(&state, focus) {
             if let Some((o, ro)) = star(other)
                 && let Some(ends) = between(f, rf, o, ro)
             {
-                out.dashed(ends, LINK_PX * px / 2.0, px, 0.04, link);
+                dashed(&mut out, ends, LINK_PX * px / 2.0, px, Z_LINK, link);
             }
         }
     }
-    if let Some(mut mesh) = meshes.get_mut(&mesh.0) {
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, out.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, out.colors);
-        mesh.insert_indices(bevy::mesh::Indices::U32(out.indices));
-    }
+    out.upload(&mut meshes, &mesh.0);
 }
 
 #[cfg(test)]

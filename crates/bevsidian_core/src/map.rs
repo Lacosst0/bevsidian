@@ -117,6 +117,30 @@ impl MapObject {
         }
     }
 
+    /// Its size: a label's or landmark's `size`, a nebula's radius.
+    pub fn size(&self) -> f32 {
+        match self {
+            MapObject::Label { size, .. } | MapObject::Landmark { size, .. } => *size,
+            MapObject::Nebula { radius, .. } => *radius,
+        }
+    }
+
+    pub fn size_mut(&mut self) -> &mut f32 {
+        match self {
+            MapObject::Label { size, .. } | MapObject::Landmark { size, .. } => size,
+            MapObject::Nebula { radius, .. } => radius,
+        }
+    }
+
+    /// The size it has when the map names none.
+    pub fn default_size(&self) -> f32 {
+        match self {
+            MapObject::Label { .. } => LABEL_SIZE,
+            MapObject::Landmark { .. } => LANDMARK_SIZE,
+            MapObject::Nebula { .. } => NEBULA_RADIUS,
+        }
+    }
+
     pub fn set_at(&mut self, to: Vec2) {
         match self {
             MapObject::Label { at, .. }

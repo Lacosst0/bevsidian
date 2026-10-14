@@ -6,7 +6,7 @@ feature: Write scenes in BSN
 ---
 # Learn BSN
 
-North-east to the Scene Forge: Bevy 0.20's scene notation, from the first scene to scenes that react.
+Bevy 0.20's scene notation, from the first scene to scenes that react.
 
 1. [[BSN]]: what it is, and when to use it.
 2. [[Scenes and BSN]]: your first scene, children, patching.

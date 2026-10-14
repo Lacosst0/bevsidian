@@ -7,7 +7,7 @@ quest: main
 
 The main quest: a spiral out of Bevy, from a blank window to Dodge, a small game you build yourself. Every other route on the map branches off it.
 
-1. [[Start]]: the village where everyone begins.
+1. [[Start]]: where everyone begins.
 2. [[Hello Bevy]]: a window and a moving box.
 3. [[Project setup]] (optional): faster builds.
 4. [[App and plugins]] (extra): what `App::new()` really builds.

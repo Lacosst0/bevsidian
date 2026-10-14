@@ -1,6 +1,7 @@
 //! The hint at the bottom of the graph while a note is hovered: its name and what a click
 //! and a double click do (a note holding folded notes folds on a click and opens on a double
-//! click; any other note opens on a click; while editing the map, a click chooses it). Not shown on touch screens, which have no hover.
+//! click; any other note opens on a click; while editing the map, a click chooses it). Not
+//! shown on touch screens, which have no hover.
 
 use bevy::{prelude::*, text::FontWeight};
 

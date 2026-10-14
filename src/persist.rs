@@ -46,12 +46,7 @@ fn load_map(nav: Res<Nav>, vault: Res<Vault>) {
         nav.whole_map.set(true);
     }
     if let Some(visited) = read(VISITED_KEY) {
-        let mut visited = ids(&vault, &visited);
-        let current = nav.current.get_untracked();
-        if !visited.contains(&current) {
-            visited.push(current);
-        }
-        nav.visited.set(visited);
+        nav.visited.set(ids(&vault, &visited));
     }
 }
 

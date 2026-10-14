@@ -6,9 +6,9 @@ feature: Online multiplayer
 ---
 # Multiplayer
 
-Across the sea to the Far Shores: a game that works for one player, then for many. States and Messages, from the ECS Heartlands, help on the way.
+A game that works for one player, then for many. States and Messages help on the way.
 
-1. [[Networking]]: the map of the shores.
+1. [[Networking]]: the area's index.
 2. [[bevy_replicon]]: replicate the world.
 3. [[Netcode crates]] (optional)
 4. [[bevy_renet]] (extra)

@@ -32,13 +32,13 @@ Every area ends with a **Libraries** table: the best crates for that topic, and 
 
 ## Routes
 
-A route is a list of notes to read in order, drawn on the map as a road. Click one in the map's quest log, then use the **Previous / Next** bar at the bottom of each note.
+A route is a list of notes to read in order, drawn on the map as a line of stars. Click one in the map's quest log, then use the **Previous / Next** bar at the bottom of each note.
 
 **Main quest**, always on the map:
 
 - [[Your first game]]: the spiral out of Bevy, to a game of your own.
 
-**What's in your game?** Each feature is a road out of the capital:
+**What's in your game?** Each feature is a route that branches off the main quest:
 
 - [[A 2D game]]: sprites, animation, tilemaps.
 - [[A 3D game]]: meshes, light, models.
@@ -58,15 +58,15 @@ A route is a list of notes to read in order, drawn on the map as a road. Click o
 - [[Learn BSN]]: Bevy 0.20's scene notation.
 - [[Ship it]]: debugging, profiling, release, web and mobile builds.
 
-## How the roads work
+## How the lines work
 
-| Road | Meaning |
+| Line | Meaning |
 |:--|:--|
-| solid | the main road; do these in order |
+| solid | the route itself; do these in order |
 | dashed | a *side quest*: useful, skip if you are in a hurry |
 | dotted | a *secret*: extras for the curious |
 
-Shapes say what a stop is: a hexagon is a region's town (an area's index), a circle a lesson, a diamond a milestone where you have built something, a star the goal at the end of a road and a square a crate. [[Map]] holds where everything sits; edit it in the app with the map's pencil button.
+Every note is a star, dim until you have read it. Its outline says what it is: a hexagon is an area's index, a diamond a milestone where you have built something, a star the goal at the end of a route, a pentagon a comparison of crates and a square a crate; a lesson is a plain star. [[Map]] holds where everything sits; edit it in the app with the map's pencil button.
 
 ## Where this comes from
 

@@ -1,18 +1,15 @@
 //! The sky the stars sit in: a faint celestial grid around the capital (circles and spokes,
 //! as on a star chart), a field of background stars that drifts slower than the map when it
-//! pans (parallax), soft nebulae where the map puts them, and the regions' names and
+//! pans (parallax), soft nebulae where the map puts them, and its labels and
 //! landmarks. Everything comes from the map's objects ([`MapObject`]) and is rebuilt when the
 //! map changes.
 
-use bevy::{
-    asset::RenderAssetUsages, camera::visibility::RenderLayers, mesh::PrimitiveTopology,
-    prelude::*, text::FontWeight,
-};
+use bevy::{camera::visibility::RenderLayers, prelude::*, text::FontWeight};
 
 use bevsidian_core::{map::MapObject, vault::Vault};
 use bevsidian_ui::color;
 
-use crate::{GraphNode, GraphState, GraphText, LAYER};
+use crate::{GraphNode, GraphState, GraphText, LAYER, mesh::Shapes};
 
 /// A map object in the world: which one (its index among the map's objects) and what it is.
 #[derive(Component, Clone, Debug)]
@@ -36,7 +33,7 @@ impl MapThing {
 
 /// The mesh of the celestial grid.
 #[derive(Component)]
-pub(crate) struct Ground;
+pub(crate) struct Grid;
 
 /// The mesh of the background stars (it follows the camera part of the way: parallax).
 #[derive(Component)]
@@ -67,8 +64,8 @@ const FIELD_MIN_PX: f32 = 1.0;
 const FIELD_MARGIN: f32 = 2400.0;
 /// How much of the camera's motion the background follows (0: none, 1: fixed on screen).
 const PARALLAX: f32 = 0.35;
-/// Upper case, with a space between letters and three between words, the way old maps name
-/// their regions.
+/// Upper case, with a space between letters and three between words, as star charts letter
+/// their constellations.
 pub fn spaced(text: &str) -> String {
     text.split_whitespace()
         .map(|word| {
@@ -98,7 +95,7 @@ pub(crate) fn spawn_world(
     for entity in &old {
         commands.entity(entity).despawn();
     }
-    state.ground_dirty = true;
+    state.sky_dirty = true;
     let Some(map) = &data.map else {
         return;
     };
@@ -163,7 +160,10 @@ pub(crate) fn spawn_world(
             }
             MapObject::Nebula { .. } => {
                 let circle = state.circle.clone();
-                let (ring, fill) = (state.paint.ring_hovered.clone(), state.paint.fill.clone());
+                let (ring, fill) = (
+                    state.paint.ring_hovered.clone(),
+                    state.paint.handle_fill.clone(),
+                );
                 entity.insert(Visibility::Hidden).with_children(|handle| {
                     handle.spawn((
                         NebulaHandle,
@@ -184,18 +184,22 @@ pub(crate) fn spawn_world(
     }
 }
 
-/// Depth of labels and landmarks: over the sky, under the lines.
+/// Depths, back to front: the background stars, the grid, the nebulae, then labels and
+/// landmarks (all under the lines and the notes).
+const Z_FIELD: f32 = -7.0;
+const Z_GRID: f32 = -6.0;
+const Z_NEBULAE: f32 = -5.0;
 const Z_OBJECTS: f32 = -1.0;
 
-/// Smallest a region's name is drawn on screen (pixels): zoomed out, names grow in the world
-/// to stay readable, so the whole map reads like an atlas.
-const REGION_NAME_PX: f32 = 15.0;
+/// Smallest a label is drawn on screen (pixels): zoomed out, labels grow in the world to
+/// stay readable.
+const LABEL_PX: f32 = 15.0;
 
 /// Smallest a landmark is drawn on screen (pixels).
 const LANDMARK_PX: f32 = 18.0;
 
-/// Keeps regions' names readable, and landmarks visible, when zoomed out.
-pub(crate) fn scale_regions(
+/// Keeps labels readable, and landmarks visible, when zoomed out.
+pub(crate) fn scale_objects(
     camera: Query<&Projection, With<crate::GraphCamera>>,
     mut things: Query<(&MapThing, &mut Transform)>,
 ) {
@@ -205,7 +209,7 @@ pub(crate) fn scale_regions(
     let scale = crate::ortho_scale(projection);
     for (thing, mut transform) in &mut things {
         let least = match thing.object {
-            MapObject::Label { size, .. } => REGION_NAME_PX / size,
+            MapObject::Label { size, .. } => LABEL_PX / size,
             MapObject::Landmark { size, .. } => LANDMARK_PX / size,
             MapObject::Nebula { .. } => continue,
         };
@@ -239,17 +243,17 @@ pub(crate) fn draw_sky(
     mut state: ResMut<GraphState>,
     things: Query<(&MapThing, &Transform)>,
     nodes: Query<&GraphNode>,
-    ground: Query<&Mesh2d, With<Ground>>,
+    grid_mesh: Query<&Mesh2d, With<Grid>>,
     nebulae: Query<&Mesh2d, With<Nebulae>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    if !state.ground_dirty {
+    if !state.sky_dirty {
         return;
     }
-    let (Ok(ground), Ok(nebulae)) = (ground.single(), nebulae.single()) else {
+    let (Ok(grid_mesh), Ok(nebulae)) = (grid_mesh.single(), nebulae.single()) else {
         return;
     };
-    state.ground_dirty = false;
+    state.sky_dirty = false;
     let clouds: Vec<(Vec2, f32)> = things
         .iter()
         .filter_map(|(thing, transform)| match thing.object {
@@ -273,30 +277,30 @@ pub(crate) fn draw_sky(
             Vec2::ZERO,
             circle as f32 * GRID_STEP,
             GRID_WIDTH,
-            -6.0,
+            Z_GRID,
             tint,
         );
     }
     for spoke in 0..GRID_SPOKES {
         let direction = Vec2::from_angle(spoke as f32 * std::f32::consts::TAU / GRID_SPOKES as f32);
-        grid.capsule(
+        grid.quad(
             direction * GRID_STEP,
             direction * outer,
             GRID_WIDTH / 2.0,
-            -6.0,
+            Z_GRID,
             tint,
         );
     }
-    set_mesh(&mut meshes, &ground.0, grid);
+    grid.upload(&mut meshes, &grid_mesh.0);
 
     state.field_reach = outer + FIELD_MARGIN;
 
     // The nebulae: white in the middle, fading to nothing at the edge.
     let mut clouds_mesh = Shapes::default();
     for &(at, radius) in &clouds {
-        clouds_mesh.cloud(at, radius, -5.0);
+        clouds_mesh.fade(at, radius, (8, 64), Z_NEBULAE, |r| (1.0 - r * r).powi(2));
     }
-    set_mesh(&mut meshes, &nebulae.0, clouds_mesh);
+    clouds_mesh.upload(&mut meshes, &nebulae.0);
 }
 
 /// Rebuilds the background stars when the sky changes size or the zoom moves a step: they
@@ -339,13 +343,13 @@ pub(crate) fn draw_field(
                     at,
                     size.max(FIELD_MIN_PX * px * (0.6 + brightness)),
                     6,
-                    -7.0,
+                    Z_FIELD,
                     tint,
                 );
             }
         }
     }
-    set_mesh(&mut meshes, &field.0, stars);
+    stars.upload(&mut meshes, &field.0);
 }
 
 /// The background follows the camera part of the way, so it seems far behind the map.
@@ -359,14 +363,6 @@ pub(crate) fn parallax(
     let at = (camera.translation.truncate() * PARALLAX).extend(0.0);
     if field.translation != at {
         field.translation = at;
-    }
-}
-
-fn set_mesh(meshes: &mut Assets<Mesh>, handle: &Handle<Mesh>, shapes: Shapes) {
-    if let Some(mut mesh) = meshes.get_mut(handle) {
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, shapes.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, shapes.colors);
-        mesh.insert_indices(bevy::mesh::Indices::U32(shapes.indices));
     }
 }
 
@@ -387,116 +383,12 @@ fn unit(h: u32) -> f32 {
     (h & 0x7ff) as f32 / 2048.0
 }
 
-/// An empty mesh for vertex-coloured triangles.
-pub(crate) fn empty_mesh() -> Mesh {
-    Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::default(),
-    )
-}
-
-#[derive(Default)]
-struct Shapes {
-    positions: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
-    indices: Vec<u32>,
-}
-
-impl Shapes {
-    /// A circle's outline, `width` wide.
-    fn circle(&mut self, center: Vec2, radius: f32, width: f32, z: f32, color: [f32; 4]) {
-        let sides = ((radius / 20.0) as u32).clamp(48, 360);
-        let base = self.positions.len() as u32;
-        for i in 0..sides {
-            let direction = Vec2::from_angle(i as f32 * std::f32::consts::TAU / sides as f32);
-            for r in [radius - width / 2.0, radius + width / 2.0] {
-                let p = center + direction * r;
-                self.positions.push([p.x, p.y, z]);
-                self.colors.push(color);
-            }
-        }
-        for i in 0..sides {
-            let (a, b) = (base + i * 2, base + (i + 1) % sides * 2);
-            self.indices.extend([a, a + 1, b + 1, a, b + 1, b]);
-        }
-    }
-
-    /// A soft cloud: white in the middle (the material sets how strong), fading out.
-    fn cloud(&mut self, center: Vec2, radius: f32, z: f32) {
-        const RINGS: u32 = 8;
-        const SIDES: u32 = 64;
-        let base = self.positions.len() as u32;
-        self.positions.push([center.x, center.y, z]);
-        self.colors.push([1.0, 1.0, 1.0, 1.0]);
-        for ring in 1..=RINGS {
-            let r = ring as f32 / RINGS as f32;
-            // Smooth all the way to the edge.
-            let alpha = (1.0 - r * r).powi(2);
-            for side in 0..SIDES {
-                let p = center
-                    + Vec2::from_angle(side as f32 * std::f32::consts::TAU / SIDES as f32)
-                        * radius
-                        * r;
-                self.positions.push([p.x, p.y, z]);
-                self.colors.push([1.0, 1.0, 1.0, alpha]);
-            }
-        }
-        let ring_start = |ring: u32| base + 1 + (ring - 1) * SIDES;
-        for side in 0..SIDES {
-            let next = (side + 1) % SIDES;
-            self.indices
-                .extend([base, base + 1 + side, base + 1 + next]);
-        }
-        for ring in 1..RINGS {
-            let (inner, outer) = (ring_start(ring), ring_start(ring + 1));
-            for side in 0..SIDES {
-                let next = (side + 1) % SIDES;
-                self.indices.extend([
-                    inner + side,
-                    outer + side,
-                    outer + next,
-                    inner + side,
-                    outer + next,
-                    inner + next,
-                ]);
-            }
-        }
-    }
-
-    /// A band `half` wide on each side from `a` to `b`.
-    fn capsule(&mut self, a: Vec2, b: Vec2, half: f32, z: f32, color: [f32; 4]) {
-        let normal = (b - a).normalize_or_zero().perp() * half;
-        let base = self.positions.len() as u32;
-        for p in [a + normal, a - normal, b - normal, b + normal] {
-            self.positions.push([p.x, p.y, z]);
-            self.colors.push(color);
-        }
-        self.indices
-            .extend([base, base + 1, base + 2, base, base + 2, base + 3]);
-    }
-
-    fn disc(&mut self, center: Vec2, radius: f32, sides: usize, z: f32, color: [f32; 4]) {
-        let base = self.positions.len() as u32;
-        self.positions.push([center.x, center.y, z]);
-        self.colors.push(color);
-        let sides = sides as u32;
-        for i in 0..sides {
-            let p =
-                center + Vec2::from_angle(i as f32 * std::f32::consts::TAU / sides as f32) * radius;
-            self.positions.push([p.x, p.y, z]);
-            self.colors.push(color);
-            self.indices
-                .extend([base, base + 1 + i, base + 1 + (i + 1) % sides]);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn region_names_are_spaced_out() {
+    fn labels_are_spaced_out() {
         assert_eq!(spaced("Pixel  plains"), "P I X E L   P L A I N S");
         assert_eq!(spaced(""), "");
     }

@@ -6,9 +6,9 @@ feature: Ship it to players
 ---
 # Ship it
 
-South to the Shipyard: from "works on my machine" to a download or a web page.
+From "works on my machine" to a download or a web page.
 
-1. [[Tooling]]: the map of the shipyard.
+1. [[Tooling]]: the area's index.
 2. [[Debugging]]
 3. [[Gizmos]] (optional)
 4. [[Diagnostics and logging]]

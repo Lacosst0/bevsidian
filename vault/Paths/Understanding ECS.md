@@ -6,7 +6,7 @@ feature: Master the ECS
 ---
 # Understanding ECS
 
-North through the ECS Heartlands: every idea beyond the main quest, in the order they build on each other. The finer points hang off to the side.
+Every ECS idea beyond the main quest, in the order they build on each other. The finer points hang off to the side.
 
 1. [[ECS]]: the big picture.
 2. [[Schedules and sets]]

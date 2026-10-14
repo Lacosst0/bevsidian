@@ -20,6 +20,8 @@ pub const SHOWN_RANK: usize = 2;
 
 /// Radius of the badge on a note holding folded notes (world units).
 pub const BADGE_RADIUS: f32 = 8.0;
+/// How far past its badge the pointer still picks it (world units).
+const BADGE_SLOP: f32 = 4.0;
 /// Where the badge sits: up and right of the note's centre, as a share of its radius on each
 /// axis (on its outline, at 45°).
 const BADGE_AT: f32 = 0.72;
@@ -337,7 +339,7 @@ pub(crate) fn badge_at(
         .filter(|(_, t, n)| !n.hidden && !n.tucking && n.folds > 0 && t.scale.x <= 1.0)
         .find(|(_, t, n)| {
             let at = t.translation.truncate() + badge_offset(n.radius) * t.scale.x;
-            at.distance(world) <= BADGE_RADIUS * t.scale.x + 4.0
+            at.distance(world) <= BADGE_RADIUS * t.scale.x + BADGE_SLOP
         })
         .map(|(e, ..)| e)
 }

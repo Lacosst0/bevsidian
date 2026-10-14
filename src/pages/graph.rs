@@ -19,9 +19,9 @@ pub fn graph_page(nav: Nav, vault: Vault) -> impl Scene {
 
 /// The routes on the map, in a card that folds down to its header (folded at first on
 /// phones): the main quest and the routes chosen in the checklist, each with how many of its
-/// steps the reader has visited. Choosing one follows it (its road lights up, its steps are
+/// steps the reader has visited. Choosing one follows it (its line lights up, its steps are
 /// numbered and each of its notes links to the next); "Choose features" reopens the
-/// checklist and "Whole map" shows every note and road. Hidden when the vault has no routes.
+/// checklist and "Whole map" shows every note and line. Hidden when the vault has no routes.
 fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
     let rows = {
         let (vault, quests) = (vault.clone(), nav.quests.clone());

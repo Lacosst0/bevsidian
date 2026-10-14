@@ -1,11 +1,11 @@
 //! The graph view, drawn as a hand-made star map.
 //!
 //! Every note is a star where the vault's map note puts it ([`bevsidian_core::map`]): Bevy,
-//! the brightest, in the middle, the main quest as a ring of stars around it and a region of
-//! the sky for every area ([`world`]). A star's size is its importance; it is dim until the
+//! the brightest, in the middle, the main quest as a spiral of stars winding out of it, and the
+//! sky behind them ([`world`]). A star's size is its importance; it is dim until the
 //! note is read and lit after; the hairline outline of a shape around it says what it is (a
 //! hexagon for an area's town, a diamond for a milestone, a star for a route's goal, a square
-//! for a crate…; see [`shapes`]). Reading paths are constellation lines ([`roads`],
+//! for a crate…; see [`shapes`]). Reading paths are constellation lines ([`lines`],
 //! [`routes`]): the map shows the main quest,
 //! the routes the reader chose in its checklist and the route being followed; everything else
 //! waits, folded, in the note it hangs from ([`fold`]) or shows with the whole map.
@@ -42,7 +42,8 @@ mod controls;
 mod edit;
 mod fold;
 mod hint;
-mod roads;
+mod lines;
+mod mesh;
 mod routes;
 mod shapes;
 mod tree;
@@ -86,11 +87,11 @@ pub fn plugin(app: &mut App) {
                 style_nodes,
                 fit_plates,
                 world::show_handles,
-                world::scale_regions,
+                world::scale_objects,
                 world::parallax,
                 world::draw_sky,
                 world::draw_field,
-                roads::draw_roads,
+                lines::draw_lines,
             )
                 .chain()
                 .after(GraphSystems::Build),
@@ -181,15 +182,15 @@ pub struct GraphState {
     image: Handle<Image>,
     /// Links, one per direction (a hovered note shows its own).
     edges: Vec<(Entity, Entity)>,
-    /// The roads of every route.
-    roads: Vec<roads::Road>,
-    /// Each note and the note it hangs from: a faint trail where no road reaches it.
+    /// The lines of every route.
+    lines: Vec<lines::Line>,
+    /// Each note and the note it hangs from: a faint trail where no line reaches it.
     trails: Vec<(Entity, Entity)>,
     /// The routes shown (their path notes), the one followed, and whether the whole map is.
     active: Vec<NoteId>,
     followed: Option<NoteId>,
     whole: bool,
-    /// The map is being edited (every note and road shows).
+    /// The map is being edited (every note and line shows).
     editing: bool,
     /// What shows changed: fold the map again.
     refold: bool,
@@ -221,7 +222,7 @@ pub struct GraphState {
     /// A change asked for in the edit bar.
     edit_request: Option<edit::EditRequest>,
     /// The map or a nebula moved: redraw the sky.
-    ground_dirty: bool,
+    sky_dirty: bool,
     /// How far the background stars reach from the capital.
     field_reach: f32,
     /// Shared meshes and materials.
@@ -234,8 +235,8 @@ pub struct GraphState {
 /// is a dim star, a visited one is lit, the one being read burns orange.
 #[derive(Default)]
 struct NodePaint {
-    /// Cards behind the fold badges.
-    fill: Handle<ColorMaterial>,
+    /// The inside of a nebula's handle.
+    handle_fill: Handle<ColorMaterial>,
     ring: Handle<ColorMaterial>,
     ring_hovered: Handle<ColorMaterial>,
     ring_current: Handle<ColorMaterial>,
@@ -302,29 +303,29 @@ fn setup(
         }))
     };
     commands.spawn((
-        roads::RoadMesh,
-        Mesh2d(meshes.add(world::empty_mesh())),
+        lines::LinesMesh,
+        Mesh2d(meshes.add(mesh::empty())),
         opaque(&mut materials),
         Transform::default(),
         RenderLayers::layer(LAYER),
     ));
     commands.spawn((
-        world::Ground,
-        Mesh2d(meshes.add(world::empty_mesh())),
+        world::Grid,
+        Mesh2d(meshes.add(mesh::empty())),
         opaque(&mut materials),
         Transform::default(),
         RenderLayers::layer(LAYER),
     ));
     commands.spawn((
         world::Starfield,
-        Mesh2d(meshes.add(world::empty_mesh())),
+        Mesh2d(meshes.add(mesh::empty())),
         opaque(&mut materials),
         Transform::default(),
         RenderLayers::layer(LAYER),
     ));
     commands.spawn((
         world::Nebulae,
-        Mesh2d(meshes.add(world::empty_mesh())),
+        Mesh2d(meshes.add(mesh::empty())),
         MeshMaterial2d(materials.add(ColorMaterial::from_color(color::MAP_NEBULA))),
         Transform::default(),
         RenderLayers::layer(LAYER),
@@ -354,7 +355,7 @@ fn setup(
     ));
 
     state.paint = NodePaint {
-        fill: materials.add(color::CARD),
+        handle_fill: materials.add(color::CARD),
         ring: materials.add(color::MAP_RING),
         ring_hovered: materials.add(color::MUTED_FOREGROUND),
         ring_current: materials.add(color::LINK),
@@ -380,7 +381,7 @@ fn setup(
     };
 }
 
-/// The shape a note is drawn in: the map's choice, or what its kind gives it.
+/// The shape a note's rank gives it when the map names none.
 fn default_shape(rank: usize) -> Shape {
     match rank {
         0 => Shape::Octagon,
@@ -439,7 +440,7 @@ fn reach(shape: Shape) -> f32 {
         .fold(0.0, f32::max)
 }
 
-/// (Re)builds the nodes, roads and trails from the vault, at startup and after a note (or
+/// (Re)builds the nodes, lines and trails from the vault, at startup and after a note (or
 /// the map) is edited.
 fn spawn_nodes(
     mut commands: Commands,
@@ -478,13 +479,7 @@ fn spawn_nodes(
         .iter()
         .map(|_| commands.spawn_empty().id())
         .collect();
-    let entity_of = |id: NoteId| {
-        layout
-            .notes
-            .iter()
-            .position(|&n| n == id)
-            .map(|s| entities[s])
-    };
+    let entity_of = |id: NoteId| layout.slot(id).map(|s| entities[s]);
     for (slot, &id) in layout.notes.iter().enumerate() {
         let note = &vault.notes[id];
         let rank = layout.rank[slot];
@@ -593,7 +588,7 @@ fn spawn_nodes(
                     Text2d::new(note.icon.to_string()),
                     font("lucide", label_size * ICON_SCALE, FontWeight::NORMAL),
                     TextColor(color::MUTED_FOREGROUND),
-                    Transform::from_xyz(0.0, -radius * reach(shape) - 14.0, 0.0),
+                    Transform::from_xyz(0.0, -radius * reach(shape) - LABEL_GAP, 0.0),
                     RenderLayers::layer(LAYER),
                 ))
                 .with_children(|label| {
@@ -625,17 +620,11 @@ fn spawn_nodes(
             }
         }
     }
-    let place = |id: NoteId| {
-        layout
-            .notes
-            .iter()
-            .position(|&n| n == id)
-            .map(|s| layout.homes[s])
-    };
-    state.roads = routes::roads(&vault, &place, layout.notes[layout.root])
+    let place = |id: NoteId| layout.slot(id).map(|s| layout.homes[s]);
+    state.lines = routes::lines(&vault, &place, layout.notes[layout.root])
         .into_iter()
         .filter_map(|(a, b, uses)| {
-            Some(roads::Road {
+            Some(lines::Line {
                 a: entity_of(a)?,
                 b: entity_of(b)?,
                 uses,
@@ -670,6 +659,13 @@ struct Layout {
     parent: Vec<Option<usize>>,
     /// The hub, the root of the tree.
     root: usize,
+}
+
+impl Layout {
+    /// Where a note is in `notes`.
+    fn slot(&self, id: NoteId) -> Option<usize> {
+        self.notes.iter().position(|&n| n == id)
+    }
 }
 
 fn home_positions(vault: &VaultData) -> Layout {
@@ -755,6 +751,10 @@ fn fit_plates(
 const GLOW: f32 = 3.5;
 /// A label's icon, as a share of its text's size.
 const ICON_SCALE: f32 = 1.5;
+/// Room between a note's outline and its label (world units).
+const LABEL_GAP: f32 = 14.0;
+/// How far past a note's outline the pointer still picks it (world units).
+const PICK_SLOP: f32 = 12.0;
 /// Width of a shape's outline, as a share of its radius.
 const RING_WIDTH: f32 = 0.07;
 
@@ -1086,7 +1086,7 @@ fn pick(world: Vec2, nodes: &Query<(Entity, &Transform, &GraphNode)>) -> Option<
         .filter(|(_, t, n)| {
             !n.hidden
                 && !n.tucking
-                && t.translation.truncate().distance(world) <= n.radius * t.scale.x + 12.0
+                && t.translation.truncate().distance(world) <= n.radius * t.scale.x + PICK_SLOP
         })
         .min_by(|a, b| {
             let da = a.1.translation.truncate().distance(world);
@@ -1203,7 +1203,7 @@ fn on_click(
         return;
     };
     if nav.map_edit.get_untracked() {
-        // Editing: a click chooses what the inspector edits (or, on the sea, nothing).
+        // Editing: a click chooses what the inspector edits (or, on empty sky, nothing).
         state.selected = target;
         return;
     }
