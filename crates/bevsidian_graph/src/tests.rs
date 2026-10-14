@@ -276,3 +276,39 @@ fn zoom_stops_at_its_limits() {
         "the camera eases back in"
     );
 }
+
+#[test]
+fn every_note_has_a_line() {
+    let vault = real_vault();
+    let layout = home_positions(&vault);
+    let place = |id: NoteId| layout.slot(id).map(|s| layout.homes[s]);
+    let drawn = routes::lines(&vault, &place, layout.notes[layout.root]);
+    let on: std::collections::HashSet<NoteId> =
+        drawn.lines.iter().flat_map(|(a, b, _)| [*a, *b]).collect();
+    let ties = routes::ties(&vault, &place, &layout.notes, &on);
+    for &id in &layout.notes {
+        assert!(
+            on.contains(&id) || ties.iter().any(|&(n, _)| n == id),
+            "{} has no line",
+            vault.notes[id].name
+        );
+    }
+    for &(note, to) in &ties {
+        let length = place(note).unwrap().distance(place(to).unwrap());
+        assert!(
+            length < 330.0,
+            "{} is tied {length} away, to {}",
+            vault.notes[note].name,
+            vault.notes[to].name
+        );
+    }
+    // Crates hang from the crates they are compared in.
+    let tie = |name: &str| {
+        let id = vault.find(name).unwrap();
+        let (_, to) = ties.iter().find(|&&(n, _)| n == id).unwrap();
+        vault.notes[*to].name.clone()
+    };
+    assert_eq!(tie("bevy_ecs_ldtk"), "Tilemap crates");
+    assert_eq!(tie("bevy_kira_audio"), "Audio crates");
+    assert_eq!(tie("bevy_steamworks"), "Netcode crates");
+}

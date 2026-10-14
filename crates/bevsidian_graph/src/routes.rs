@@ -5,6 +5,8 @@
 //! instead of all crossing the hub. A route's core steps are joined in order; each side quest
 //! or secret hangs from the route's core step nearest it, so a spur is always short. The map
 //! shows the main quest, the routes chosen in its checklist and the route being followed.
+//! A note no route takes (mostly crates) is tied to a note near it that it links with
+//! ([`ties`]), so nothing floats unconnected.
 
 use bevy::prelude::*;
 
@@ -120,6 +122,68 @@ pub fn lines(vault: &VaultData, place: &dyn Fn(NoteId) -> Option<Vec2>, hub: Not
         }
     }
     RouteLines { lines: out, starts }
+}
+
+/// How far a note no route takes may be tied to a note it links with; past it, to the
+/// nearest note.
+const TIE_REACH: f32 = 320.0;
+
+/// Ties for the `notes` no line reaches (`connected` are those it does): each to a note
+/// already tied in, growing out from the routes like a tree, the shortest tie first. A note
+/// is tied to the nearest one it links with (either way) within [`TIE_REACH`], an inner one
+/// (a crate to the crates it is compared in, rather than to another crate) first, or to the
+/// nearest note at all. Each tie is (the note, the note it hangs from).
+pub fn ties(
+    vault: &VaultData,
+    place: &dyn Fn(NoteId) -> Option<Vec2>,
+    notes: &[NoteId],
+    connected: &std::collections::HashSet<NoteId>,
+) -> Vec<(NoteId, NoteId)> {
+    let linked = |a: NoteId, b: NoteId| {
+        vault.notes[a].outgoing.contains(&b) || vault.notes[b].outgoing.contains(&a)
+    };
+    let mut tied: Vec<NoteId> = notes
+        .iter()
+        .copied()
+        .filter(|n| connected.contains(n))
+        .collect();
+    let mut loose: Vec<NoteId> = notes
+        .iter()
+        .copied()
+        .filter(|n| !connected.contains(n) && place(*n).is_some())
+        .collect();
+    if tied.is_empty() {
+        return Vec::new();
+    }
+    let order = |a: (bool, bool, f32), b: (bool, bool, f32)| {
+        (a.0, a.1).cmp(&(b.0, b.1)).then(a.2.total_cmp(&b.2))
+    };
+    let mut out = Vec::new();
+    while !loose.is_empty() {
+        // The best tie of each loose note: linked and in reach first, then the shortest.
+        let best = loose
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &n)| {
+                let at = place(n)?;
+                tied.iter()
+                    .filter_map(|&t| {
+                        let distance = place(t)?.distance(at);
+                        let far = !(linked(n, t) && distance <= TIE_REACH);
+                        let sideways = crate::tree::rank(vault, t) >= crate::tree::rank(vault, n);
+                        Some(((far, sideways, distance), i, t))
+                    })
+                    .min_by(|a, b| order(a.0, b.0))
+            })
+            .min_by(|a, b| order(a.0, b.0));
+        let Some((_, i, to)) = best else {
+            break;
+        };
+        let note = loose.swap_remove(i);
+        out.push((note, to));
+        tied.push(note);
+    }
+    out
 }
 
 /// The routes shown: the main quest, the ones chosen in the checklist and the followed one.

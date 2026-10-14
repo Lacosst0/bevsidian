@@ -601,6 +601,18 @@ fn spawn_nodes(
             })
         })
         .collect();
+    // Notes no route takes, tied to a note near them.
+    let connected = drawn.lines.iter().flat_map(|(a, b, _)| [*a, *b]).collect();
+    for (note, to) in routes::ties(&vault, &place, &layout.notes, &connected) {
+        if let (Some(a), Some(b)) = (entity_of(note), entity_of(to)) {
+            state.lines.push(lines::Line {
+                a,
+                b,
+                uses: Vec::new(),
+                start: None,
+            });
+        }
+    }
     state.colors = vault
         .paths
         .iter()

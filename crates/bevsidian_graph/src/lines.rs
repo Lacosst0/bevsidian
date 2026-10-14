@@ -6,8 +6,8 @@
 //! steps) dotted. Every route has its own colour (the main quest's is grey) and a bullet
 //! where it begins (see `RouteBullet`), as metro maps tell their lines apart. Lines keep
 //! their width on screen at any zoom; the followed route is thicker, with a faint wider line
-//! under it as its glow. Routes that share a line draw it once. A hovered note shows its
-//! links as thin dashes.
+//! under it as its glow. Routes that share a line draw it once. A note no route takes is
+//! tied to a note near it by a thin grey line. A hovered note shows its links as thin dashes.
 
 use bevy::prelude::*;
 
@@ -26,6 +26,7 @@ use crate::{
 pub struct Line {
     pub a: Entity,
     pub b: Entity,
+    /// The routes that take it; none for a tie (a note no route takes, to a note near it).
     pub uses: Vec<Use>,
     /// The route whose bullet sits in the middle of the line, and the note on its near side:
     /// the line is the route's colour only past the bullet.
@@ -42,6 +43,8 @@ const MAIN_PX: f32 = 2.2;
 const SIDE_PX: f32 = 1.6;
 const SECRET_PX: f32 = 2.6;
 const LINK_PX: f32 = 1.0;
+/// A tie's width.
+const TIE_PX: f32 = 1.3;
 const FOLLOWED_PX: f32 = 3.2;
 const FOLLOWED_GLOW_PX: f32 = 8.0;
 /// The arrow on a core line, and how long a line must be (on screen) to carry one.
@@ -152,12 +155,25 @@ pub(crate) struct Look {
     followed: bool,
     /// Its reading order runs from the line's `a` to its `b`.
     forward: bool,
+    /// It is a tie: thin and grey, with no reading order.
+    tie: bool,
 }
 
 /// How a line looks now, if it shows: as the followed route takes it, as the shown routes
 /// do (the main quest's grey where it is one of them, else the first route's colour), or,
 /// with the whole map shown or while editing, faintly as any route does.
 pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
+    if line.uses.is_empty() {
+        return Some(Look {
+            kind: StepKind::Core,
+            route: NoteId::MAX,
+            tint: color::MAP_LINE_FAINT,
+            lead: color::MAP_LINE_FAINT,
+            followed: false,
+            forward: true,
+            tie: true,
+        });
+    }
     let pick = |keep: &dyn Fn(&Use) -> bool| {
         line.uses
             .iter()
@@ -186,6 +202,7 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             lead: color::MAP_LINE,
             followed: true,
             forward: u.forward,
+            tie: false,
         });
     }
     let main = |u: &Use| colour(u) == color::MAP_LINE;
@@ -199,6 +216,7 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             lead: color::MAP_LINE,
             followed: false,
             forward: u.forward,
+            tie: false,
         });
     }
     if state.whole || state.editing {
@@ -214,6 +232,7 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             },
             followed: false,
             forward: u.forward,
+            tie: false,
         });
     }
     None
@@ -299,6 +318,8 @@ pub(crate) fn draw_lines(
                 glow,
             );
             (FOLLOWED_PX, Z_FOLLOWED)
+        } else if look.tie {
+            (TIE_PX, if hovered { Z_HOVERED } else { Z_LINE })
         } else if look.kind == StepKind::Core {
             (MAIN_PX, if hovered { Z_HOVERED } else { Z_LINE })
         } else {
@@ -319,7 +340,8 @@ pub(crate) fn draw_lines(
             continue;
         }
         stroke(&mut out, ends, look.kind, (width, px), z, tint);
-        if look.kind == StepKind::Core && ends.0.distance(ends.1) > ARROW_ROOM_PX * px {
+        if look.kind == StepKind::Core && !look.tie && ends.0.distance(ends.1) > ARROW_ROOM_PX * px
+        {
             arrow(
                 &mut out,
                 ends,

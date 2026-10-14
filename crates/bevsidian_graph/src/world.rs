@@ -150,13 +150,20 @@ pub(crate) fn spawn_world(
             MapObject::Landmark { icon, size, .. } => {
                 let glyph =
                     bevsidian_core::icons::find(icon).unwrap_or(bevsidian_core::icons::DEFAULT);
-                entity.insert((
-                    GraphText { size: *size },
-                    Text2d::new(glyph.to_string()),
-                    font("lucide", *size, FontWeight::NORMAL),
-                    bevy::text::LineHeight::RelativeToFont(1.0),
-                    TextColor(color::MAP_INK),
-                ));
+                // On a child: the text's scale keeps it sharp ([`GraphText`]), the
+                // landmark's keeps it a size on screen.
+                let size = *size;
+                entity.with_children(|landmark| {
+                    landmark.spawn((
+                        GraphText { size },
+                        Text2d::new(glyph.to_string()),
+                        font("lucide", size, FontWeight::NORMAL),
+                        bevy::text::LineHeight::RelativeToFont(1.0),
+                        TextColor(color::MAP_INK),
+                        Transform::default(),
+                        RenderLayers::layer(LAYER),
+                    ));
+                });
             }
             MapObject::Nebula { .. } => {
                 let circle = state.circle.clone();
