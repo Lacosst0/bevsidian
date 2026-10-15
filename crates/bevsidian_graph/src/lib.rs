@@ -447,17 +447,51 @@ fn default_shape(rank: usize) -> Shape {
     }
 }
 
-/// A note's radius: by its shape and rank, then the map's size.
-fn node_radius(shape: Shape, rank: usize, scale: Scale) -> f32 {
-    let base = match (shape, rank) {
-        (Shape::Star, 0) => 44.0,
-        (Shape::Hexagon, _) => 31.0,
-        (Shape::Star, _) => 30.0,
-        (Shape::Diamond | Shape::Pentagon, _) => 27.0,
-        (Shape::Square, _) | (_, 3 | 4) => 21.0,
-        _ => 24.0,
-    };
-    base * scale.factor()
+/// How important a note is on the map, which decides how big it and its name are drawn:
+/// Bevy, then the main quest and the areas, lessons, finer points (sub-concepts and crates
+/// compared), and crates the smallest.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Tier {
+    Hub,
+    Main,
+    Area,
+    Lesson,
+    Detail,
+    Crate,
+}
+
+impl Tier {
+    fn of(rank: usize, shape: Shape, on_main_quest: bool) -> Tier {
+        match rank {
+            0 => Tier::Hub,
+            _ if on_main_quest => Tier::Main,
+            1 => Tier::Area,
+            4 => Tier::Crate,
+            _ if shape == Shape::Square => Tier::Crate,
+            3 => Tier::Detail,
+            _ if shape == Shape::Pentagon => Tier::Detail,
+            _ => Tier::Lesson,
+        }
+    }
+
+    /// The note's radius and its name's size (world units), before the map's size.
+    fn sizes(self) -> (f32, f32) {
+        match self {
+            Tier::Hub => (46.0, 30.0),
+            Tier::Area => (34.0, 26.0),
+            Tier::Main => (31.0, 24.0),
+            Tier::Lesson => (25.0, 20.0),
+            Tier::Detail => (20.0, 17.0),
+            Tier::Crate => (15.0, 14.0),
+        }
+    }
+
+    fn weight(self) -> FontWeight {
+        match self {
+            Tier::Hub | Tier::Area | Tier::Main => FontWeight::SEMIBOLD,
+            _ => FontWeight::MEDIUM,
+        }
+    }
 }
 
 /// The icon's size inside a shape, as a share of its radius (a star's points leave less room).
@@ -505,6 +539,12 @@ fn spawn_nodes(
         .map(|_| commands.spawn_empty().id())
         .collect();
     let entity_of = |id: NoteId| layout.slot(id).map(|s| entities[s]);
+    let main_steps: Vec<NoteId> = vault
+        .paths
+        .iter()
+        .filter(|p| p.quest == bevsidian_core::vault::Quest::Main)
+        .flat_map(|p| p.steps.iter().copied())
+        .collect();
     for (slot, &id) in layout.notes.iter().enumerate() {
         let note = &vault.notes[id];
         let rank = layout.rank[slot];
@@ -512,13 +552,11 @@ fn spawn_nodes(
         let shape = place
             .and_then(|p| p.shape)
             .unwrap_or_else(|| default_shape(rank));
-        let radius = node_radius(shape, rank, place.map_or(Scale::Normal, |p| p.scale));
+        let tier = Tier::of(rank, shape, main_steps.contains(&id));
+        let (base, label_size) = tier.sizes();
+        let radius = base * place.map_or(Scale::Normal, |p| p.scale).factor();
+        let weight = tier.weight();
         let home = layout.homes[slot];
-        let (label_size, weight) = if rank <= 1 {
-            (LABEL_SIZE * 1.15, FontWeight::SEMIBOLD)
-        } else {
-            (LABEL_SIZE, FontWeight::MEDIUM)
-        };
         let icon_size = (radius * icon_share(shape)).round();
         let fill = state.meshes.fills.get(&shape).cloned().unwrap_or_default();
         let ring = state.meshes.rings.get(&shape).cloned().unwrap_or_default();
@@ -972,7 +1010,7 @@ fn frame(
     }
 }
 
-/// Label font size at zoom 1.
+/// A lesson's name size at zoom 1 (others by their [`Tier`]), for when names show.
 const LABEL_SIZE: f32 = 21.0;
 /// Smallest a note's name, and an area's, is drawn on screen (in pixels): smaller, it hides.
 const NAMES_PX: f32 = 8.0;
@@ -982,10 +1020,10 @@ const TOWN_NAMES_PX: f32 = 4.0;
 const READABLE_PX: f32 = 13.0;
 const TOWN_BOOST: f32 = 3.0;
 const MAX_BOOST: f32 = 1.8;
-/// Smallest a note's shape is drawn on screen (its radius in pixels): the hub, a town, others.
-const HUB_PX: f32 = 22.0;
-const TOWN_PX: f32 = 14.0;
-const NOTE_PX: f32 = 10.0;
+/// Zoomed out, notes stop shrinking at this many screen pixels per world unit of their
+/// radius: every note by the same factor, so the important ones stay the bigger ones (Bevy
+/// keeps about 20 px, a crate about 6).
+const LEAST_PX_PER_UNIT: f32 = 0.42;
 
 /// Re-rasterizes text for the current zoom so it stays sharp when zoomed in. The size moves
 /// in steps of √2 (so a smooth zoom does not re-render text every frame) and the text's scale
@@ -1073,12 +1111,7 @@ fn style_nodes(
     let focus_neighbors = focus.map(|f| neighbors(&state, f)).unwrap_or_default();
     let paint = &state.paint;
     for (entity, node, children, mut transform) in &mut nodes {
-        let least = match node.rank {
-            0 => HUB_PX,
-            1 => TOWN_PX,
-            _ => NOTE_PX,
-        };
-        let size = Vec3::splat((scale * least / node.radius).max(1.0));
+        let size = Vec3::splat((scale * LEAST_PX_PER_UNIT).max(1.0));
         if transform.scale != size {
             transform.scale = size;
         }
