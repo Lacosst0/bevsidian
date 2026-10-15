@@ -1,7 +1,7 @@
 ---
 icon: bot
 path: true
-color: red
+color: rose
 quest: feature
 feature: Enemies that think
 ---

@@ -1,7 +1,7 @@
 ---
 icon: users
 path: true
-color: green
+color: olive
 quest: feature
 feature: Online multiplayer
 ---

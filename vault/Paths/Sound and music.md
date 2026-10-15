@@ -1,7 +1,7 @@
 ---
 icon: volume-2
 path: true
-color: cyan
+color: salmon
 quest: feature
 feature: Music and sound effects
 ---

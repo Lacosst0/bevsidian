@@ -1,7 +1,7 @@
 ---
 icon: shapes
 path: true
-color: rose
+color: cyan
 quest: feature
 feature: 2D sprites and tilemaps
 ---

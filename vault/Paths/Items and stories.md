@@ -1,7 +1,7 @@
 ---
 icon: backpack
 path: true
-color: lime
+color: green
 quest: feature
 feature: Items, dialogue and saves
 ---

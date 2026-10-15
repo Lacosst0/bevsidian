@@ -1,7 +1,7 @@
 ---
 icon: send
 path: true
-color: teal
+color: sky
 quest: mastery
 feature: Ship it to players
 ---

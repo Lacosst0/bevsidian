@@ -1,7 +1,7 @@
 ---
 icon: atom
 path: true
-color: sand
+color: lavender
 quest: feature
 feature: Physics and collisions
 ---

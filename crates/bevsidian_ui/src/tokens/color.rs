@@ -109,24 +109,24 @@ pub fn map_route_named(name: &str) -> Option<Color> {
         .find(|(n, _)| n.eq_ignore_ascii_case(name.trim()))
         .map(|&(_, c)| c)
 }
-/// The route colours, round the colour wheel (mostly Tailwind's 400 shades: bright on the
-/// sky), each a hue of its own so routes tell apart at a glance. No orange or amber: orange
-/// is the note being read.
+/// The route colours, round the colour wheel: Tailwind shades bright enough for the sky,
+/// chosen so the closest two still tell apart at a glance (the smallest distance between any
+/// two, in OKLab, as large as it gets). No orange or amber: orange is the note being read.
 pub const MAP_ROUTES: [(&str, Color); 14] = [
     ("yellow", Color::srgb(0.980, 0.800, 0.082)),  // #facc15
-    ("sand", Color::srgb(0.851, 0.737, 0.561)),    // #d9bc8f
-    ("lime", Color::srgb(0.639, 0.902, 0.208)),    // #a3e635
+    ("olive", Color::srgb(0.741, 0.718, 0.420)),   // #bdb76b
+    ("lime", Color::srgb(0.745, 0.949, 0.392)),    // #bef264
     ("green", Color::srgb(0.290, 0.871, 0.502)),   // #4ade80
-    ("mint", Color::srgb(0.600, 0.965, 0.894)),    // #99f6e4
-    ("teal", Color::srgb(0.078, 0.722, 0.651)),    // #14b8a6
-    ("cyan", Color::srgb(0.133, 0.827, 0.933)),    // #22d3ee
+    ("emerald", Color::srgb(0.063, 0.725, 0.506)), // #10b981
+    ("cyan", Color::srgb(0.404, 0.910, 0.976)),    // #67e8f9
+    ("sky", Color::srgb(0.220, 0.741, 0.973)),     // #38bdf8
     ("blue", Color::srgb(0.231, 0.510, 0.965)),    // #3b82f6
-    ("indigo", Color::srgb(0.647, 0.706, 0.988)),  // #a5b4fc
-    ("purple", Color::srgb(0.753, 0.518, 0.988)),  // #c084fc
-    ("fuchsia", Color::srgb(0.910, 0.475, 0.976)), // #e879f9
-    ("pink", Color::srgb(0.976, 0.659, 0.831)),    // #f9a8d4
+    ("violet", Color::srgb(0.655, 0.545, 0.980)),  // #a78bfa
+    ("lavender", Color::srgb(0.847, 0.706, 0.996)), // #d8b4fe
+    ("fuchsia", Color::srgb(0.851, 0.275, 0.937)), // #d946ef
+    ("pink", Color::srgb(0.957, 0.447, 0.714)),    // #f472b6
     ("rose", Color::srgb(0.957, 0.247, 0.369)),    // #f43f5e
-    ("red", Color::srgb(0.937, 0.267, 0.267)),     // #ef4444
+    ("salmon", Color::srgb(0.988, 0.647, 0.647)),  // #fca5a5
 ];
 /// `#e5e5e5`: the main quest's lines, and the lines leaving it.
 pub const MAP_LINE: Color = Color::srgb(0.898, 0.898, 0.898);

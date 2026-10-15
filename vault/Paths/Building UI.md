@@ -1,7 +1,7 @@
 ---
 icon: layout-template
 path: true
-color: yellow
+color: lime
 quest: feature
 feature: Menus and a HUD
 ---
