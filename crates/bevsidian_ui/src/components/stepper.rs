@@ -2,11 +2,11 @@
 
 use std::ops::RangeInclusive;
 
-use bevsidian_core::signal::Signal;
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
 use bevy_radioactive::view::view;
 
 use crate::{
+    binding::Binding,
     components::button::{Size, Variant, icon_button},
     surface::Disabled,
     tokens::{color, font::insert},
@@ -16,7 +16,7 @@ use crate::{
 /// its end of the range, and a value outside the range (an old stored setting) snaps into it
 /// on the first click.
 pub fn stepper(
-    value: Signal<u32>,
+    value: Binding<u32>,
     range: RangeInclusive<u32>,
     step: u32,
     format: fn(u32) -> String,
@@ -29,7 +29,7 @@ pub fn stepper(
         Children [
             @{icon_button(Variant::Outline, Size::IconSm, "minus")}
             Disabled($($value <= min))
-            on(move |_: On<Activate>| less.update(|v| *v = v.saturating_sub(step).clamp(min, max)))
+            on(move |_: On<Activate>, mut commands: Commands| less.update(&mut commands, |v| v.saturating_sub(step).clamp(min, max)))
             --
             Node { width: px(56), justify_content: JustifyContent::Center }
             Pickable::IGNORE
@@ -43,7 +43,7 @@ pub fn stepper(
             --
             @{icon_button(Variant::Outline, Size::IconSm, "plus")}
             Disabled($($value >= max))
-            on(move |_: On<Activate>| more.update(|v| *v = v.saturating_add(step).clamp(min, max)))
+            on(move |_: On<Activate>, mut commands: Commands| more.update(&mut commands, |v| v.saturating_add(step).clamp(min, max)))
         ]
     }
 }

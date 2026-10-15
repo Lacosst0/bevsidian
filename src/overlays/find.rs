@@ -3,7 +3,7 @@
 //! them (Shift goes back), scrolling each into view. Escape or the close button closes it.
 
 use bevy::{prelude::*, ui::UiGlobalTransform, ui_widgets::Activate};
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 use bevy_ui_commonmark::MdRoot;
 use bevy_ui_textselect::{TextBlocks, TextMark, TextMarks};
 
@@ -27,15 +27,15 @@ struct Matches {
 
 /// Searches the note when the query or the note changes.
 fn find_matches(
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
     texts: TextBlocks,
     roots: Query<Entity, With<MdRoot>>,
     panes: Query<(), With<NotePane>>,
     parents: Query<&ChildOf>,
     mut matches: ResMut<Matches>,
 ) {
-    let query = nav.find_query.get_untracked().to_ascii_lowercase();
-    let open = nav.find.get_untracked() && nav.view.get_untracked() == View::Note;
+    let query = nav.find_query.to_ascii_lowercase();
+    let open = nav.find && nav.view == View::Note;
     // The note in the reading pane (other markdown, e.g. in popovers, is not searched).
     let root = roots
         .iter()
@@ -43,7 +43,9 @@ fn find_matches(
     let (Some(root), true, false) = (root, open, query.is_empty()) else {
         if matches.key.is_some() {
             *matches = Matches::default();
-            nav.find_count.set_if_neq(0);
+            if nav.find_count != 0 {
+                nav.find_count = 0;
+            }
         }
         return;
     };
@@ -67,10 +69,12 @@ fn find_matches(
     }
     // A new query starts from the first match; the same one in a re-rendered note keeps its
     // place.
-    if matches.key.as_ref().is_none_or(|(old, ..)| *old != query) {
-        nav.find_index.set_if_neq(0);
+    if matches.key.as_ref().is_none_or(|(old, ..)| *old != query) && nav.find_index != 0 {
+        nav.find_index = 0;
     }
-    nav.find_count.set_if_neq(found.len());
+    if nav.find_count != found.len() {
+        nav.find_count = found.len();
+    }
     *matches = Matches {
         key: Some(key),
         found,
@@ -89,10 +93,7 @@ fn mark_matches(
     mut marks: ResMut<TextMarks>,
     mut panes: Query<(&ComputedNode, &UiGlobalTransform, &mut ScrollPosition), With<NotePane>>,
 ) {
-    let current = nav
-        .find_index
-        .get_untracked()
-        .min(matches.found.len().saturating_sub(1));
+    let current = nav.find_index.min(matches.found.len().saturating_sub(1));
     let wanted = TextMarks(
         matches
             .found
@@ -139,28 +140,26 @@ fn mark_matches(
 }
 
 /// The bar: the query, which match is current of how many, previous / next, close.
-pub fn find_bar(nav: Nav) -> impl Scene {
-    let (open, mode) = (nav.find.clone(), nav.mode.clone());
-    let (query, index, count) = (
-        nav.find_query.clone(),
-        nav.find_index.clone(),
-        nav.find_count.clone(),
-    );
-    let value = Some(nav.find_query.clone());
+#[component]
+pub fn find_bar(nav: Watch<Res<Nav>>) -> impl Scene {
+    let value = Some(Binding::resource(
+        nav.clone(),
+        |n: &Nav| n.find_query.clone(),
+        |n, query| n.find_query = query,
+    ));
     let shadow = shadow::popover();
     view! {
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
-            right: $(if $mode == LayoutMode::Compact { px(12) } else { px(24) }),
-            left: $(if $mode == LayoutMode::Compact { px(12) } else { Val::Auto }),
+            right: $(if $nav.mode == LayoutMode::Compact { px(12) } else { px(24) }),
+            left: $(if $nav.mode == LayoutMode::Compact { px(12) } else { Val::Auto }),
         }
         GlobalZIndex(layer::TOOLBAR)
         Pickable::IGNORE
         Children [
-            if $open {
+            if $nav.find {
                 let (shadow, value) = (shadow.clone(), value.clone());
-                let (previous, next, close) = (nav.clone(), nav.clone(), nav.find.clone());
                 @{popover()}
                 shadow
                 Node { flex_grow: 1.0, flex_direction: FlexDirection::Row, align_items: AlignItems::Center, column_gap: px(4), padding: UiRect::all(px(4)) }
@@ -169,16 +168,16 @@ pub fn find_bar(nav: Nav) -> impl Scene {
                     Node { flex_grow: 1.0, min_width: px(0), width: px(220), border: UiRect::all(px(0)) }
                     BackgroundColor(Color::NONE)
                     --
-                    Text($({
-                        let (total, query) = ($count, $query);
-                        if query.is_empty() {
+                    Text($(nav.with(|nav| {
+                        let total = nav.find_count;
+                        if nav.find_query.is_empty() {
                             String::new()
                         } else if total == 0 {
                             "No results".to_owned()
                         } else {
-                            format!("{} of {total}", $index.min(total - 1) + 1)
+                            format!("{} of {total}", nav.find_index.min(total - 1) + 1)
                         }
-                    }))
+                    })))
                     @{insert(font(size::SM, bevy::text::FontWeight::NORMAL))}
                     TextColor(color::MUTED_FOREGROUND)
                     Node { flex_shrink: 0.0, margin: UiRect::horizontal(px(4)) }
@@ -188,15 +187,15 @@ pub fn find_bar(nav: Nav) -> impl Scene {
                     --
                     @{icon_button(Variant::Ghost, Size::Icon, "arrow-up")}
                     Tooltip::new("Previous (Shift+Enter)")
-                    on(move |_: On<Activate>| previous.step_find(-1))
+                    on(|_: On<Activate>, mut n: ResMut<Nav>| n.step_find(-1))
                     --
                     @{icon_button(Variant::Ghost, Size::Icon, "arrow-down")}
                     Tooltip::new("Next (Enter)")
-                    on(move |_: On<Activate>| next.step_find(1))
+                    on(|_: On<Activate>, mut n: ResMut<Nav>| n.step_find(1))
                     --
                     @{icon_button(Variant::Ghost, Size::Icon, "x")}
                     Tooltip::new("Close (Esc)")
-                    on(move |_: On<Activate>| close.set(false))
+                    on(|_: On<Activate>, mut n: ResMut<Nav>| n.find = false)
                 ]
             }
         ]

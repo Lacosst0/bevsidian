@@ -1,10 +1,10 @@
-//! A segmented control (shadcn/ui `ToggleGroup`, single choice) bound to a signal.
+//! A segmented control (shadcn/ui `ToggleGroup`, single choice) bound to a value.
 
-use bevsidian_core::signal::Signal;
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
 use bevy_radioactive::view::view;
 
 use crate::{
+    binding::Binding,
     components::{
         button::{Size, Variant, button},
         typography::tinted,
@@ -16,9 +16,9 @@ use crate::{
 /// One button per `(value, label)`, the one equal to `value` selected; a click sets `value`.
 /// When `value` matches no option (say, a stored setting from an older version), none is
 /// selected until one is chosen.
-pub fn segmented<T>(options: Vec<(T, String)>, value: Signal<T>) -> impl Scene
+pub fn segmented<T>(options: Vec<(T, String)>, value: Binding<T>) -> impl Scene
 where
-    T: Clone + Default + PartialEq + Send + Sync + 'static,
+    T: Clone + PartialEq + Send + Sync + 'static,
 {
     let segments: Vec<Box<dyn Scene>> = options
         .into_iter()
@@ -37,7 +37,7 @@ where
                     border_radius: BorderRadius::ZERO,
                 }
                 Selected($($current == option))
-                on(move |_: On<Activate>| choose.set(chosen.clone()))
+                on(move |_: On<Activate>, mut commands: Commands| choose.set(&mut commands, chosen.clone()))
                 Children [ @{tinted(&text, 13.0, FontWeight::MEDIUM, Tint::SEGMENT)} ]
             }) as Box<dyn Scene>
         })

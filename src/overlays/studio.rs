@@ -6,14 +6,13 @@
 //! Opened from the brush, box and speaker buttons above the examples, and from the sidebar's
 //! mark.
 
-use bevsidian_core::signal::{Signal, signal};
 use bevy::{
     audio::{AudioPlayer, PlaybackSettings},
     picking::events::PointerOver,
     prelude::*,
     ui_widgets::Activate,
 };
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
 use bevsidian_core::nav::{Nav, Studio};
 use bevsidian_preview::{
@@ -24,7 +23,8 @@ use bevsidian_ui::{color::PIXEL_PALETTE, prelude::*};
 
 pub fn plugin(app: &mut App) {
     app.init_resource::<Brush>()
-        .add_systems(Update, (show_cells, show_pictures, show_mark, edit_sound));
+        .init_resource::<SoundSlot>()
+        .add_systems(Update, (show_cells, show_pictures, show_mark, play_edits));
 }
 
 /// What the brush paints, and which layer of the model is being built.
@@ -63,49 +63,17 @@ fn stroke(from: (usize, usize), to: (usize, usize)) -> Vec<(usize, usize)> {
         .collect()
 }
 
-/// The sound being made: which slot, and its numbers as signals for the controls; on the
-/// sound editor. Kept in step with the reader's sounds by [`edit_sound`].
-#[derive(Component, Clone)]
-struct SoundEdit {
-    slot: Signal<usize>,
-    wave: Signal<Wave>,
-    pitch: Signal<f32>,
-    slide: Signal<f32>,
-    length: Signal<f32>,
-    volume: Signal<f32>,
-}
+/// The sound editor; its slot is the sound being made.
+#[derive(Component, Clone, Copy, Default)]
+struct SoundEditor;
 
-impl Default for SoundEdit {
-    fn default() -> Self {
-        let sfx = Slot::Hit.default_sound();
-        Self {
-            slot: signal(|| 0),
-            wave: signal(move || sfx.wave),
-            pitch: signal(move || sfx.pitch),
-            slide: signal(move || sfx.slide),
-            length: signal(move || sfx.length),
-            volume: signal(move || sfx.volume),
-        }
-    }
-}
+/// Which of the examples' sounds is being made.
+#[derive(Resource, Clone, Copy, Default)]
+pub(crate) struct SoundSlot(usize);
 
-impl SoundEdit {
-    fn sfx(&self) -> Sfx {
-        Sfx::new(
-            self.wave.get_untracked(),
-            self.pitch.get_untracked(),
-            self.slide.get_untracked(),
-            self.length.get_untracked(),
-            self.volume.get_untracked(),
-        )
-    }
-
-    fn show(&self, sfx: Sfx) {
-        self.wave.set(sfx.wave);
-        self.pitch.set(sfx.pitch);
-        self.slide.set(sfx.slide);
-        self.length.set(sfx.length);
-        self.volume.set(sfx.volume);
+impl SoundSlot {
+    fn slot(self) -> Slot {
+        Slot::ALL[self.0.min(Slot::ALL.len() - 1)]
     }
 }
 
@@ -139,32 +107,39 @@ impl Default for Picture {
 #[derive(Component, Clone, Copy, Default)]
 pub struct YourMark;
 
-pub fn studio_dialog(nav: Nav) -> impl Scene {
-    let open = nav.studio.clone();
+#[component]
+pub fn studio_dialog(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0) }
         GlobalZIndex(layer::DIALOG)
         Pickable::IGNORE
         Children [
-            if $open.is_some() {
-                let close = nav.studio.clone();
-                @{scrim(move || close.set(None))}
+            if $nav.studio.is_some() {
+                @{scrim(close)}
                 Node { justify_content: JustifyContent::Center, align_items: AlignItems::Start, padding: UiRect::top(Val::Percent(4.0)) }
-                Children [ @{panel(nav.clone())} ]
+                Children [ @{panel()} ]
             }
         ]
     }
 }
 
-fn panel(nav: Nav) -> impl Scene {
-    let (close, done, tab) = (nav.clone(), nav.clone(), nav.studio.clone());
+fn close(world: &mut World) {
+    world.resource_mut::<Nav>().studio = None;
+}
+
+#[component]
+fn panel(nav: Watch<Res<Nav>>) -> impl Scene {
     let tabs = segmented(
         vec![
             (Some(Studio::Sprite), "Pixel sprite".to_owned()),
             (Some(Studio::Voxels), "Voxel model".to_owned()),
             (Some(Studio::Sounds), "Sounds".to_owned()),
         ],
-        nav.studio.clone(),
+        Binding::resource(
+            nav.clone(),
+            |n: &Nav| n.studio,
+            |n, studio| n.studio = studio,
+        ),
     );
     view! {
         @{dialog(640.0)}
@@ -172,29 +147,24 @@ fn panel(nav: Nav) -> impl Scene {
         Children [
             Node { flex_direction: FlexDirection::Column, row_gap: px(6) }
             Children [
-                @{dialog_header("Make it yours", move || close.studio.set(None))}
+                @{dialog_header("Make it yours", close)}
                 --
                 @{muted("Draw a sprite, build a voxel model, make sounds. They are saved, and the examples play with them: the player and the ships become your sprite, rocks and guards your model, and hits, bounces and pops sound like yours.")}
             ]
             --
             @{tabs}
             --
-            if $tab == Some(Studio::Sprite) {
-                @{sprite_editor()}
-            }
-            --
-            if $tab == Some(Studio::Voxels) {
-                @{voxel_editor()}
-            }
-            --
-            if $tab == Some(Studio::Sounds) {
-                @{sound_editor()}
+            match $nav.studio {
+                Some(Studio::Sprite) => { @{sprite_editor()} },
+                Some(Studio::Voxels) => { @{voxel_editor()} },
+                Some(Studio::Sounds) => { @{sound_editor()} },
+                None => {},
             }
             --
             @{dialog_footer()}
             Children [
                 @{text_button(Variant::Primary, Size::Sm, "Done")}
-                on(move |_: On<Activate>| done.studio.set(None))
+                on(|_: On<Activate>, mut n: ResMut<Nav>| n.studio = None)
             ]
         ]
     }
@@ -318,22 +288,43 @@ fn voxel_editor() -> impl Scene {
     }
 }
 
+/// A number of the slot's sound, which a control shows and sets.
+fn sound_number(
+    yours: &Watch<Res<'static, Yours>>,
+    slot: &Watch<Res<'static, SoundSlot>>,
+    get: fn(&Sfx) -> f32,
+    set: fn(&mut Sfx, f32),
+) -> Binding<f32> {
+    let (read, write) = (slot.clone(), slot.clone());
+    Binding::resource(
+        yours.clone(),
+        move |yours: &Yours| get(&yours.sounds[read.get().slot().index()]),
+        move |yours, value| {
+            let slot = write.get_untracked().slot();
+            let mut sfx = yours.sounds[slot.index()];
+            set(&mut sfx, value);
+            yours.set_sound(slot, sfx);
+        },
+    )
+}
+
 /// The sound editor: the examples' sounds to pick from, and the picked one's wave, pitch,
-/// slide, length and volume, with ready-made sounds and a surprise. It plays as it changes.
-fn sound_editor() -> impl Scene {
-    let edit = SoundEdit::default();
+/// slide, length and volume, with ready-made sounds and a surprise. It plays as it changes
+/// ([`play_edits`]).
+#[component]
+fn sound_editor(yours: Watch<Res<Yours>>, slot: Watch<Res<SoundSlot>>) -> impl Scene {
     let slots: Vec<Box<dyn Scene>> = Slot::ALL
         .into_iter()
-        .map(|slot| {
-            let (current, choose) = (edit.slot.clone(), edit.slot.clone());
-            let index = slot.index();
+        .map(|choice| {
+            let current = slot.clone();
+            let index = choice.index();
             Box::new(view! {
                 @{item()}
                 Node { height: px(44) }
-                Selected($current == index)
-                on(move |_: On<Activate>, yours: Res<Yours>, mut commands: Commands| {
-                    choose.set(index);
-                    play(&mut commands, &yours, slot);
+                Selected($current.0 == index)
+                on(move |_: On<Activate>, mut slot: ResMut<SoundSlot>, yours: Res<Yours>, mut commands: Commands| {
+                    slot.0 = index;
+                    play(&mut commands, &yours, choice);
                 })
                 Children [
                     @{item_icon("volume-2")}
@@ -341,9 +332,9 @@ fn sound_editor() -> impl Scene {
                     Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, min_width: px(0) }
                     Pickable::IGNORE
                     Children [
-                        @{label(slot.name(), size::SM, bevy::text::FontWeight::MEDIUM, color::FOREGROUND)}
+                        @{label(choice.name(), size::SM, bevy::text::FontWeight::MEDIUM, color::FOREGROUND)}
                         --
-                        @{caption(slot.plays())}
+                        @{caption(choice.plays())}
                     ]
                 ]
             }) as Box<dyn Scene>
@@ -352,21 +343,37 @@ fn sound_editor() -> impl Scene {
     let presets: Vec<Box<dyn Scene>> = PRESETS
         .iter()
         .map(|&(name, sfx)| {
-            let edit = edit.clone();
             Box::new(bsn! {
                 @{text_button(Variant::Outline, Size::Xs, name)}
-                on(move |_: On<Activate>| edit.show(sfx))
+                on(move |_: On<Activate>, mut yours: ResMut<Yours>, slot: Res<SoundSlot>| {
+                    yours.set_sound(slot.slot(), sfx);
+                })
             }) as Box<dyn Scene>
         })
         .collect();
+    let wave = {
+        let (read, write) = (slot.clone(), slot.clone());
+        Binding::resource(
+            yours.clone(),
+            move |yours: &Yours| yours.sounds[read.get().slot().index()].wave,
+            move |yours, wave| {
+                let slot = write.get_untracked().slot();
+                let sfx = Sfx {
+                    wave,
+                    ..yours.sounds[slot.index()]
+                };
+                yours.set_sound(slot, sfx);
+            },
+        )
+    };
     let waves = segmented(
         Wave::ALL
             .iter()
             .map(|&w| (w, w.name().to_owned()))
             .collect(),
-        edit.wave.clone(),
+        wave,
     );
-    let row = |name: &str, value: Signal<f32>, range: (f32, f32), shown: fn(f32) -> String| {
+    let row = |name: &str, value: Binding<f32>, range: (f32, f32), shown: fn(f32) -> String| {
         let number = value.clone();
         Box::new(view! {
             Node { align_items: AlignItems::Center, column_gap: px(12) }
@@ -384,22 +391,36 @@ fn sound_editor() -> impl Scene {
             ]
         }) as Box<dyn Scene>
     };
+    let number = |get, set| sound_number(&yours, &slot, get, set);
     let rows: Vec<Box<dyn Scene>> = vec![
-        row("Pitch", edit.pitch.clone(), PITCH, |v| format!("{v:.0} Hz")),
-        row("Slide", edit.slide.clone(), SLIDE, |v| {
-            format!("{v:+.1} oct")
-        }),
-        row("Length", edit.length.clone(), LENGTH, |v| {
-            format!("{:.0} ms", v * 1000.0)
-        }),
-        row("Volume", edit.volume.clone(), VOLUME, |v| {
-            format!("{:.0} %", v * 100.0)
-        }),
+        row(
+            "Pitch",
+            number(|s| s.pitch, |s, v| s.pitch = v),
+            PITCH,
+            |v| format!("{v:.0} Hz"),
+        ),
+        row(
+            "Slide",
+            number(|s| s.slide, |s, v| s.slide = v),
+            SLIDE,
+            |v| format!("{v:+.1} oct"),
+        ),
+        row(
+            "Length",
+            number(|s| s.length, |s, v| s.length = v),
+            LENGTH,
+            |v| format!("{:.0} ms", v * 1000.0),
+        ),
+        row(
+            "Volume",
+            number(|s| s.volume, |s, v| s.volume = v),
+            VOLUME,
+            |v| format!("{:.0} %", v * 100.0),
+        ),
     ];
-    let (surprise, again) = (edit.clone(), edit.clone());
     bsn! {
         Node { column_gap: px(20), align_items: AlignItems::Start, flex_wrap: FlexWrap::Wrap, row_gap: px(16) }
-        edit
+        SoundEditor
         Children [
             Node { flex_direction: FlexDirection::Column, width: px(220), row_gap: px(2) }
             Children [ {slots} ]
@@ -417,15 +438,14 @@ fn sound_editor() -> impl Scene {
                 Node { column_gap: px(6) }
                 Children [
                     @{text_button(Variant::Secondary, Size::Sm, "Play")}
-                    on(move |_: On<Activate>, yours: Res<Yours>, mut commands: Commands| {
-                        let slot = Slot::ALL[again.slot.get_untracked().min(Slot::ALL.len() - 1)];
-                        play(&mut commands, &yours, slot);
+                    on(|_: On<Activate>, yours: Res<Yours>, slot: Res<SoundSlot>, mut commands: Commands| {
+                        play(&mut commands, &yours, slot.slot());
                     })
                     --
                     @{text_button(Variant::Outline, Size::Sm, "Surprise me")}
-                    on(move |_: On<Activate>, time: Res<Time<Real>>| {
+                    on(|_: On<Activate>, time: Res<Time<Real>>, mut yours: ResMut<Yours>, slot: Res<SoundSlot>| {
                         let seed = (time.elapsed_secs_f64() * 1000.0) as u32;
-                        surprise.show(sound::random(seed));
+                        yours.set_sound(slot.slot(), sound::random(seed));
                     })
                     --
                     @{text_button(Variant::Outline, Size::Sm, "Start over")}
@@ -444,46 +464,34 @@ fn play(commands: &mut Commands, yours: &Yours, slot: Slot) {
     commands.spawn((AudioPlayer(yours.sound(slot)), PlaybackSettings::DESPAWN));
 }
 
-/// Keeps the sound controls and the reader's sounds in step: picking a slot shows its sound;
-/// a change in the controls becomes the slot's sound and plays once it settles; a change
-/// from elsewhere ("Start over", the saved sounds loading) shows in the controls.
-fn edit_sound(
-    editors: Query<Ref<SoundEdit>>,
-    mut yours: ResMut<Yours>,
+/// While the sound editor is open, plays the slot's sound once an edit settles (a slider
+/// drag stops for a moment), after its audio is remade.
+fn play_edits(
+    editors: Query<(), With<SoundEditor>>,
+    yours: Res<Yours>,
+    slot: Res<SoundSlot>,
     time: Res<Time<Real>>,
-    mut last: Local<Option<(usize, Sfx)>>,
+    mut last: Local<Option<(Slot, Sfx)>>,
     mut settle: Local<Option<f64>>,
     mut commands: Commands,
 ) {
-    let Some(edit) = editors.iter().next() else {
-        return;
-    };
-    // A new editor (the tab just opened) shows what is stored.
-    if edit.is_added() {
+    if editors.is_empty() {
         *last = None;
+        *settle = None;
+        return;
     }
-    let slot = edit.slot.get_untracked().min(Slot::ALL.len() - 1);
-    let stored = yours.sounds[slot];
-    let shown = edit.sfx();
+    let slot = slot.slot();
+    let sfx = yours.sounds[slot.index()];
     match *last {
-        Some((was, sfx)) if was == slot => {
-            if shown != sfx {
-                yours.set_sound(Slot::ALL[slot], shown);
-                *last = Some((slot, shown.clamped()));
-                *settle = Some(time.elapsed_secs_f64() + 0.3);
-            } else if stored != sfx {
-                edit.show(stored);
-                *last = Some((slot, stored));
-            }
+        Some((was, before)) if was == slot && before != sfx => {
+            *settle = Some(time.elapsed_secs_f64() + 0.3);
         }
-        _ => {
-            edit.show(stored);
-            *last = Some((slot, stored));
-        }
+        _ => {}
     }
+    *last = Some((slot, sfx));
     if settle.is_some_and(|at| time.elapsed_secs_f64() >= at) {
         *settle = None;
-        play(&mut commands, &yours, Slot::ALL[slot]);
+        play(&mut commands, &yours, slot);
     }
 }
 

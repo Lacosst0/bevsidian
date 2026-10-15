@@ -1,18 +1,27 @@
-//! A checkbox (shadcn/ui `Checkbox`) showing a boolean signal. Like shadcn's checkbox inside a
+//! A checkbox (shadcn/ui `Checkbox`) showing a boolean. Like shadcn's checkbox inside a
 //! `Label`, it does not take clicks itself: put it in a row (an [`item`](crate::item)) that
 //! toggles the value, so the whole row is the target.
 
-use bevsidian_core::signal::Signal;
 use bevy::prelude::*;
 use bevy_radioactive::view::view;
 
 use crate::{
+    binding::Binding,
     components::icon::glyph,
     tokens::{color, font::icon_font, radius},
 };
 
+/// The border: white when checked.
+fn edge(checked: bool) -> Color {
+    if checked {
+        color::PRIMARY
+    } else {
+        color::INPUT
+    }
+}
+
 /// Checked: a white box with a dark tick. Unchecked: an empty box with the input border.
-pub fn checkbox(value: Signal<bool>) -> impl Scene {
+pub fn checkbox(value: Binding<bool>) -> impl Scene {
     let tick = value.clone();
     view! {
         Node {
@@ -25,7 +34,8 @@ pub fn checkbox(value: Signal<bool>) -> impl Scene {
             flex_shrink: 0.0,
         }
         BackgroundColor($(if $value { color::PRIMARY } else { color::INPUT_BG }))
-        BorderColor::all($(if $value { color::PRIMARY } else { color::INPUT }))
+        // Each side is patched: `BorderColor::all(..)` would be read only once.
+        BorderColor { top: $(edge($value)), right: $(edge($value)), bottom: $(edge($value)), left: $(edge($value)) }
         Pickable::IGNORE
         Children [
             Text($(if $tick { glyph("check") } else { String::new() }))

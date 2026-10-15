@@ -5,6 +5,7 @@ use bevy::{prelude::*, ui_widgets::Activate};
 use bevy_radioactive::view::view;
 
 use crate::{
+    binding::Binding,
     components::{
         button::{Size, Variant, button},
         icon::glyph,
@@ -14,20 +15,16 @@ use crate::{
 };
 
 /// A small chevron button that opens and closes a branch: right when closed, down when open.
-/// `is_open` may read signals (it is re-run when they change). It sits inside a row; clicking
-/// it does not activate the row.
-pub fn disclosure<O, T>(is_open: O, toggle: T) -> impl Scene
-where
-    O: Fn() -> bool + Clone + Send + Sync + 'static,
-    T: Fn() + Clone + Send + Sync + 'static,
-{
+/// It sits inside a row; clicking it does not activate the row.
+pub fn disclosure(open: Binding<bool>) -> impl Scene {
     let (closed_glyph, open_glyph) = (glyph("chevron-right"), glyph("chevron-down"));
+    let toggle = open.clone();
     view! {
         @{button(Variant::Ghost, Size::IconXs)}
         Node { width: px(22), height: px(22), margin: UiRect::right(px(-4)) }
-        on(move |_: On<Activate>| toggle())
+        on(move |_: On<Activate>, mut commands: Commands| toggle.update(&mut commands, |was| !was))
         Children [
-            Text($(if is_open() { open_glyph.clone() } else { closed_glyph.clone() }))
+            Text($(if $open { open_glyph.clone() } else { closed_glyph.clone() }))
             @{icon_font(14.0)}
             TextColor(color::SUBTLE_FOREGROUND)
             Tint { idle: color::SUBTLE_FOREGROUND, hover: color::FOREGROUND, selected: color::FOREGROUND }

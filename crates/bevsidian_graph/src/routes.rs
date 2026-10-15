@@ -223,10 +223,10 @@ pub(crate) fn choose_routes(
     mut labels: Query<&mut Text2d, With<GraphLabel>>,
     mut last: Local<Option<(Option<Vec<NoteId>>, Option<NoteId>, bool, u64, usize)>>,
 ) {
-    let data = vault.get_untracked();
-    let chosen = nav.quests.get_untracked();
-    let followed = nav.path.get_untracked().filter(|&p| data.path(p).is_some());
-    let whole = nav.whole_map.get_untracked();
+    let data = vault.0.clone();
+    let chosen = nav.quests.clone();
+    let followed = nav.path.filter(|&p| data.path(p).is_some());
+    let whole = nav.whole_map;
     let key = (
         chosen.clone(),
         followed,

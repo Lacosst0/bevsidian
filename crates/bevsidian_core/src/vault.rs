@@ -2,7 +2,6 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
-use crate::signal::Signal;
 use bevy::prelude::*;
 use bevy_ui_commonmark::{MdDocument, WikiLink};
 
@@ -38,30 +37,28 @@ pub struct Note {
 
 /// All notes, shared cheaply between systems and UI closures.
 ///
-/// Notes can be edited ([`Vault::save`]), so this is a signal: reactive UI regions that
-/// read it with [`Vault::get`] re-render when a note changes.
-#[derive(Resource, Clone)]
-pub struct Vault(Signal<Arc<VaultData>>);
+/// Notes can be edited ([`Vault::save`]): views that watch it (`Watch<Res<Vault>>`) update
+/// when a note changes. Cloning it is cheap.
+#[derive(Resource, Clone, Debug)]
+pub struct Vault(pub Arc<VaultData>);
+
+impl std::ops::Deref for Vault {
+    type Target = VaultData;
+
+    fn deref(&self) -> &VaultData {
+        &self.0
+    }
+}
 
 impl Vault {
     pub fn new(data: VaultData) -> Self {
-        Self(Signal::new(Arc::new(data)))
-    }
-
-    /// The current contents (tracked: inside a reactive region, re-runs it on change).
-    pub fn get(&self) -> Arc<VaultData> {
-        self.0.get()
-    }
-
-    /// The current contents, untracked (for systems).
-    pub fn get_untracked(&self) -> Arc<VaultData> {
-        self.0.get_untracked()
+        Self(Arc::new(data))
     }
 
     /// Replaces the source of note `id` and rebuilds links, backlinks and tags.
     /// Returns whether anything changed.
-    pub fn save(&self, id: NoteId, source: &str) -> bool {
-        let old = self.get_untracked();
+    pub fn save(&mut self, id: NoteId, source: &str) -> bool {
+        let old = &self.0;
         if old.notes.get(id).is_none_or(|n| n.source == source) {
             return false;
         }
@@ -73,7 +70,7 @@ impl Vault {
         }));
         data.home = old.home;
         data.revision = old.revision + 1;
-        self.0.set(Arc::new(data));
+        self.0 = Arc::new(data);
         true
     }
 }
@@ -370,9 +367,18 @@ impl VaultData {
                     return Some((0, id));
                 }
                 let name = note.name.to_lowercase();
-                let mut score = 0;
+                // The note named exactly so comes first, then names that start with the query.
+                let mut score = if name == query {
+                    1000
+                } else if name.starts_with(&query) {
+                    100
+                } else {
+                    0
+                };
                 for term in &terms {
-                    if name.contains(term) {
+                    if name.split_whitespace().any(|word| word.starts_with(term)) {
+                        score += 12;
+                    } else if name.contains(term) {
                         score += 10;
                     } else if note.search_text.contains(term) {
                         score += 1;
@@ -564,5 +570,23 @@ mod tests {
         let excerpt = v.excerpt(v.find("ECS").unwrap(), "back").unwrap();
         assert_eq!(excerpt.term, "Back", "as written in the note");
         assert!(excerpt.after.starts_with(" to"));
+    }
+
+    #[test]
+    fn exact_and_prefix_names_rank_first() {
+        let v = VaultData::from_sources([
+            ("Advanced queries.md", "# Advanced queries"),
+            ("Query filters.md", "# Query filters\nMore queries."),
+            ("Queries.md", "# Queries"),
+        ]);
+        let names = |q| -> Vec<String> {
+            v.search(q, None)
+                .into_iter()
+                .map(|id| v.notes[id].name.clone())
+                .collect()
+        };
+        assert_eq!(names("queries")[0], "Queries");
+        assert_eq!(names("Queries")[..2], ["Queries", "Advanced queries"]);
+        assert_eq!(names("query")[0], "Query filters");
     }
 }

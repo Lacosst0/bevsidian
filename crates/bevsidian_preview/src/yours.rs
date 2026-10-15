@@ -32,7 +32,7 @@ const STAMP: i32 = 8;
 pub type Cell = u8;
 
 /// The reader's sprite and model, and the images drawn from them.
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct Yours {
     /// Pixels, row by row from the top.
     pub pixels: Vec<Cell>,
@@ -319,7 +319,7 @@ pub fn play_sounds(
     mut commands: Commands,
 ) {
     let mut count = playing.iter().count();
-    let on = nav.sound.get_untracked();
+    let on = nav.sound;
     for mut runtime in &mut previews {
         let world = &mut runtime.bypass_change_detection().world;
         let mut players = world.query::<(Entity, &AudioPlayer, Option<&PlaybackSettings>)>();

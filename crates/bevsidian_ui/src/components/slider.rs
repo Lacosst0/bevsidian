@@ -1,10 +1,9 @@
-//! A slider (shadcn/ui `Slider`) bound to a number signal: a thin track, the range up to the
+//! A slider (shadcn/ui `Slider`) bound to a number: a thin track, the range up to the
 //! value filled, and a round thumb. Bevy's headless [`Slider`] does the dragging (a click on
 //! the track jumps there).
 
 use std::ops::RangeInclusive;
 
-use bevsidian_core::signal::{Signal, signal};
 use bevy::{
     input_focus::tab_navigation::TabIndex,
     picking::cursor::EntityCursor,
@@ -16,22 +15,19 @@ use bevy::{
 };
 use bevy_radioactive::view::view;
 
-use crate::tokens::{color, radius};
+use crate::{
+    binding::Binding,
+    tokens::{color, radius},
+};
 
 /// Thumb diameter and track height (shadcn: `size-4`, `h-1.5`).
 const THUMB: f32 = 16.0;
 const TRACK: f32 = 6.0;
 
-/// The signal a slider shows: [`sync`] keeps its [`SliderValue`] (which the headless slider
-/// drags from) equal to it when something else changes it.
-#[derive(Component, Clone)]
-pub struct BoundSlider(Signal<f32>);
-
-impl Default for BoundSlider {
-    fn default() -> Self {
-        Self(signal(|| 0.0))
-    }
-}
+/// The value a slider shows: [`sync`] keeps its [`SliderValue`] (which the headless slider
+/// drags from, and which can only be replaced) equal to it.
+#[derive(Component, Clone, Default)]
+pub struct BoundSlider(Binding<f32>);
 
 pub fn plugin(app: &mut App) {
     app.add_systems(PreUpdate, sync);
@@ -47,8 +43,9 @@ fn sync(sliders: Query<(Entity, &BoundSlider, &SliderValue)>, mut commands: Comm
 }
 
 /// `amount` within `range`; dragging the thumb or clicking the track sets it.
-pub fn slider(amount: Signal<f32>, range: RangeInclusive<f32>) -> impl Scene {
+pub fn slider(amount: Binding<f32>, range: RangeInclusive<f32>) -> impl Scene {
     let (start, end) = (*range.start(), *range.end());
+    // Not read with `$`, so the handler (which takes system parameters) may name it.
     let set = amount.clone();
     let share = move |v: f32| {
         let span = (end - start).max(f32::EPSILON);
@@ -62,12 +59,13 @@ pub fn slider(amount: Signal<f32>, range: RangeInclusive<f32>) -> impl Scene {
             align_items: AlignItems::Center,
         }
         Slider { track_click: TrackClick::Snap, orientation: SliderOrientation::default() }
-        SliderValue(amount.get_untracked())
-        SliderRange::new(start, end)
+        // Set from `amount` by `sync` (a watch can't be read while building).
+        SliderValue(start)
         BoundSlider(amount.clone())
+        SliderRange::new(start, end)
         TabIndex(0)
         EntityCursor::System(SystemCursorIcon::Pointer)
-        on(move |change: On<ValueChange<f32>>| set.set(change.value))
+        on(move |change: On<ValueChange<f32>>, mut commands: Commands| set.set(&mut commands, change.value))
         Children [
             // The track, and the range up to the value.
             Node {

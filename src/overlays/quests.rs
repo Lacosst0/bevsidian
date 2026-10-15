@@ -3,9 +3,8 @@
 //! roads to those features, and leaves the rest out until the whole map is shown. It opens the first time the map
 //! is shown, and from the map's quest log.
 
-use bevsidian_core::signal::{Signal, signal};
 use bevy::{prelude::*, ui_widgets::Activate};
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
 use bevsidian_core::{
     nav::{Nav, View},
@@ -19,99 +18,109 @@ pub fn plugin(app: &mut App) {
 }
 
 /// The first time the map is shown, and nothing is chosen yet, the checklist asks.
-fn ask_on_first_map(nav: Res<Nav>, mut asked: Local<bool>) {
-    if *asked || nav.view.get_untracked() != View::Graph {
+fn ask_on_first_map(mut nav: ResMut<Nav>, mut asked: Local<bool>) {
+    if *asked || nav.view != View::Graph {
         return;
     }
     *asked = true;
-    if nav.quests.with_untracked(Option::is_none) {
-        nav.map_setup.set(true);
+    if nav.quests.is_none() {
+        nav.map_setup = true;
     }
 }
 
-pub fn quest_dialog(nav: Nav, vault: Vault) -> impl Scene {
-    let open = nav.map_setup.clone();
+#[component]
+pub fn quest_dialog(nav: Watch<Res<Nav>>, vault: Watch<Res<Vault>>) -> impl Scene {
     view! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0) }
         GlobalZIndex(layer::DIALOG)
         Pickable::IGNORE
         Children [
-            if $open {
-                let close = nav.map_setup.clone();
-                @{scrim(move || close.set(false))}
+            if $nav.map_setup {
+                @{scrim(close)}
                 Node { justify_content: JustifyContent::Center, align_items: AlignItems::Start, padding: UiRect::top(Val::Percent(6.0)) }
-                Children [ @{panel(nav.clone(), vault.clone())} ]
+                Children [
+                    // The routes chosen so far start ticked.
+                    @{panel(vault.get_untracked(), nav.with_untracked(|n| n.quests.clone().unwrap_or_default()))}
+                ]
             }
         ]
     }
 }
 
-/// A route offered in the checklist, and whether it is ticked.
+fn close(world: &mut World) {
+    world.resource_mut::<Nav>().map_setup = false;
+}
+
+/// A route offered in the checklist.
 struct Choice {
     note: NoteId,
     icon: char,
     /// The route's colour on the map.
     tint: Color,
     label: String,
-    ticked: Signal<bool>,
 }
 
-fn panel(nav: Nav, vault: Vault) -> impl Scene {
-    let data = vault.get_untracked();
-    let chosen = nav.quests.get_untracked().unwrap_or_default();
+/// `ticked` holds the routes ticked so far, starting with the `chosen` ones.
+#[component]
+fn panel(
+    vault: Vault,
+    chosen: Vec<NoteId>,
+    #[init(chosen)] ticked: Watch<Local<Vec<NoteId>>>,
+) -> impl Scene {
     let choices = |quest: Quest| -> Vec<Choice> {
-        data.paths
+        vault
+            .paths
             .iter()
             .filter(|p| p.quest == quest)
-            .map(|p| {
-                let ticked = chosen.contains(&p.note);
-                Choice {
-                    note: p.note,
-                    icon: data.notes[p.note].icon,
-                    tint: route_color(&data, p.note),
-                    label: p.label.clone(),
-                    ticked: signal(move || ticked),
-                }
+            .map(|p| Choice {
+                note: p.note,
+                icon: vault.notes[p.note].icon,
+                tint: route_color(&vault, p.note),
+                label: p.label.clone(),
             })
             .collect()
     };
     let (features, mastery) = (choices(Quest::Feature), choices(Quest::Mastery));
-    let main = data
+    let main = vault
         .paths
         .iter()
         .find(|p| p.quest == Quest::Main)
-        .map(|p| data.notes[p.note].name.clone())
+        .map(|p| vault.notes[p.note].name.clone())
         .unwrap_or_default();
-    // What is ticked, to keep when the reader is done.
-    let ticked: Vec<(NoteId, Signal<bool>)> = features
-        .iter()
-        .chain(&mastery)
-        .map(|c| (c.note, c.ticked.clone()))
-        .collect();
-    let picked = move || -> Vec<NoteId> {
-        ticked
-            .iter()
-            .filter(|(_, t)| t.get_untracked())
-            .map(|&(note, _)| note)
-            .collect()
+    // What is ticked, in the checklist's order, to keep when the reader is done.
+    let order: Vec<NoteId> = features.iter().chain(&mastery).map(|c| c.note).collect();
+    let picked = {
+        let ticked = ticked.clone();
+        move || -> Vec<NoteId> {
+            ticked.with_untracked(|ticked| {
+                order
+                    .iter()
+                    .copied()
+                    .filter(|note| ticked.contains(note))
+                    .collect()
+            })
+        }
     };
     let (start_pick, whole_pick) = (picked.clone(), picked);
-    let (close, start, whole) = (nav.clone(), nav.clone(), nav);
+    let (features, mastery) = (
+        group(features, &ticked, "Your game has"),
+        group(mastery, &ticked, "You also want to"),
+    );
     let note = format!("{main}, the main quest, is always on the map.");
-    view! {
+    bsn! {
         @{dialog(600.0)}
         Node { row_gap: px(16) }
         Children [
             Node { flex_direction: FlexDirection::Column, row_gap: px(6) }
             Children [
-                @{dialog_header("What's in your game?", move || close.map_setup.set(false))}
+                @{dialog_header("What's in your game?", close)}
                 --
                 @{muted("Tick what your game has. The map shows the routes to build it, starting from Bevy; everything else waits on the whole map, one click away.")}
             ]
             --
-            @{group(features, "Your game has")}
+            @{features}
             --
-            @{group(mastery, "You also want to")}
+            @{mastery}
             --
             Node { align_items: AlignItems::Center, column_gap: px(8) }
             Children [
@@ -124,17 +133,17 @@ fn panel(nav: Nav, vault: Vault) -> impl Scene {
             Node { flex_wrap: FlexWrap::Wrap, row_gap: px(8) }
             Children [
                 @{text_button(Variant::Outline, Size::Sm, "Show the whole map")}
-                on(move |_: On<Activate>| {
-                    whole.quests.set(Some(whole_pick()));
-                    whole.whole_map.set(true);
-                    whole.map_setup.set(false);
+                on(move |_: On<Activate>, mut n: ResMut<Nav>| {
+                    n.quests = Some(whole_pick());
+                    n.whole_map = true;
+                    n.map_setup = false;
                 })
                 --
                 @{text_button(Variant::Primary, Size::Sm, "Show my routes")}
-                on(move |_: On<Activate>| {
-                    start.quests.set(Some(start_pick()));
-                    start.whole_map.set(false);
-                    start.map_setup.set(false);
+                on(move |_: On<Activate>, mut n: ResMut<Nav>| {
+                    n.quests = Some(start_pick());
+                    n.whole_map = false;
+                    n.map_setup = false;
                 })
             ]
         ]
@@ -142,8 +151,15 @@ fn panel(nav: Nav, vault: Vault) -> impl Scene {
 }
 
 /// A titled grid of choices, two to a row.
-fn group(choices: Vec<Choice>, title: &str) -> impl Scene + use<> {
-    let rows: Vec<Box<dyn Scene>> = choices.into_iter().map(choice).collect();
+fn group(
+    choices: Vec<Choice>,
+    ticked: &Watch<Local<'static, Vec<NoteId>>>,
+    title: &str,
+) -> impl Scene + use<> {
+    let rows: Vec<Box<dyn Scene>> = choices
+        .into_iter()
+        .map(|c| choice(c, ticked.clone()))
+        .collect();
     bsn! {
         Node { flex_direction: FlexDirection::Column }
         Children [
@@ -163,14 +179,26 @@ fn group(choices: Vec<Choice>, title: &str) -> impl Scene + use<> {
 
 /// One route: its checkbox, icon (in the route's colour on the map) and what it gives the
 /// game.
-fn choice(choice: Choice) -> Box<dyn Scene> {
-    let toggle = choice.ticked.clone();
+fn choice(choice: Choice, ticked: Watch<Local<'static, Vec<NoteId>>>) -> Box<dyn Scene> {
+    let note = choice.note;
+    let checked = Binding::local_part(
+        ticked,
+        move |ticked: &Vec<NoteId>| ticked.contains(&note),
+        move |ticked, on| {
+            if on {
+                ticked.push(note);
+            } else {
+                ticked.retain(|&t| t != note);
+            }
+        },
+    );
+    let toggle = checked.clone();
     Box::new(bsn! {
         @{item()}
         Node { height: px(36), min_width: px(0) }
-        on(move |_: On<Activate>| toggle.update(|on| *on = !*on))
+        on(move |_: On<Activate>, mut commands: Commands| toggle.update(&mut commands, |on| !on))
         Children [
-            @{checkbox(choice.ticked.clone())}
+            @{checkbox(checked.clone())}
             --
             @{icon_char(choice.icon, 16.0, choice.tint)}
             --

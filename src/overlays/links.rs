@@ -2,12 +2,11 @@
 //! bar: notes linking to it, and notes it links to. It closes on a click outside, on Escape
 //! and when a note is opened.
 
-use bevsidian_core::signal::memo;
 use bevy::{
     prelude::*, text::FontWeight, ui::UiGlobalTransform, ui_widgets::Activate,
     window::PrimaryWindow,
 };
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
 use bevsidian_core::{
     Vault,
@@ -31,8 +30,8 @@ struct LinksPanel;
 const WIDTH: f32 = 300.0;
 
 /// The button: a link icon and how many links the note has (only the icon on phones).
-pub fn links_button(nav: Nav, vault: Vault, compact: bool) -> impl Scene {
-    let (open, toggle, current) = (nav.links.clone(), nav.links.clone(), nav.current.clone());
+#[component]
+pub fn links_button(nav: Watch<Res<Nav>>, vault: Watch<Res<Vault>>, compact: bool) -> impl Scene {
     let size = if compact { Size::IconLg } else { Size::Sm };
     let count = insert(font(size::SM, FontWeight::MEDIUM));
     view! {
@@ -40,14 +39,14 @@ pub fn links_button(nav: Nav, vault: Vault, compact: bool) -> impl Scene {
         Node { padding: UiRect::horizontal(px(if compact { 0.0 } else { 8.0 })), flex_shrink: 0.0 }
         LinksAnchor
         Tooltip::new("Links")
-        Selected($open)
-        on(move |_: On<Activate>| toggle.update(|shown| *shown = !*shown))
+        Selected($nav.links)
+        on(|_: On<Activate>, mut n: ResMut<Nav>| n.links = !n.links)
         Children [
             @{tinted_icon("link", size.icon(), Tint::MUTED)}
             --
             if !compact {
                 Text($({
-                    let note = &vault.get().notes[$current];
+                    let note = &$vault.notes[$nav.current];
                     (note.backlinks.len() + note.outgoing.len()).to_string()
                 }))
                 @{count}
@@ -59,21 +58,17 @@ pub fn links_button(nav: Nav, vault: Vault, compact: bool) -> impl Scene {
 }
 
 /// The popover and the invisible layer under it that closes it on a click outside.
-pub fn links_popover(nav: Nav, vault: Vault) -> impl Scene {
-    let open = nav.links.clone();
-    let key = {
-        let (current, vault) = (nav.current.clone(), vault.clone());
-        memo(move || (current.get(), vault.get().revision))
-    };
+#[component]
+pub fn links_popover(nav: Watch<Res<Nav>>, vault: Watch<Res<Vault>>) -> impl Scene {
     let shadow = shadow::popover();
     view! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0) }
         GlobalZIndex(layer::MENU)
         Pickable::IGNORE
         Children [
-            if $open {
-                let (close, nav, vault, shadow) = (nav.links.clone(), nav.clone(), vault.clone(), shadow.clone());
-                @{scrim(move || close.set(false))}
+            if $nav.links {
+                let shadow = shadow.clone();
+                @{scrim(|world| world.resource_mut::<Nav>().links = false)}
                 BackgroundColor(Color::NONE)
                 Children [
                     @{popover()}
@@ -88,8 +83,8 @@ pub fn links_popover(nav: Nav, vault: Vault) -> impl Scene {
                     bevy::ui_widgets::ScrollArea
                     shadow
                     Children [
-                        match $key {
-                            (id, _) => { @{lists(id, &vault.get_untracked(), &nav)} },
+                        match ($nav.current, $vault.revision) {
+                            (id, _) => { @{vault.with_untracked(|vault| lists(id, vault))} },
                         }
                     ]
                 ]
@@ -99,7 +94,7 @@ pub fn links_popover(nav: Nav, vault: Vault) -> impl Scene {
 }
 
 /// "Backlinks" and "Outgoing links", each with its notes or a note that there are none.
-fn lists(id: NoteId, data: &VaultData, nav: &Nav) -> Box<dyn Scene> {
+fn lists(id: NoteId, data: &VaultData) -> Box<dyn Scene> {
     let note = &data.notes[id];
     let group = |title: &str, ids: &[NoteId], none: &str| -> Box<dyn Scene> {
         let rows: Vec<Box<dyn Scene>> = if ids.is_empty() {
@@ -107,10 +102,10 @@ fn lists(id: NoteId, data: &VaultData, nav: &Nav) -> Box<dyn Scene> {
         } else {
             ids.iter()
                 .map(|&target| {
-                    let (nav, linked) = (nav.clone(), &data.notes[target]);
+                    let linked = &data.notes[target];
                     Box::new(bsn! {
                         @{item()}
-                        on(move |_: On<Activate>| nav.open(target, None))
+                        on(move |_: On<Activate>, mut n: ResMut<Nav>| n.open(target, None))
                         Children [ @{item_icon_char(linked.icon)} -- @{item_label(&linked.name)} ]
                     }) as Box<dyn Scene>
                 })
@@ -166,7 +161,6 @@ mod tests {
             ("A.md", "# A\n\n[[B]]"),
             ("B.md", "# B"),
         ]));
-        let nav = Nav::new(0);
         let mut app = App::new();
         app.add_plugins((
             MinimalPlugins,
@@ -174,9 +168,8 @@ mod tests {
             bevy::scene::ScenePlugin,
             bevy_radioactive::view::ViewPlugin,
         ));
-        app.world_mut()
-            .spawn_scene(links_popover(nav.clone(), vault))
-            .unwrap();
+        app.insert_resource(vault).insert_resource(Nav::new(0));
+        app.world_mut().spawn_scene(links_popover()).unwrap();
         app.update();
         let panels = |app: &mut App| {
             app.world_mut()
@@ -185,7 +178,7 @@ mod tests {
                 .count()
         };
         assert_eq!(panels(&mut app), 0);
-        nav.links.set(true);
+        app.world_mut().resource_mut::<Nav>().links = true;
         app.update();
         app.update();
         assert_eq!(panels(&mut app), 1);

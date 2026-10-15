@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     text::{EditableText, TextEdit},
 };
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
 use bevsidian_core::Nav;
 use bevsidian_ui::prelude::*;
@@ -34,7 +34,7 @@ fn track_keyboard_target(
     panel: Query<(), With<KeyboardPanel>>,
     parents: Query<&ChildOf>,
     mut target: ResMut<KeyboardTarget>,
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
 ) {
     if !focus.is_changed() {
         return;
@@ -45,7 +45,9 @@ fn track_keyboard_target(
         Some(entity) if parents.iter_ancestors(entity).any(|e| panel.contains(e)) => {}
         _ => target.0 = None,
     }
-    nav.keyboard.set_if_neq(target.0.is_some());
+    if nav.keyboard != target.0.is_some() {
+        nav.keyboard = target.0.is_some();
+    }
 }
 
 const ROWS: [&[&str]; 5] = [
@@ -61,7 +63,7 @@ fn on_virtual_key(
     mut target: ResMut<KeyboardTarget>,
     mut fields: Query<&mut EditableText>,
     mut focus: ResMut<InputFocus>,
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
 ) {
     let Some(entity) = target.0 else {
         return;
@@ -70,7 +72,7 @@ fn on_virtual_key(
         "Done" => {
             target.0 = None;
             focus.clear();
-            nav.keyboard.set(false);
+            nav.keyboard = false;
             return;
         }
         "del" => {
@@ -97,8 +99,8 @@ fn on_virtual_key(
 }
 
 /// The on-screen keyboard, docked at the bottom while a text field is focused by touch.
-pub fn keyboard(nav: Nav) -> impl Scene {
-    let (keyboard, touch) = (nav.keyboard.clone(), nav.touch.clone());
+#[component]
+pub fn keyboard(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node {
             position_type: PositionType::Absolute,
@@ -110,7 +112,7 @@ pub fn keyboard(nav: Nav) -> impl Scene {
         GlobalZIndex(layer::KEYBOARD)
         Pickable::IGNORE
         Children [
-            if $keyboard && $touch {
+            if $nav.keyboard && $nav.touch {
                 Node {
                     width: Val::Percent(100.0),
                     padding: UiRect::new(Val::Px(6.0), Val::Px(6.0), Val::Px(8.0), Val::Px(14.0)),

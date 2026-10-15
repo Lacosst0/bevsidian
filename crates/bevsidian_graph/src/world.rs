@@ -75,7 +75,7 @@ pub(crate) fn spawn_world(
     old: Query<Entity, With<MapThing>>,
     mut built: Local<Option<u64>>,
 ) {
-    let data = vault.get_untracked();
+    let data = vault.0.clone();
     if *built == Some(data.revision) {
         return;
     }

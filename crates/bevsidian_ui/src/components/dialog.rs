@@ -13,18 +13,19 @@ use crate::{
 };
 
 /// A full-screen dimmed backdrop; a tap on it (not on what it holds, and not a touch that
-/// scrolled) calls `close`. Patch `Node` to place its content.
+/// scrolled) runs `close` on the world, say to clear the resource field that keeps it open.
+/// Patch `Node` to place its content.
 pub fn scrim<F>(close: F) -> impl Scene
 where
-    F: Fn() + Clone + Send + Sync + 'static,
+    F: Fn(&mut World) + Copy + Send + Sync + 'static,
 {
     bsn! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0) }
         BackgroundColor(color::SCRIM)
-        on(move |click: On<PointerClick>, touch: Option<Res<TouchScroll>>| {
+        on(move |click: On<PointerClick>, touch: Option<Res<TouchScroll>>, mut commands: Commands| {
             let scrolled = touch.is_some_and(|touch| touch.gesture_scrolled());
             if click.entity == click.original_event_target() && !scrolled {
-                close();
+                commands.queue(move |world: &mut World| close(world));
             }
         })
     }
@@ -49,10 +50,10 @@ pub fn dialog(width: f32) -> impl Scene {
     }
 }
 
-/// The title of a dialog with its close button.
+/// The title of a dialog with its close button, which runs `close` on the world.
 pub fn dialog_header<F>(text: &str, close: F) -> impl Scene + use<F>
 where
-    F: Fn() + Clone + Send + Sync + 'static,
+    F: Fn(&mut World) + Copy + Send + Sync + 'static,
 {
     bsn! {
         Node { align_items: AlignItems::Center, column_gap: px(12) }
@@ -61,7 +62,7 @@ where
             --
             @{icon_button(Variant::Ghost, Size::IconXs, "x")}
             Node { margin: UiRect::right(px(-8)) }
-            on(move |_: On<Activate>| close())
+            on(move |_: On<Activate>, mut commands: Commands| commands.queue(move |world: &mut World| close(world)))
         ]
     }
 }

@@ -95,27 +95,25 @@ fn save_yours(yours: Res<Yours>, mut last: Local<Option<(String, String, String)
 
 /// Notes by name, one per line (names survive notes being added or removed).
 fn names(vault: &Vault, ids: &[NoteId]) -> String {
-    let data = vault.get_untracked();
     ids.iter()
-        .filter_map(|&id| data.notes.get(id).map(|n| n.name.as_str()))
+        .filter_map(|&id| vault.notes.get(id).map(|n| n.name.as_str()))
         .collect::<Vec<_>>()
         .join("\n")
 }
 
 fn ids(vault: &Vault, names: &str) -> Vec<NoteId> {
-    let data = vault.get_untracked();
-    names.lines().filter_map(|name| data.find(name)).collect()
+    names.lines().filter_map(|name| vault.find(name)).collect()
 }
 
-fn load_map(nav: Res<Nav>, vault: Res<Vault>) {
+fn load_map(mut nav: ResMut<Nav>, vault: Res<Vault>) {
     if let Some(quests) = read(QUESTS_KEY) {
-        nav.quests.set(Some(ids(&vault, &quests)));
+        nav.quests = Some(ids(&vault, &quests));
     }
     if read(WHOLE_MAP_KEY).as_deref() == Some("1") {
-        nav.whole_map.set(true);
+        nav.whole_map = true;
     }
     if let Some(visited) = read(VISITED_KEY) {
-        nav.visited.set(ids(&vault, &visited));
+        nav.visited = ids(&vault, &visited);
     }
 }
 
@@ -124,11 +122,10 @@ fn save_map(
     vault: Res<Vault>,
     mut last: Local<Option<(Option<Vec<NoteId>>, bool, usize)>>,
 ) {
-    let current = (
-        nav.quests.get_untracked(),
-        nav.whole_map.get_untracked(),
-        nav.visited.with_untracked(Vec::len),
-    );
+    if !nav.is_changed() {
+        return;
+    }
+    let current = (nav.quests.clone(), nav.whole_map, nav.visited.len());
     if last.as_ref() == Some(&current) {
         return;
     }
@@ -138,45 +135,46 @@ fn save_map(
             write(QUESTS_KEY, &names(&vault, quests));
         }
         write(WHOLE_MAP_KEY, if current.1 { "1" } else { "0" });
-        write(VISITED_KEY, &names(&vault, &nav.visited.get_untracked()));
+        write(VISITED_KEY, &names(&vault, &nav.visited));
     }
     *last = Some(current);
 }
 
-fn load(nav: Res<Nav>) {
+fn load(mut nav: ResMut<Nav>) {
     if let Some(size) = read(TEXT_SIZE_KEY).and_then(|v| v.parse::<u32>().ok()) {
-        nav.text_size
-            .set(size.clamp(*TEXT_SIZES.start(), *TEXT_SIZES.end()));
+        nav.text_size = size.clamp(*TEXT_SIZES.start(), *TEXT_SIZES.end());
     }
     if let Some(speed) = read(SCROLL_SPEED_KEY).and_then(|v| v.parse::<u32>().ok()) {
-        nav.scroll_speed
-            .set(speed.clamp(*SCROLL_SPEEDS.start(), *SCROLL_SPEEDS.end()));
+        nav.scroll_speed = speed.clamp(*SCROLL_SPEEDS.start(), *SCROLL_SPEEDS.end());
     }
     if let Some(cap) = read(MAX_FPS_KEY).and_then(|v| v.parse::<u32>().ok())
         && MAX_FPS_CHOICES.contains(&cap)
     {
-        nav.max_fps.set(cap);
+        nav.max_fps = cap;
     }
     if read(VSYNC_KEY).as_deref() == Some("0") {
-        nav.vsync.set(false);
+        nav.vsync = false;
     }
     if read(SOUND_KEY).as_deref() == Some("0") {
-        nav.sound.set(false);
+        nav.sound = false;
     }
     let fps_requested = crate::perf::requested();
     if fps_requested || read(SHOW_FPS_KEY).as_deref() == Some("1") {
-        nav.show_fps.set(true);
+        nav.show_fps = true;
     }
 }
 
 fn save(nav: Res<Nav>, mut last: Local<Option<(u32, u32, bool, u32, bool, bool)>>) {
+    if !nav.is_changed() {
+        return;
+    }
     let current = (
-        nav.text_size.get_untracked(),
-        nav.scroll_speed.get_untracked(),
-        nav.show_fps.get_untracked(),
-        nav.max_fps.get_untracked(),
-        nav.vsync.get_untracked(),
-        nav.sound.get_untracked(),
+        nav.text_size,
+        nav.scroll_speed,
+        nav.show_fps,
+        nav.max_fps,
+        nav.vsync,
+        nav.sound,
     );
     if *last == Some(current) {
         return;

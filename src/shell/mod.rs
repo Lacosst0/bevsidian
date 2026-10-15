@@ -1,17 +1,17 @@
 //! The application shell: the sidebar, the top bar and the page under it, and the overlays
 //! above everything.
 //!
-//! Static structure is plain BSN; whatever depends on navigation state is a `view!` region
-//! driven by the [`Nav`] signals.
+//! Static structure is plain BSN; whatever depends on navigation state is a `#[component]`
+//! that watches the [`Nav`] resource and reads it in `view!` regions.
 
 pub mod sidebar;
 pub mod topbar;
 
 use bevy::prelude::*;
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 use bevy_ui_commonmark::MdTheme;
 
-use bevsidian_core::{Vault, nav::Nav, nav::View};
+use bevsidian_core::{nav::Nav, nav::View};
 use bevsidian_ui::color;
 
 use crate::{overlays, pages};
@@ -21,13 +21,13 @@ pub fn plugin(app: &mut App) {
         .add_systems(Startup, spawn_shell);
 }
 
-fn spawn_shell(mut commands: Commands, nav: Res<Nav>, vault: Res<Vault>, theme: Res<MdTheme>) {
+fn spawn_shell(mut commands: Commands, theme: Res<MdTheme>) {
     // No MSAA: UI is anti-aliased per glyph/shape, and 4x MSAA at phone resolutions is costly.
     commands.spawn((Camera2d, IsDefaultUiCamera, Msaa::Off));
-    commands.spawn_scene(shell(nav.clone(), vault.clone(), theme.clone()));
+    commands.spawn_scene(shell(theme.clone()));
 }
 
-fn shell(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
+fn shell(theme: MdTheme) -> impl Scene {
     bsn! {
         Node {
             width: Val::Percent(100.0),
@@ -40,33 +40,32 @@ fn shell(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
         }
         BackgroundColor(color::BACKGROUND)
         Children [
-            @{sidebar::sidebar(nav.clone(), vault.clone())}
+            @{sidebar::sidebar()}
             --
-            @{main_column(nav.clone(), vault.clone(), theme)}
+            @{main_column(theme)}
             --
-            @{sidebar::backdrop(nav.clone())}
+            @{sidebar::backdrop()}
             --
-            @{overlays::links::links_popover(nav.clone(), vault.clone())}
+            @{overlays::links::links_popover()}
             --
-            @{overlays::command::command_palette(nav.clone(), vault.clone())}
+            @{overlays::command::command_palette()}
             --
-            @{overlays::settings::settings_dialog(nav.clone())}
+            @{overlays::settings::settings_dialog()}
             --
-            @{overlays::quests::quest_dialog(nav.clone(), vault)}
+            @{overlays::quests::quest_dialog()}
             --
-            @{overlays::studio::studio_dialog(nav.clone())}
+            @{overlays::studio::studio_dialog()}
             --
-            @{overlays::selection_bar::selection_bar(nav.clone())}
+            @{overlays::selection_bar::selection_bar()}
             --
-            @{overlays::keyboard::keyboard(nav)}
+            @{overlays::keyboard::keyboard()}
         ]
     }
 }
 
 /// The top bar over the current page.
-fn main_column(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
-    let view = nav.view.clone();
-    let top = topbar::topbar(nav.clone(), vault.clone());
+#[component]
+fn main_column(nav: Watch<Res<Nav>>, theme: MdTheme) -> impl Scene {
     view! {
         Node {
             flex_grow: 1.0,
@@ -77,16 +76,67 @@ fn main_column(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
             overflow: Overflow::clip_x(),
         }
         Children [
-            @{top}
+            @{topbar::topbar()}
             --
-            match $view {
+            match $nav.view {
                 View::Note => {
-                    @{pages::note::note_page(nav.clone(), vault.clone(), theme.clone())}
+                    @{pages::note::note_page(theme.clone())}
                 },
                 View::Graph => {
-                    @{pages::graph::graph_page(nav.clone(), vault.clone())}
+                    // On phones the quest log starts folded, out of the map's way.
+                    @{pages::graph::graph_page(nav.with_untracked(|nav| nav.mode.drawer()))}
                 },
             }
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevsidian_core::{Vault, VaultData, nav::Studio};
+
+    /// Watches can only be read once their scene has spawned: spawn the whole shell, then open
+    /// every overlay, editor tab and view, so a read too early panics here rather than in the
+    /// browser.
+    #[test]
+    fn every_screen_spawns() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            bevy::asset::AssetPlugin::default(),
+            bevy::scene::ScenePlugin,
+            bevy_radioactive::view::ViewPlugin,
+        ))
+        .insert_resource(Vault::new(VaultData::from_sources([
+            ("A.md", "# A\n## Part\n[[Tour]] #tag"),
+            ("Tour.md", "---\npath: true\n---\n# Tour\n1. [[A]]"),
+        ])))
+        .insert_resource(Nav::new(0))
+        .init_resource::<bevsidian_preview::yours::Yours>()
+        .init_resource::<overlays::studio::SoundSlot>();
+        app.world_mut()
+            .spawn_scene(shell(MdTheme::default()))
+            .unwrap();
+        app.update();
+        for (view, studio) in [
+            (View::Note, Studio::Sprite),
+            (View::Graph, Studio::Voxels),
+            (View::Note, Studio::Sounds),
+        ] {
+            let mut nav = app.world_mut().resource_mut::<Nav>();
+            nav.view = view;
+            nav.studio = Some(studio);
+            nav.switcher = true;
+            nav.settings = true;
+            nav.map_setup = true;
+            nav.links = true;
+            nav.find = true;
+            nav.drawer = true;
+            nav.path = Some(1);
+            nav.query = "a".into();
+            app.update();
+            app.update();
+        }
     }
 }

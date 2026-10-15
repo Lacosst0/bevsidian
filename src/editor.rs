@@ -97,7 +97,7 @@ const UNDO_LIMIT: usize = 200;
 fn open_editor(
     add: On<Add<EditorSlot>>,
     slots: Query<&EditorSlot>,
-    vault: Res<Vault>,
+    mut vault: ResMut<Vault>,
     nav: Res<Nav>,
     theme: Res<MdTheme>,
     mut session: ResMut<EditSession>,
@@ -107,14 +107,13 @@ fn open_editor(
         return;
     };
     // Switching notes while editing: keep the previous note's edits.
-    commit(&mut session, &vault);
-    let data = vault.get_untracked();
-    let Some(note) = data.notes.get(id) else {
+    commit(&mut session, &mut vault);
+    let Some(note) = vault.notes.get(id) else {
         return;
     };
     let font = TextFont {
         font: theme.mono.clone(),
-        font_size: (nav.text_size.get_untracked() as f32 * 0.9).into(),
+        font_size: (nav.text_size as f32 * 0.9).into(),
         ..default()
     };
     let line_height = LineHeight::RelativeToFont(1.6);
@@ -238,7 +237,7 @@ fn on_edit(
 fn on_key(
     mut key: On<FocusedInput<KeyboardInput>>,
     keys: Res<ButtonInput<KeyCode>>,
-    vault: Res<Vault>,
+    mut vault: ResMut<Vault>,
     mut session: ResMut<EditSession>,
     mut editors: Query<&mut EditableText, With<NoteEditor>>,
     mut font_cx: ResMut<FontCx>,
@@ -272,7 +271,7 @@ fn on_key(
             next.map(|snapshot| (snapshot, false))
         }
         (_, KeyCode::KeyS) if command => {
-            commit(&mut session, &vault);
+            commit(&mut session, &mut vault);
             key.propagate(false);
             return;
         }
@@ -443,22 +442,22 @@ fn follow_caret(
 /// Saves after a pause in typing, or once the editor is gone.
 fn autosave(
     time: Res<Time<Real>>,
-    vault: Res<Vault>,
+    mut vault: ResMut<Vault>,
     nav: Res<Nav>,
     editors: Query<(), With<NoteEditor>>,
     mut session: ResMut<EditSession>,
 ) {
     let open = session.editor.is_some_and(|e| editors.contains(e));
     if session.dirty && (!open || time.elapsed_secs_f64() - session.last_edit > AUTOSAVE_DELAY) {
-        commit(&mut session, &vault);
+        commit(&mut session, &mut vault);
     }
-    if !open && session.note.is_some() && !nav.editing.get_untracked() {
+    if !open && session.note.is_some() && !nav.editing {
         *session = EditSession::default();
     }
 }
 
 /// Saves the edited text into the vault and storage.
-fn commit(session: &mut EditSession, vault: &Vault) {
+fn commit(session: &mut EditSession, vault: &mut ResMut<Vault>) {
     let Some(id) = session.note else {
         return;
     };
@@ -466,16 +465,20 @@ fn commit(session: &mut EditSession, vault: &Vault) {
         return;
     }
     session.dirty = false;
-    if vault.save(id, &session.text) {
-        let path = vault.get_untracked().notes[id].path.clone();
+    // Only a real change touches the vault, so its watchers wake only then.
+    let changed = vault
+        .notes
+        .get(id)
+        .is_some_and(|n| n.source != session.text);
+    if changed && vault.save(id, &session.text) {
+        let path = vault.notes[id].path.clone();
         persist(&path, &session.text);
     }
 }
 
 /// The map editor changed the map note: store it like an edit.
 fn store_map(edited: On<bevsidian_graph::MapEdited>, vault: Res<Vault>) {
-    let data = vault.get_untracked();
-    let note = &data.notes[edited.note];
+    let note = &vault.notes[edited.note];
     persist(&note.path, &note.source);
 }
 

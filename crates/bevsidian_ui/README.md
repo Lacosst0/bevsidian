@@ -30,7 +30,9 @@ for links, the current graph node and the running code line; warnings are amber.
 ## Conventions
 
 - **One component per file**, one function per component returning `bsn!` (or `view!`
-  when it reads a signal). Helpers stay private to their file.
+  when it reads a watch). Helpers stay private to their file.
+- **Controls take a [`Binding`](src/binding.rs)**: `Binding::local(watch)` for a component's
+  own `Watch<Local<T>>`, `Binding::resource(watch, get, set)` for a field of a resource.
 - **Compose with `@{...}`, override by patching**: a caller adds `on(...)`, components or
   `Node { .. }` fields after the include instead of the component growing options.
 - **State through [`Surface`](src/surface.rs)**: interactive parts set `Selected(..)` and
