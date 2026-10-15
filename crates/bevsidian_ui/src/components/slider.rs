@@ -4,6 +4,7 @@
 
 use std::ops::RangeInclusive;
 
+use bevsidian_core::signal::{Signal, signal};
 use bevy::{
     input_focus::tab_navigation::TabIndex,
     picking::cursor::EntityCursor,
@@ -13,7 +14,7 @@ use bevy::{
     },
     window::SystemCursorIcon,
 };
-use bevy_radioactive::view::{Signal, signal, view};
+use bevy_radioactive::view::view;
 
 use crate::tokens::{color, radius};
 

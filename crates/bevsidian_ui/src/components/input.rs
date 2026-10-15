@@ -1,6 +1,7 @@
 //! A one-line text field (shadcn/ui `Input`) mirrored into a signal, with a leading icon, a
 //! placeholder and a clear button.
 
+use bevsidian_core::signal::{Signal, signal};
 use bevy::{
     ecs::template::FromTemplate,
     input_focus::{AutoFocus, InputFocus, tab_navigation::TabIndex},
@@ -10,7 +11,7 @@ use bevy::{
     ui_widgets::{Activate, TextInput},
     window::SystemCursorIcon,
 };
-use bevy_radioactive::view::{Signal, signal, view};
+use bevy_radioactive::view::view;
 
 use crate::{
     components::{

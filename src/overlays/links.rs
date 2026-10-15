@@ -2,11 +2,12 @@
 //! bar: notes linking to it, and notes it links to. It closes on a click outside, on Escape
 //! and when a note is opened.
 
+use bevsidian_core::signal::memo;
 use bevy::{
     prelude::*, text::FontWeight, ui::UiGlobalTransform, ui_widgets::Activate,
     window::PrimaryWindow,
 };
-use bevy_radioactive::view::{memo, view};
+use bevy_radioactive::view::view;
 
 use bevsidian_core::{
     Vault,

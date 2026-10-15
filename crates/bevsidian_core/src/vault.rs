@@ -2,8 +2,8 @@
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use crate::signal::Signal;
 use bevy::prelude::*;
-use bevy_radioactive::view::Signal;
 use bevy_ui_commonmark::{MdDocument, WikiLink};
 
 use crate::map::WorldMap;

@@ -1,7 +1,8 @@
 //! A segmented control (shadcn/ui `ToggleGroup`, single choice) bound to a signal.
 
+use bevsidian_core::signal::Signal;
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{Signal, view};
+use bevy_radioactive::view::view;
 
 use crate::{
     components::{
@@ -17,7 +18,7 @@ use crate::{
 /// selected until one is chosen.
 pub fn segmented<T>(options: Vec<(T, String)>, value: Signal<T>) -> impl Scene
 where
-    T: Clone + PartialEq + Send + Sync + 'static,
+    T: Clone + Default + PartialEq + Send + Sync + 'static,
 {
     let segments: Vec<Box<dyn Scene>> = options
         .into_iter()

@@ -1,5 +1,6 @@
 //! Navigation state (current note, history, view, filters) and the systems that drive it.
 
+use crate::signal::{Signal, signal};
 use bevy::{
     input::{ButtonState, keyboard::KeyboardInput},
     input_focus::InputFocus,
@@ -7,7 +8,6 @@ use bevy::{
     ui::UiGlobalTransform,
     ui_widgets::{ScrollArea, ScrollIntoView},
 };
-use bevy_radioactive::view::{Signal, signal};
 use bevy_ui_commonmark::{LinkTarget, MdFootnote, MdHeading, MdLinkActivated};
 use bevy_ui_textselect::{Modifiers, TextSelection};
 

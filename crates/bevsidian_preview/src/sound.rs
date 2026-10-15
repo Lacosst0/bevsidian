@@ -5,9 +5,10 @@
 use bevy::audio::AudioSource;
 
 /// The shape of the sound wave: what the sound is made of.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Wave {
     /// Hollow and bright, the classic game beep.
+    #[default]
     Square,
     /// Buzzy, for lasers and engines.
     Saw,

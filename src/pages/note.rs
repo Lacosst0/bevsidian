@@ -1,7 +1,8 @@
 //! The note page: the open note rendered from markdown (or the editor), in a centred column.
 
+use bevsidian_core::signal::memo;
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{memo, view};
+use bevy_radioactive::view::view;
 use bevy_ui_commonmark::{MdTheme, RenderOptions, markdown_scene};
 use bevy_ui_textselect::SelectableText;
 

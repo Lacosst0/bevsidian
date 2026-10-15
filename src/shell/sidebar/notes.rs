@@ -3,8 +3,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use bevsidian_core::signal::memo;
+use bevsidian_core::signal::{Signal, signal};
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{Signal, effect, memo, signal, view};
+use bevy_radioactive::view::{effect, view};
 
 use bevsidian_core::{
     Vault,

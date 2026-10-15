@@ -13,7 +13,7 @@ repository = "https://github.com/Lacosst0/bevsidian"
 bevy = { version = "0.20", default-features = false }
 parley = { version = "0.11", default-features = false, features = ["std"] }
 pulldown-cmark = { version = "0.13", default-features = false }
-bevy_radioactive = { git = "https://github.com/Lacosst0/bevy_radioactive", default-features = false, features = ["view", "ui"] }
+bevy_radioactive = { git = "https://github.com/Lacosst0/bevy_radioactive", branch = "master", default-features = false, features = ["view", "ui"] }
 bevy_ui_textselect = { path = "crates/bevy_ui_textselect" }
 bevy_ui_commonmark = { path = "crates/bevy_ui_commonmark" }
 bevy_ui_touchscroll = { path = "crates/bevy_ui_touchscroll" }

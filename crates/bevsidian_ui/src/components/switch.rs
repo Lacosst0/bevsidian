@@ -1,10 +1,11 @@
 //! A switch (shadcn/ui `Switch`) bound to a boolean signal.
 
+use bevsidian_core::signal::Signal;
 use bevy::{
     input_focus::tab_navigation::TabIndex, picking::cursor::EntityCursor, prelude::*,
     ui_widgets::Activate, window::SystemCursorIcon,
 };
-use bevy_radioactive::view::{Signal, view};
+use bevy_radioactive::view::view;
 
 use crate::tokens::{color, radius};
 

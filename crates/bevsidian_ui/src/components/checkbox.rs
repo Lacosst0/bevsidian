@@ -2,8 +2,9 @@
 //! `Label`, it does not take clicks itself: put it in a row (an [`item`](crate::item)) that
 //! toggles the value, so the whole row is the target.
 
+use bevsidian_core::signal::Signal;
 use bevy::prelude::*;
-use bevy_radioactive::view::{Signal, view};
+use bevy_radioactive::view::view;
 
 use crate::{
     components::icon::glyph,

@@ -1,7 +1,8 @@
 //! The settings dialog (`Ctrl+,` or Settings in the sidebar): reading and performance.
 
+use bevsidian_core::signal::{Signal, signal};
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{Signal, signal, view};
+use bevy_radioactive::view::view;
 
 use bevsidian_core::nav::{MAX_FPS_CHOICES, Nav, SCROLL_SPEED_STEP, SCROLL_SPEEDS, TEXT_SIZES};
 use bevsidian_ui::prelude::*;

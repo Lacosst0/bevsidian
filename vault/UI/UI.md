@@ -55,7 +55,7 @@ That is the whole model: a root [`Node`] filling the screen, children inside it.
 - Small and simple: spawn nodes in code, as above.
 - Bigger interfaces: write them with `bsn!` ([[Scenes and BSN]]).
 - A ready look: the Feathers widgets ([[Theming]]) or [[bevy_egui]] for tools.
-- Reactivity: `bevy_radioactive` (used by this app) lets nodes read **signals**.
+- Reactivity: [[bevy_radioactive]] (used by this app) lets a node say what it reacts to, right where it's spawned.
 
 ## Libraries
 

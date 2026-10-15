@@ -1,8 +1,9 @@
 //! The quick switcher (`Ctrl+O`), a command palette over the notes: type to filter, arrows to
 //! move, Enter to open.
 
+use bevsidian_core::signal::{Memo, memo};
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{Memo, memo, view};
+use bevy_radioactive::view::view;
 
 use bevsidian_core::{Vault, nav::Nav, vault::NoteId};
 use bevsidian_ui::prelude::*;

@@ -2,8 +2,10 @@
 //! matching what is typed (all of them when it is empty, a leading `#` is optional); picking
 //! one filters the note list by it.
 
+use bevsidian_core::signal::memo;
+use bevsidian_core::signal::signal;
 use bevy::{input_focus::InputFocus, prelude::*, ui_widgets::Activate};
-use bevy_radioactive::view::{memo, signal, view};
+use bevy_radioactive::view::view;
 
 use bevsidian_core::{Vault, nav::Nav};
 use bevsidian_ui::prelude::*;

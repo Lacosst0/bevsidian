@@ -3,8 +3,9 @@
 //! roads to those features, and leaves the rest out until the whole map is shown. It opens the first time the map
 //! is shown, and from the map's quest log.
 
+use bevsidian_core::signal::{Signal, signal};
 use bevy::{prelude::*, ui_widgets::Activate};
-use bevy_radioactive::view::{Signal, signal, view};
+use bevy_radioactive::view::view;
 
 use bevsidian_core::{
     nav::{Nav, View},

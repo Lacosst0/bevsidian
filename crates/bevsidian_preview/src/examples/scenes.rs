@@ -117,9 +117,10 @@ mod bsn {
 
 /// `Bevsidian/UI kit.md`
 mod kit {
+    use bevsidian_core::signal::signal;
     use bevsidian_ui::prelude::*;
     use bevy::{prelude::*, ui_widgets::Activate};
-    use bevy_radioactive::view::{signal, view};
+    use bevy_radioactive::view::view;
 
     pub fn buttons() -> impl Scene {
         bsn! {
@@ -212,9 +213,10 @@ mod kit {
 
 /// `UI layout.md`
 mod layout {
+    use bevsidian_core::signal::signal;
     use bevsidian_ui::prelude::*;
     use bevy::prelude::*;
-    use bevy_radioactive::view::{signal, view};
+    use bevy_radioactive::view::view;
 
     fn named<T>(options: Vec<(T, &str)>) -> Vec<(T, String)> {
         options
@@ -372,9 +374,10 @@ mod layout {
 
 /// `Colors and math.md`
 pub mod maths {
+    use bevsidian_core::signal::signal;
     use bevsidian_ui::prelude::*;
     use bevy::prelude::*;
-    use bevy_radioactive::view::{signal, view};
+    use bevy_radioactive::view::view;
 
     fn named<T>(options: Vec<(T, &str)>) -> Vec<(T, String)> {
         options

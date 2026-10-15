@@ -2,8 +2,9 @@
 
 use std::ops::RangeInclusive;
 
+use bevsidian_core::signal::Signal;
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{Signal, view};
+use bevy_radioactive::view::view;
 
 use crate::{
     components::button::{Size, Variant, icon_button},

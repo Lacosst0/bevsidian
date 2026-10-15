@@ -6,13 +6,14 @@
 //! Opened from the brush, box and speaker buttons above the examples, and from the sidebar's
 //! mark.
 
+use bevsidian_core::signal::{Signal, signal};
 use bevy::{
     audio::{AudioPlayer, PlaybackSettings},
     picking::events::PointerOver,
     prelude::*,
     ui_widgets::Activate,
 };
-use bevy_radioactive::view::{Signal, signal, view};
+use bevy_radioactive::view::view;
 
 use bevsidian_core::nav::{Nav, Studio};
 use bevsidian_preview::{

@@ -1,7 +1,9 @@
 //! The graph page: the map with its quest log, legend, edit bar and zoom controls.
 
+use bevsidian_core::signal::memo;
+use bevsidian_core::signal::signal;
 use bevy::{prelude::*, ui_widgets::Activate};
-use bevy_radioactive::view::{memo, signal, view};
+use bevy_radioactive::view::view;
 
 use bevsidian_core::{Nav, Vault, vault::Quest};
 use bevsidian_graph::{GraphViewport, edit_bar, hover_hint, legend, route_color, zoom_controls};

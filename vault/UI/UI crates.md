@@ -9,8 +9,8 @@ Ways to build UI beyond hand-written Bevy UI nodes. They work at very different 
 
 | | [[bevy_radioactive]] | [[bevy_hui]] | [[bevy_lunex]] | [[bevy_egui]] |
 |:--|:--|:--|:--|:--|
-| Bevy | #0.20 (git) | #0.20 | #0.20 (git) | #0.20 |
-| You write | BSN scenes with signals | HTML-like templates | layouts in code | immediate-mode Rust |
+| Bevy | #0.20 (git, 0.6) | #0.20 | #0.20 (git) | #0.20 |
+| You write | BSN scenes that declare what they react to | HTML-like templates | layouts in code | immediate-mode Rust |
 | Updates | reactive: changes follow your data | hot reload of templates | each frame | each frame |
 | Best for | game UI that follows game data | designers who like markup | in-world screens, any aspect ratio | debug panels and editors |
 
