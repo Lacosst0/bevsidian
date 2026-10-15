@@ -33,7 +33,7 @@ jobs:
         run: |
           set -o pipefail
           cargo clippy --workspace --all-targets -- -D warnings 2>&1 | tee clippy.log || {
-            { grep -E -A3 "^(error|warning)" clippy.log | head -30; tail -n 5 clippy.log; } | sed 's/^/::error::/'
+            { sed 's/\x1b\[[0-9;]*m//g' clippy.log | grep -E -A3 "^(error|warning)" | head -30; df -h . | tail -n 1; } | sed 's/^/::error::/'
             exit 1
           }
       - name: Test
@@ -42,8 +42,7 @@ jobs:
           # Failing tests are also reported as annotations, readable without the full log.
           set -o pipefail
           cargo test --workspace 2>&1 | tee test.log || {
-            { grep -E "panicked|FAILED|error|signal|No space" test.log | head -15; tail -n 8 test.log; } | sed 's/^/::error::/'
-            df -h . | sed 's/^/::error::/'
+            { sed 's/\x1b\[[0-9;]*m//g' test.log | grep -E "panicked|FAILED|error|signal|No space" | head -15; df -h . | tail -n 1; } | sed 's/^/::error::/'
             exit 1
           }
       - name: Check wasm
