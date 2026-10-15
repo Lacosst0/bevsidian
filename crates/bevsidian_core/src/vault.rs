@@ -370,9 +370,18 @@ impl VaultData {
                     return Some((0, id));
                 }
                 let name = note.name.to_lowercase();
-                let mut score = 0;
+                // The note named exactly so comes first, then names that start with the query.
+                let mut score = if name == query {
+                    1000
+                } else if name.starts_with(&query) {
+                    100
+                } else {
+                    0
+                };
                 for term in &terms {
-                    if name.contains(term) {
+                    if name.split_whitespace().any(|word| word.starts_with(term)) {
+                        score += 12;
+                    } else if name.contains(term) {
                         score += 10;
                     } else if note.search_text.contains(term) {
                         score += 1;
@@ -564,5 +573,23 @@ mod tests {
         let excerpt = v.excerpt(v.find("ECS").unwrap(), "back").unwrap();
         assert_eq!(excerpt.term, "Back", "as written in the note");
         assert!(excerpt.after.starts_with(" to"));
+    }
+
+    #[test]
+    fn exact_and_prefix_names_rank_first() {
+        let v = VaultData::from_sources([
+            ("Advanced queries.md", "# Advanced queries"),
+            ("Query filters.md", "# Query filters\nMore queries."),
+            ("Queries.md", "# Queries"),
+        ]);
+        let names = |q| -> Vec<String> {
+            v.search(q, None)
+                .into_iter()
+                .map(|id| v.notes[id].name.clone())
+                .collect()
+        };
+        assert_eq!(names("queries")[0], "Queries");
+        assert_eq!(names("Queries")[..2], ["Queries", "Advanced queries"]);
+        assert_eq!(names("query")[0], "Query filters");
     }
 }
