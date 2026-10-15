@@ -4,11 +4,11 @@ tags: [gameplay, ui]
 ---
 # Accessibility and localization
 
-Two ways to let more people play: make the game usable by people with different abilities, and make it readable in their language. Both are far cheaper if you plan them before the first menu is built. #ui
+Let more people play: make the game usable with different abilities, and readable in their language. Both cost little if planned before the first menu, and a lot after. #ui
 
 ## Accessibility settings that cost little
 
-Most of it is **choices the player can change** and **not relying on one sense**.
+Most of it is **options the player can change**, and **never relying on one sense**.
 
 | Do | Why |
 |:--|:--|
@@ -160,7 +160,7 @@ fn play_button() -> impl Scene {
 | Crate | For | Bevy |
 |:--|:--|:--|
 | `bevy_fluent` 0.15 | Mozilla's Fluent files (plurals, genders) as assets | #0.19 |
-| `fluent-templates` | Fluent without a Bevy plugin | works today |
+| `fluent-templates` | Fluent without a Bevy plugin | any (not a plugin) |
 
 ## Next
 

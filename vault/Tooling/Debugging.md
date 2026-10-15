@@ -10,13 +10,13 @@ A short field guide: what to try when the game does the wrong thing. #tooling
 
 Walk the list:
 
-1. **A camera?** `Camera2d` or `Camera3d` must exist ([[Cameras]]). Exactly one active camera per target.
-2. **3D without light?** It's black without a light ([[Lighting]]).
-3. **Behind the camera / too far / z wrong?** Print the `Transform`. In 2D check `z` ([[Transforms]]).
-4. **Asset not loaded?** `asset_server.load_state(&handle)` ([[Assets]]). Check the path and log for "file not found".
-5. **Hidden?** `Visibility::Hidden`, or an ancestor is hidden, or `Display::None` on UI.
-6. **Scale 0, alpha 0, size 0?** A `Sprite` with `custom_size: Some(Vec2::ZERO)` is invisible too.
-7. **Wrong plugin?** Missing `DefaultPlugins`, or a Cargo feature turned off ([[Project setup]]).
+- [ ] **A camera?** `Camera2d` or `Camera3d` must exist, one active per target ([[Cameras]]).
+- [ ] **3D without a light?** It's black ([[Lighting]]).
+- [ ] **Out of view?** Behind the camera, too far, or the wrong `z` in 2D. Print the `Transform` ([[Transforms]]).
+- [ ] **Not loaded?** Check the path and the log for "file not found" ([[Assets]]).
+- [ ] **Hidden?** `Visibility::Hidden` on it or an ancestor, or `Display::None` in UI.
+- [ ] **Zero-sized?** Scale 0, alpha 0, or `custom_size: Some(Vec2::ZERO)`.
+- [ ] **Feature off?** No `DefaultPlugins`, or a Cargo feature missing ([[Project setup]]).
 
 ## "My system never runs"
 
@@ -46,7 +46,7 @@ Or use an inspector that shows the whole world and lets you edit it live: [[bevy
 
 ## See what the schedule does
 
-Draw the system graph with [[bevy_mod_debugdump]], or print order with stepping. The stepping you see in this very site's previews (step one system at a time) is a built-in Bevy feature: `Stepping`.
+Draw the system graph with [[bevy_mod_debugdump]], or step one system at a time with Bevy's `Stepping`: the same feature the previews on this site use.
 
 ## Bugs with time and order
 

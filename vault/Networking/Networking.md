@@ -5,30 +5,28 @@ crates: serde={ version = "1", features = ["derive"] }
 ---
 # Networking
 
-Making a game multiplayer is mostly a *design* problem, and only then a library problem. This note gives you the concepts; the libraries do the plumbing. #networking
+Multiplayer is a *design* problem first and a library problem second. This note covers the ideas; the crates do the plumbing. #networking
 
-## The big idea
-
-Several computers must agree on one game world. Two ways:
+## Two ways to agree on a world
 
 | Model | How | Good for |
 |:--|:--|:--|
-| **Client / server** (authoritative) | one program owns the truth; clients send *inputs* and receive *state* | most games; cheating is hard |
-| **Peer to peer, lockstep / rollback** | everyone simulates the same game from the same inputs | fighting games, RTS; needs a deterministic simulation |
+| **Client / server** | one program owns the truth; clients send *inputs*, receive *state* | most games, and cheating is hard |
+| **Peer to peer** (lockstep, rollback) | everyone runs the same simulation from the same inputs | fighting games, RTS; the simulation must be deterministic |
 
-## Words you will meet
+## Words you'll meet
 
-- **Transport**: how bytes move. UDP (fast, may lose packets), TCP (reliable, slow), WebTransport/WebSocket (browsers), Steam/EOS relays.
-- **Replication**: the server tells clients which entities and components exist and what changed.
-- **Authority**: who is allowed to change a thing. Usually the server.
-- **Prediction**: the client applies its own input at once, without waiting, so it feels instant.
-- **Reconciliation**: when the server's answer arrives, correct the prediction if it differed.
-- **Interpolation**: show *other* players slightly in the past, blended between two snapshots, so they move smoothly.
-- **Tick rate**: how many times per second the server simulates (use [[Time and timers|FixedUpdate]]).
+- **Transport**: how bytes travel. UDP (fast, lossy), TCP (reliable, slower), WebSocket / WebTransport (browsers), Steam relays.
+- **Replication**: the server tells clients which entities exist and what changed.
+- **Authority**: who may change a thing. Usually the server.
+- **Prediction**: apply your own input at once, without waiting for the server.
+- **Reconciliation**: fix the prediction when the server's answer differs.
+- **Interpolation**: draw *other* players slightly in the past, blended between snapshots, so they move smoothly.
+- **Tick rate**: server simulations per second; run them in `FixedUpdate` ([[Time and timers]]).
 
 ## What goes over the wire
 
-Not the whole world. Small **messages**:
+Inputs one way, facts the other. Never the whole world:
 
 ```rust
 use bevy::prelude::*;
@@ -41,56 +39,38 @@ struct PlayerInput {
     jump: bool,
 }
 
-/// Server → clients: the facts. Replication libraries do this part for you.
+/// Server → clients: the facts. Replication crates send these for you.
 #[derive(Component, Serialize, Deserialize, Clone)]
 struct Health(u32);
 ```
 
-Components marked as *replicated* are copied to clients automatically; [[Events and observers|events]] and [[Messages]] become network messages. Think of your ECS world as the shared database.
+Replicated components are copied to clients automatically, and [[Messages]] and [[Events and observers|events]] become network messages. Your ECS world is the shared database.
 
-## Pick a library
+## Building it, in order
 
-Write the game so the **same systems** run on server and client wherever you can.
+- [ ] Single-player first, with **input → simulation → rendering** kept apart ([[Project setup#Project structure|Project structure]]).
+- [ ] Simulation on a fixed tick, taking inputs as data.
+- [ ] Add replication; mark what the server owns.
+- [ ] Prediction only where lag hurts: your own player.
+- [ ] Test with fake lag (`tc`, `clumsy`) from day one.
 
-| Library | What it gives | Pick it when | Bevy |
-|:--|:--|:--|:--|
-| [[bevy_replicon]] | replication + events, transport-agnostic | you want a clean, simple, modern base | #0.20 |
-| [[lightyear]] | replication, prediction, interpolation, lag compensation | action games that need prediction | in progress |
-| [[bevy_renet]] | reliable channels over UDP | you want a transport and make the rest yourself | in progress |
-| [[bevy_ggrs]] + [[bevy_matchbox]] | rollback + WebRTC matchmaking | fighters, small peer-to-peer games | in progress |
-| [[bevy_http_client]] | HTTP requests | leaderboards, accounts, REST | #0.20 |
-| [[bevy_steamworks]] | Steam lobbies, achievements | shipping on Steam | in progress |
-
-The table at the end of this note has the current version status.
-
-## A sane way to build it
-
-1. Make the game single-player, with clean separation of **input → simulation → rendering** ([[Project setup#Project structure|Project structure]]).
-2. Make the simulation run on a fixed tick and take inputs as data.
-3. Add a replication library; mark what the server owns.
-4. Add prediction only where it hurts (your own player).
-5. Test with fake lag (`tc`, `clumsy`) from the first day.
-
-Follow the path [[Multiplayer]] for the order.
-
-## Browsers
-
-WebSockets and WebTransport work in wasm; raw UDP does not. Pick a library and transport that support the web if you ship there ([[Web build]]).
+> [!WARNING]
+> Browsers can't open raw UDP sockets. For a [[Web build]], pick a transport that speaks WebSocket, WebTransport or WebRTC.
 
 ## Libraries
 
-Comparisons of crates that do similar jobs: [[Netcode crates]].
+Side by side, by kind of game: [[Netcode crates]].
 
 | Crate | For | Bevy |
 |:--|:--|:--|
-| [[bevy_replicon]] | server-authoritative replication | #0.20 |
+| [[bevy_replicon]] | server-authoritative replication, any transport | #0.20 |
 | [[lightyear]] | replication + prediction + interpolation | #0.19 |
 | [[bevy_renet]] | UDP transport with channels | #0.19 |
 | [[bevy_ggrs]] | rollback, peer to peer | #0.19 |
-| [[bevy_matchbox]] | WebRTC peers + signalling | #0.19 |
-| [[bevy_steamworks]] | Steam features | #0.19 |
-| [[bevy_http_client]] | HTTP requests | #0.20 |
+| [[bevy_matchbox]] | WebRTC peers and signalling | #0.19 |
+| [[bevy_steamworks]] | Steam lobbies, achievements | #0.19 |
+| [[bevy_http_client]] | HTTP: leaderboards, accounts | #0.20 |
 
 ## Next
 
-[[bevy_replicon]] to try it for real.
+[[bevy_replicon]] to try it for real, or follow [[Multiplayer]].

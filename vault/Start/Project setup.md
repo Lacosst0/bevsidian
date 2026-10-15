@@ -48,7 +48,7 @@ The full list lives in the `bevy` crate's `docs/cargo_features.md`.
 
 - **Dynamic linking**: `cargo run --features bevy/dynamic_linking`. The biggest win; never ship with it.
 - **`dev` feature**: `cargo add bevy -F dev` adds asset hot reloading and debug tools. Drop it for releases.
-- **Linker**: Linux has used `lld` by default since Rust 1.90, so `mold` rarely helps.
+- **Linker**: Linux already links with `lld`[^lld], so `mold` rarely helps.
 - **Nightly + Cranelift**: about 30% faster builds of your own code (not on the web). See [[Tooling]].
 
 ## Linux libraries
@@ -108,3 +108,5 @@ fn main() {
 ## Next
 
 [[App and plugins]].
+
+[^lld]: The default for `x86_64-unknown-linux-gnu` since Rust 1.90.

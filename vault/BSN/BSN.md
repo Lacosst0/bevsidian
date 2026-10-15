@@ -4,9 +4,7 @@ tags: [bsn]
 ---
 # BSN
 
-**BSN** (*Bevy Scene Notation*, said "bison") is new in Bevy 0.20 and is the biggest change to how you build things. Instead of spawning one entity at a time and wiring them by hand, you **describe** a tree of entities, with components, children, observers and assets, and spawn it in one go. #bsn
-
-Everything on the screen of this app is BSN.
+**BSN**, *Bevy Scene Notation*[^bison], is new in Bevy 0.20 and the biggest change to how you build things. Instead of spawning entities one by one and wiring them up by hand, you **describe** a tree (components, children, observers, assets) and spawn it in one go. Every screen of this app is BSN. #bsn
 
 ## What you get
 
@@ -32,10 +30,9 @@ Then see it used for real in [[UI layout]], [[Buttons and widgets]] and [[bevy_r
 
 ## Plain `spawn` or BSN?
 
-Both work together. A quick rule:
-
-- One entity, a few components: `commands.spawn((A, B))`.
-- A **tree**, anything **reused**, anything with **assets or observers**: BSN.
+They mix freely. One entity with a few components: `commands.spawn((A, B))`. A **tree**, anything **reused**, anything with **assets or observers**: BSN.
 
 > [!IMPORTANT]
 > The `.bsn` *file* format is not in Bevy yet. The `bsn!` macro is the supported way, and what these notes teach.
+
+[^bison]: Said "bison".

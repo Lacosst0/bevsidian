@@ -66,10 +66,10 @@ Use GitHub Actions to build each platform on a tag, like this repository's `rele
 
 ## Before you ship
 
-- Remove `file_watcher`, `hotpatching`, `dynamic_linking`, `dev` ([[Hot reloading]]).
-- Run once with `RUST_LOG=warn` and fix every warning.
-- Test the release build on a machine without Rust installed.
-- Profile if it is slow: [[Profiling]].
+- [ ] Drop `file_watcher`, `hotpatching`, `dynamic_linking` and `dev` ([[Hot reloading]]).
+- [ ] Run once with `RUST_LOG=warn` and fix every warning.
+- [ ] Try the release build on a machine without Rust.
+- [ ] Slow? Profile before guessing ([[Profiling]]).
 
 ## Next
 

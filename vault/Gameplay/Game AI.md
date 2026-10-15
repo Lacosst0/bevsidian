@@ -4,16 +4,13 @@ tags: [gameplay, ai]
 ---
 # Game AI
 
-Game AI is not machine learning. It is **rules that pick what a character does next**, written so it looks smart enough. Most of it is three ideas: *sense* the world, *decide* with a small model, *act* by changing components. #ai #gameplay
-
-> [!NOTE]
-> Bevy has no AI built in, and does not need it: a decision is a system that reads components and writes components. This note builds a guard from scratch. The ecosystem crates are at the end.
+Game AI isn't machine learning. It's **rules that pick what a character does next**, just smart enough to look smart: *sense* the world, *decide*, *act* by changing components. Bevy needs nothing special for it; a decision is a system that reads components and writes others. #ai #gameplay
 
 ## The guard
 
-Meet the guard (green). It walks between two posts, **chases** you when you come close (red), and **walks back** when you get away (yellow). Click the preview to move the blue square.
+Meet the guard. It walks between two posts (green), **chases** you when you come close (red) and **walks back** when you get away (yellow). You're the ship: click to move it.
 
-First, the data. The guard is an entity with a `State` and a `Route`:
+First the data. The guard is an entity with a `State` and a `Route`:
 
 ```rust example=ai
 use bevy::prelude::*;
@@ -49,13 +46,11 @@ fn step_towards(from: &mut Transform, to: Vec2, speed: f32, time: &Time) {
 }
 ```
 
-Why `SEE` is smaller than `LOSE`: the gap is a **hysteresis**. If both were one number, a player standing right on the line would flip the guard between states every frame.
+`SEE` is smaller than `LOSE` on purpose. With one number, a player standing on the line would flip the guard back and forth every frame. The gap (**hysteresis**) stops that.
 
 ## A state machine
 
-A **finite state machine** (FSM) has a list of states, one current state, and rules for moving between them. In ECS the current state is just a component, and "what the guard does" is one system per state, each skipping guards that are in another state.
-
-The rules live in one system that does nothing but change the state:
+A **state machine** is a set of states, one current state and rules for moving between them. In ECS the state is a component. One system does nothing but apply the rules:
 
 ```rust example=ai
 fn watch_for_player(
@@ -79,7 +74,7 @@ fn watch_for_player(
 }
 ```
 
-Read it as a table: *in this state, if this is true, go to that state*. `set_if_neq` writes only on a real change, so `Changed<State>` is a clean trigger for anything that should happen **once** when a state is entered (a sound, an animation, a colour).
+Read it as a table: *in this state, if this holds, go there*. `set_if_neq` writes only on a real change, so `Changed<State>` fires **once** per new state: the place for a sound, an animation or a colour.
 
 ```rust example=ai
 fn show_state(mut guards: Query<(&State, &mut Sprite), Changed<State>>) {
@@ -93,11 +88,11 @@ fn show_state(mut guards: Query<(&State, &mut Sprite), Changed<State>>) {
 }
 ```
 
-The preview above runs the rules and the colour only, so the guard changes colour but never moves. Add the behaviours.
+So far the guard changes colour but never moves. Time for behaviours.
 
 ## One system per behaviour
 
-Each state's behaviour is a small system that filters on the state:
+Each state gets a small system that skips guards in any other state:
 
 ```rust example=ai
 fn patrol(time: Res<Time>, mut guards: Query<(&mut Transform, &mut Route, &State)>) {
@@ -135,11 +130,11 @@ fn go_back(time: Res<Time>, mut guards: Query<(&mut Transform, &Route, &State)>)
 }
 ```
 
-The `Without<Guard>` on the player query matters: Bevy refuses two queries that could borrow the same `Transform` at once, one mutable. `With<Player>` + `Without<Guard>` proves they never overlap.
+`Without<Guard>` on the player query matters: two queries that could both reach one `Transform`, one of them mutably, are refused. The filter proves they never overlap ([[Advanced queries]]).
 
 ## All together
 
-Register everything, and click to send the player running:
+Register it all, and click to send the ship running:
 
 ```rust example=ai
 fn move_player(
@@ -167,16 +162,16 @@ struct Sky;
 struct Target(Vec2);
 ```
 
-Run it, then walk the blue square close to the guard, and far away. Run the systems in order (`chain`): the decision first, then the behaviour, so a guard reacts the same frame.
+Fly close to the guard, then away. `chain` runs the decision before the behaviours, so the guard reacts in the same frame.
 
 > [!TIP]
-> Cleaner at scale: instead of an enum and `if state == ...` in every system, give each state **its own marker component** (`Patrolling`, `Chasing`) and let systems query `With<Chasing>`. Changing state is `insert` one and `remove` the other. The crate `seldom_state` does this for you.
+> At scale, swap the enum for **one marker per state** (`Patrolling`, `Chasing`) and query `With<Chasing>`. Changing state is an `insert` and a `remove`. `seldom_state` does exactly this.
 
 ## Sensing
 
-Everything above senses with one number: distance. Real senses are a few lines each.
+Distance is the simplest sense. The others are a few lines each.
 
-**Field of view.** The guard sees only in front. Compare its facing direction with the direction to the target using a dot product:
+**Field of view**: the guard only sees in front. Compare the way it faces with the way to the target:
 
 ```rust
 use bevy::prelude::*;
@@ -192,9 +187,9 @@ fn sees(from: &Transform, target: Vec2, range: f32, fov: f32) -> bool {
 }
 ```
 
-**Line of sight.** A wall must hide the player. Cast a ray from the guard to the player; if it hits a wall first, the player is hidden. With the physics engine this is one call ([[bevy_rapier]] or [[Avian]] both have ray casts); for meshes there is Bevy's `MeshRayCast`.
+**Line of sight**: cast a ray from guard to player; if a wall comes first, the player is hidden. Physics engines do it in one call ([[bevy_rapier]], [[Avian]]); for meshes there's Bevy's `MeshRayCast`.
 
-**Hearing and memory.** Store what the guard last saw, so it can search rather than forget at once:
+**Memory**: remember where the player was last seen, so the guard searches instead of forgetting at once:
 
 ```rust
 use bevy::prelude::*;
@@ -205,7 +200,7 @@ struct LastSeen { at: Vec2, age: Timer }
 
 ## Steering
 
-Movement is a decision too. **Steering behaviours** return a *desired velocity*; you add them up. Each is a one-line function:
+**Steering behaviours** each return a desired velocity; add them up to move. Each is a line or two:
 
 ```rust
 use bevy::prelude::*;
@@ -234,15 +229,11 @@ fn separate(position: Vec2, neighbours: &[Vec2], radius: f32, speed: f32) -> Vec
 }
 ```
 
-A zombie is `seek + separate`; a sheep is `seek(flock centre) + separate + flee(dog)`. Weighting and summing gives surprisingly lifelike crowds from very little code.
-
-## Paths
-
-`seek` walks in a straight line. With walls in the way you need a **path**: [[Pathfinding]].
+A zombie is `seek + separate`; a sheep is `seek(flock) + separate + flee(dog)`. Weighted sums make lifelike crowds from very little code. With walls in the way, `seek` isn't enough: you need a path ([[Pathfinding]]).
 
 ## Utility AI
 
-A state machine has hard rules. **Utility AI** gives every possible action a *score* from 0 to 1 and picks the best. Characters feel less robotic because they weigh things:
+**Utility AI** scores every action from 0 to 1 and picks the best. Characters weigh their options instead of following hard rules:
 
 ```rust
 use bevy::prelude::*;
@@ -268,19 +259,19 @@ fn choose(needs: &Needs) -> Action {
 }
 ```
 
-Then a system `choose`s on a `Timer` (think four times a second, not 60) and inserts the chosen action as a component.
+Call `choose` on a timer (four times a second is plenty) and insert the result as a component.
 
 ## Behaviour trees
 
-A **behaviour tree** is a tree of tasks: *sequence* (do these in order, stop if one fails), *selector* (try these until one works), and *leaf* tasks (`MoveTo`, `Attack`). They scale better than a state machine when behaviours nest ("attack" contains "approach, aim, fire"). Libraries provide them; you rarely write one by hand.
+A **behaviour tree** nests tasks: a *sequence* runs children in order until one fails, a *selector* tries them until one works, *leaves* do the work (`MoveTo`, `Attack`). Reach for one when behaviours nest deeply ("attack" = approach, aim, fire); use a crate rather than writing your own.
 
 ## Making it feel good
 
-- **Think less often.** Decisions at 4 Hz are indistinguishable from 60 Hz. Use a repeating `Timer` ([[Time and timers]]) per brain, with a random offset so not every enemy thinks on the same frame.
-- **React with delay.** A guard that notices you *instantly* feels unfair. A 0.3 s "!" first feels fair.
-- **Telegraph.** Colour, sound, an icon: show the state ([[Gizmos]] are great for debug vision cones).
-- **Add noise.** A random wiggle on the route or on timing breaks lockstep movement ([[Randomness]]).
-- **Debug it.** Draw each state, the target and the cone. Bugs in AI are almost always a wrong state or a missing transition.
+- **Think less often.** 4 Hz looks the same as 60. Give each brain a repeating `Timer` with a random offset ([[Time and timers]]).
+- **React with a delay.** Instant noticing feels unfair; a 0.3 s "!" feels fair.
+- **Telegraph.** Show the state with colour, sound or an icon.
+- **Add noise** to routes and timing so enemies don't move in lockstep ([[Randomness]]).
+- **Draw it.** Most AI bugs are a wrong state or a missing transition; [[Gizmos]] make them obvious.
 
 ```rust
 use bevy::prelude::*;
@@ -311,7 +302,7 @@ struct Guard;
 | `vleue_navigator` 0.16 | navmeshes | #0.19 |
 | `bevy_northstar` 0.7 | hierarchical grid pathfinding | #0.19 |
 
-None works with #0.20 yet. Everything in this note is plain Bevy and works today, and a hand-written state machine is often the right size.
+None supports #0.20 yet. Everything above is plain Bevy, and a hand-written state machine is often all you need.
 
 ## Next
 

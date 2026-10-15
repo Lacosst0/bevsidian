@@ -66,7 +66,7 @@ An [[Events and observers|observer]] on a game event keeps sound out of your gam
 
 ## Make your own sounds
 
-Game sounds do not have to be recordings. The classic "blips" of old games are made from a few numbers: a **wave** (square, saw, sine or noise), a **pitch** that can **slide** up or down, a **length** and a **volume**. Press the **speaker** button above this preview to make your own, from ready-made ones (coin, jump, hit, laser…) or by surprise. They are saved, and the other examples play them: the hit in Dodge ([[Make a game]]), the bouncing balls in [[Physics]], the pop of a new square in [[Sprites]].
+Game sounds needn't be recordings. The classic blips are a few numbers: a **wave** (square, saw, sine or noise), a **pitch** that can slide, a **length** and a **volume**. Press the **speaker** button above the pads to make your own, from presets (coin, jump, hit, laser…) or by surprise. Every example then plays yours: the hit in Dodge ([[Make a game]]) and [[Game feel]], the bounces in [[Physics]], the pop in [[Sprites]].
 
 Click a pad to play its sound:
 
@@ -168,7 +168,7 @@ Works in 2D too: place sources and the listener on the same plane (`spatial_audi
 
 ## Volume channels: music, effects, master
 
-Players expect separate sliders. Mark each sound with its kind, keep the volumes in a resource, and write them to the sinks whenever the resource changes:
+Players expect separate sliders. Tag each sound with its kind, keep the volumes in a resource, and apply them when it changes:
 
 ```rust
 use bevy::{audio::Volume, prelude::*};
@@ -199,11 +199,11 @@ fn apply_volumes(
 }
 ```
 
-Spawn effects with `Effect` and the starting volume from the same resource, so a new sound is not louder than the slider says. Volume sliders feel right on a curve: use the slider value squared, since loudness is not linear.
+Give new sounds their starting volume from the same resource. Square the slider value: loudness isn't linear, and a curve feels right.
 
 ## Fade in and out
 
-Abrupt starts and stops click. Fade the sink's volume over time. This one fades out and then despawns (an easing curve would be gentler, see [[Game feel]]):
+Hard starts and stops click. Fade the volume instead; this fades out, then despawns:
 
 ```rust
 use bevy::{audio::Volume, prelude::*};
@@ -226,11 +226,11 @@ fn fade_out(
 }
 ```
 
-To change the music, fade the old track out and spawn the new one at once: that is a crossfade.
+Fade the old track out while the new one starts, and you have a crossfade.
 
 ## Variety and limits
 
-The same footstep a hundred times is fatiguing. Two cheap fixes:
+The same footstep a hundred times grates. Two cheap fixes:
 
 ```rust
 use bevy::{audio::Volume, prelude::*};
@@ -250,19 +250,14 @@ fn footstep(mut commands: Commands, steps: Res<Footsteps>, time: Res<Time>) {
 }
 ```
 
-And **limit** how many play at once: a swarm of enemies dying on one frame can spawn hundreds of players. Count `AudioPlayer`s of one kind and skip new ones past a cap (8 is plenty).
+And **cap** how many play at once: a swarm dying on one frame can start hundreds. Skip new ones past about eight.
 
-## The browser needs a click first
-
-Web browsers refuse to start audio until the player has interacted with the page. If your music is silent on the web ([[Web build]]), that is why: show a "Click to start" screen, and begin the music after it.
-
-## Settings players expect
-
-Store music volume, effects volume and mute in a [[Resources|resource]] and apply on change. Separate music from effects so players can turn down one. See [[Saving and loading]].
+> [!WARNING]
+> Browsers won't play audio until the player has clicked or pressed a key. Silent music on the web ([[Web build]])? Show a "Click to start" screen first.
 
 ## Libraries
 
-Comparisons of crates that do similar jobs: [[Audio crates]].
+Crates compared side by side: [[Audio crates]].
 
 | Crate | For | Bevy |
 |:--|:--|:--|
@@ -272,4 +267,4 @@ Comparisons of crates that do similar jobs: [[Audio crates]].
 
 ## Next
 
-Bevy's audio is basic by design. For buses, effects (reverb, EQ), crossfades and dynamic music use a library: [[bevy_kira_audio]] (#0.20), [[bevy_seedling]] (Firewheel based), or [[bevy_fmod]] (professional FMOD middleware).
+Bevy's audio is basic by design. For buses, reverb and dynamic music, see [[Audio crates]]. Save the volume settings with [[Saving and loading]].

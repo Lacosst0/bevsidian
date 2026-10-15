@@ -29,7 +29,7 @@ The path [[Ship it]] puts these in order.
 
 ## Libraries
 
-Comparisons of crates that do similar jobs: [[Debug crates]].
+Crates compared side by side: [[Debug crates]].
 
 | Crate | For | Bevy |
 |:--|:--|:--|
@@ -39,12 +39,12 @@ Comparisons of crates that do similar jobs: [[Debug crates]].
 
 ## Choosing libraries
 
-Bevy is small on purpose; the ecosystem fills the gaps. Every area of this vault ends with a **Libraries** table: what each crate is for, tagged #0.20 when it works with Bevy 0.20 and #0.19 while it is still on an older Bevy.
+Bevy is small on purpose; crates fill the gaps. Every area here ends with a **Libraries** table, each crate tagged with the Bevy its latest release supports (#0.20 or #0.19).
 
-1. **Check the compatibility table** in the crate's README before adding it.
-2. **Prefer built-in** when it is enough ([[Picking]], camera controllers, text input and atmosphere all moved into Bevy).
-3. **Prefer a released crate** to a git branch; use git only for a crate you need now.
-4. If two crates do the same job, read both examples and choose the one whose *style* you like: that is what you will live with.
-5. Do not add libraries speculatively. Add one when you feel the pain it removes.
+- **Check the crate's compatibility table** before adding it.
+- **Prefer what's built in** when it's enough: picking, camera controllers, text input and atmosphere all moved into Bevy.
+- **Prefer a release** to a git branch.
+- **Two crates, one job?** Read both examples and pick the style you'd rather live with.
+- **Add a crate when you feel the pain it removes**, not before.
 
-A good Bevy library is **one plugin**, configured through resources, not a framework. The Bevy Book's chapter "Creating libraries for Bevy" has the checklist for writing your own.
+A good Bevy library is **one plugin**, configured through resources. The Bevy Book's "Creating libraries for Bevy" has the checklist.

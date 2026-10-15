@@ -4,9 +4,9 @@ tags: [bsn]
 ---
 # BSN syntax
 
-Every piece of notation in `bsn!` and `bsn_list!`, with an example for each. Read it once, then use it as a reference. #bsn
+Every piece of `bsn!` and `bsn_list!` notation, each with an example. Skim it once, come back when you need it. #bsn
 
-A scene is a list of **entries**. Entries are separated by whitespace (new lines are only for reading). There are four families: **components**, **includes**, **names** and **relationships**, plus observers. Values inside them are Rust expressions with a few shortcuts.
+A scene is a list of **entries** separated by whitespace: components, includes (`@`), names (`#`), relationships (`Children [..]`) and observers (`on`). Values are Rust expressions with a few shortcuts.
 
 ## Components
 

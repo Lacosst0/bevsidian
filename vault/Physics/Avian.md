@@ -77,14 +77,7 @@ fn walk(keys: Res<ButtonInput<KeyCode>>, mut player: Single<&mut LinearVelocity,
 
 ## Avian or Rapier?
 
-| | Avian | [[bevy_rapier]] |
-|:--|:--|:--|
-| Written | for Bevy's ECS | as a standalone engine, then wrapped |
-| Hackability | high: plain components and schedules | lower, but a huge feature list |
-| Bevy | #0.19 | #0.20 |
-| Docs | docs.rs and examples | docs.rs, rapier.rs guide |
-
-Both are good. Choose by the Bevy version you need and the features you use.
+Side by side, with the same scene written in both: [[Physics#When to use a physics engine]].
 
 ## Links
 

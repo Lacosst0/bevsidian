@@ -61,7 +61,7 @@ fn main() {
 }
 ```
 
-Press play and watch `Distance` grow. Then **Toggle pause**: `move_enemies` is skipped (the step highlights nothing), `announce` runs once because `Paused` changed, and `always_runs` keeps going.
+Press play and watch `Distance` grow. Then **Toggle pause**: `move_enemies` is skipped, `announce` runs once because `Paused` changed, and `always_runs` carries on.
 
 A condition is a system too: it can take any read-only parameter (`Res`, `Query`, ...).
 
@@ -124,11 +124,13 @@ fn main() {
 | `a.xor(b)` | exactly one | always |
 | `not(a)` | `a` is false | (`bevy::ecs::schedule::common_conditions::not`) |
 
-Prefer `and_then`/`or_else`: they skip work, and a condition that is never evaluated cannot panic on a missing resource. Use the `_eager` forms when both conditions track change detection or messages and must see every frame. Several `.run_if` calls on one system also mean *all must be true*.
+Prefer `and_then` / `or_else`: they skip work, and a condition never evaluated can't panic on a missing resource. Use the `_eager` forms when both conditions watch changes or messages and must see every frame. Chaining several `.run_if` calls means *all must be true*.
 
 ## Conditions on many systems
 
-```rust
+Give a whole tuple one condition instead of repeating it. Switch tabs to see the difference:
+
+```rust variant="One by one"
 use bevy::prelude::*;
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -141,10 +143,36 @@ fn main() {
     App::new()
         .add_systems(
             Update,
-            (move_player, move_enemies).run_if(in_state(Mode::Playing)),
+            (
+                move_player.run_if(in_state(Mode::Playing)),
+                move_enemies.run_if(in_state(Mode::Playing)),
+            ),
         )
         .run();
 }
+```
+
+```diff variant=Together
+ use bevy::prelude::*;
+
+ #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
+ enum Mode { #[default] Menu, Playing }
+
+ fn move_player() {}
+ fn move_enemies() {}
+
+ fn main() {
+     App::new()
+         .add_systems(
+             Update,
+-            (
+-                move_player.run_if(in_state(Mode::Playing)),
+-                move_enemies.run_if(in_state(Mode::Playing)),
+-            ),
++            (move_player, move_enemies).run_if(in_state(Mode::Playing)),
+         )
+         .run();
+ }
 ```
 
 ## Careful with messages

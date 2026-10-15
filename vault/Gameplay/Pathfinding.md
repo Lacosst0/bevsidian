@@ -183,7 +183,7 @@ Free-form levels (3D, or 2D without a grid) use a **navigation mesh**: walkable 
 
 | Crate | For | Bevy |
 |:--|:--|:--|
-| `pathfinding` 4.16 | A*, Dijkstra, BFS and more on any graph; no Bevy dependency | works today |
+| `pathfinding` 4.16 | A*, Dijkstra, BFS and more on any graph; no Bevy dependency | any (not a plugin) |
 | `bevy_northstar` 0.7 | hierarchical grid pathfinding | #0.19 |
 | `vleue_navigator` 0.16 | navmeshes, 2D and 3D | #0.19 |
 | `bevy_landmass` 0.12 | navmesh agents, avoidance | #0.19 |

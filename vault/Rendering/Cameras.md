@@ -114,7 +114,7 @@ fn minimap(mut commands: Commands) {
 }
 ```
 
-Use `RenderLayers` to decide which cameras see which entities.
+`RenderLayers` decides which camera sees what ([below](#which-camera-sees-what)).
 
 ## Screen to world and back
 

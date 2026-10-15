@@ -137,14 +137,70 @@ Because the world only changes at fixed steps, draw it smoothly with `bevy_trans
 
 ## When to use a physics engine
 
-You need one for: rigid bodies that stack and tumble, joints, many shapes colliding, continuous collision (fast bullets), character controllers on slopes, sensors and ray casts at scale.
+When things stack and tumble, hang from joints, collide in odd shapes, fly fast enough to tunnel through walls, or walk up slopes. Both engines give you `RigidBody` and `Collider` components and take over `Transform`. The same floor and bouncing ball in each:
 
-| Engine | Style |
-|:--|:--|
-| [[bevy_rapier]] | wrapper of the mature Rapier engine; 2D and 3D; #0.20 |
-| [[Avian]] | ECS-native engine written for Bevy; 2D and 3D; follows Bevy closely |
+```rust variant=Avian ignore
+use avian2d::prelude::*;
+use bevy::prelude::*;
 
-Both give you components (`RigidBody`, `Collider`) and take over `Transform`.
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, PhysicsPlugins::default()))
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Transform::from_xyz(0.0, -200.0, 0.0),
+        RigidBody::Static,
+        Collider::rectangle(600.0, 40.0),
+    ));
+    commands.spawn((
+        Transform::from_xyz(0.0, 150.0, 0.0),
+        RigidBody::Dynamic,
+        Collider::circle(25.0),
+        Restitution::new(0.8),
+    ));
+}
+```
+
+```rust variant=Rapier ignore
+use bevy::prelude::*;
+use bevy_rapier2d::prelude::*;
+
+fn main() {
+    App::new()
+        .add_plugins((DefaultPlugins, RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0)))
+        .add_systems(Startup, setup)
+        .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Transform::from_xyz(0.0, -200.0, 0.0),
+        Collider::cuboid(300.0, 20.0), // half sizes; no RigidBody means fixed
+    ));
+    commands.spawn((
+        Transform::from_xyz(0.0, 150.0, 0.0),
+        RigidBody::Dynamic,
+        Collider::ball(25.0),
+        Restitution::coefficient(0.8),
+    ));
+}
+```
+
+| | [[Avian]] | [[bevy_rapier]] |
+|:--|:--|:--|
+| Bevy | #0.19 | #0.20 |
+| Built | for Bevy's ECS: plain components and schedules | around the standalone Rapier engine |
+| Feels | easy to read, extend and debug | mature, fast, huge feature list |
+| Extras | built-in transform interpolation | character controller, rapier.rs guide |
+
+> [!TIP]
+> On Bevy 0.20 today: [[bevy_rapier]]. If you'd rather stay on 0.19 or want physics that reads like Bevy code: [[Avian]]. The code is close enough that switching later is an afternoon.
 
 ## Libraries
 
@@ -156,4 +212,4 @@ Both give you components (`RigidBody`, `Collider`) and take over `Transform`.
 
 ## Next
 
-[[Networking]] to put players together, or follow [[A 2D game]].
+[[bevy_rapier]] or [[Avian]] when you outgrow hand-written collisions.

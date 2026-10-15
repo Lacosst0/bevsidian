@@ -203,10 +203,9 @@ For typing characters (chat, names) use [[Text and images#Text input|Text input]
 
 ## Libraries
 
-Comparisons of crates that do similar jobs: [[Input crates]].
+Side by side: [[Input crates]]. (Picking used to be the `bevy_mod_picking` crate; it's built in now: [[Picking]].)
 
 | Crate | For | Bevy |
 |:--|:--|:--|
 | [[bevy_enhanced_input]] | actions, contexts, modifiers; **observer based** | #0.20 (git) |
 | [[leafwing-input-manager]] | action enum + `InputMap`, remapping | #0.20 (git) |
-| `bevy_mod_picking` | old picking crate | built in ([[Picking]]) |

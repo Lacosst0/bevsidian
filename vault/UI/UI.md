@@ -59,7 +59,7 @@ That is the whole model: a root [`Node`] filling the screen, children inside it.
 
 ## Libraries
 
-Comparisons of crates that do similar jobs: [[UI crates]].
+Crates compared side by side: [[UI crates]].
 
 | Crate | For | Bevy |
 |:--|:--|:--|

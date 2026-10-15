@@ -20,13 +20,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 ```
 
-`load` returns **immediately**. The file is read on another thread; a sprite with an unfinished handle simply isn't drawn until the data arrives. Loading the same path twice gives the same asset, not a copy.
+`load` returns **at once**; the file is read in the background, and the sprite appears when it's ready. Loading a path twice gives the same asset, not a copy.
 
 ## Handles and the Assets store
 
-- The one real copy of every image lives in the `Assets<Image>` resource.
-- A [`Handle<Image>`] is a small reference to it. `Sprite`, `Mesh3d`, `AudioPlayer` all store handles.
-- Handles are reference counted. When the last handle is dropped, the asset is unloaded.
+The real image lives once in the `Assets<Image>` resource; a [`Handle<Image>`] is a cheap, reference-counted pointer to it. `Sprite`, `Mesh3d` and `AudioPlayer` all hold handles, and when the last handle goes the asset is unloaded.
 
 ```rust
 use bevy::prelude::*;
@@ -47,11 +45,12 @@ fn make_image(mut images: ResMut<Assets<Image>>) -> Handle<Image> {
 }
 ```
 
-Swapping the **handle** changes one entity. Editing the **asset** (`images.get_mut(&handle)`) changes every entity sharing it.
+> [!TIP]
+> Swap the **handle** to change one entity. Edit the **asset** (`images.get_mut(&handle)`) to change every entity that shares it.
 
 ## Preload what you need
 
-If you load an asset in a system and drop the handle, it unloads, then reloads next time (the enemy may flicker in). Keep the handles in a resource:
+Drop the last handle and the asset unloads, then reloads next time you ask (the enemy flickers in). Keep handles in a resource:
 
 ```rust
 use bevy::prelude::*;
@@ -76,7 +75,7 @@ fn spawn_enemy(mut commands: Commands, assets: Res<GameAssets>) {
 
 ## A loading screen
 
-Keep a [[States|state]] while assets load, and move on when they are ready:
+Stay in a loading [[States|state]] until everything is in:
 
 ```rust
 use bevy::prelude::*;
@@ -105,11 +104,11 @@ fn main() {
 }
 ```
 
-`is_loaded_with_dependencies` also waits for things the asset needs (a model's textures). For many assets use [[bevy_asset_loader]].
+`is_loaded_with_dependencies` also waits for what the asset needs (a model's textures). Many assets? [[bevy_asset_loader]] does this for you.
 
 ## Progress, and what to do when a load fails
 
-`is_loaded_with_dependencies` gives yes or no. For a progress bar, ask each handle for its `LoadState` and count:
+For a progress bar, count each handle's `LoadState`:
 
 ```rust
 use bevy::prelude::*;
@@ -141,7 +140,8 @@ fn start(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 ```
 
-A load fails when the file is missing, misspelled (paths are case sensitive on Linux and the web, so `Player.png` works on your laptop and breaks in release) or in a format whose Cargo feature is off. Bevy logs an error with the path; read the console.
+> [!WARNING]
+> Loads fail on a missing file, a format whose Cargo feature is off, or a wrong case: paths are case-sensitive on Linux and the web, so `Player.png` works on your laptop and breaks in release. Bevy logs the path.
 
 ## A whole folder
 
@@ -164,11 +164,11 @@ fn count(sprites: Res<Sprites>, folders: Res<Assets<LoadedFolder>>) {
 }
 ```
 
-`load_folder` does not work in the browser, which cannot list a directory. On the web, list the files yourself in a manifest ([[Custom assets]]).
+Browsers can't list directories, so on the web keep a manifest of files instead ([[Custom assets]]).
 
 ## Reacting to changes
 
-Every asset store sends an `AssetEvent` when something is added, modified or removed. This is how a system notices a hot-reloaded file ([[Hot reloading]]) or a texture that just finished loading:
+Each asset store sends an `AssetEvent` when an asset is added, modified or removed: how you notice a finished load or a hot-reloaded file ([[Hot reloading]]):
 
 ```rust
 use bevy::prelude::*;
@@ -191,7 +191,7 @@ fn on_image_events(mut events: MessageReader<AssetEvent<Image>>, images: Res<Ass
 
 ## Build assets in code
 
-Not every asset is a file. Meshes, materials, colour textures and animation clips are often made in code and added to the store; the handle works exactly like a loaded one:
+Meshes, materials and textures are often made in code. Add them to their store and the handle works like a loaded one:
 
 ```rust
 use bevy::prelude::*;
@@ -211,7 +211,7 @@ fn setup(
 
 ## Ship the assets inside the binary
 
-For a single-file game (a jam entry, a tool) embed small assets in the executable with the `embedded_asset!` macro and load them with an `embedded://` path. For everything else keep the `assets/` folder next to the game: the files can then be updated without recompiling. See [[Release builds]] for what to copy when you ship.
+For a single-file game, embed small assets with `embedded_asset!` and load them from `embedded://`. Otherwise ship the `assets/` folder beside the game, so files can change without a rebuild ([[Release builds]]).
 
 ## Paths and settings
 
@@ -230,7 +230,7 @@ Out of the box: `.png`, `.ogg` (Vorbis), `.gltf`/`.glb`, `.wgsl`/`.wesl` shaders
 
 ## Libraries
 
-Comparisons of crates that do similar jobs: [[Asset crates]].
+Crates compared side by side: [[Asset crates]].
 
 | Crate | For | Bevy |
 |:--|:--|:--|

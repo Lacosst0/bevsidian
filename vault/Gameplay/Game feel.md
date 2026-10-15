@@ -8,7 +8,7 @@ Two games with the same rules can feel completely different. The difference is *
 
 ## A hit with no feedback
 
-Click the square. You hear the hit (your own sound, if you made one with the speaker button), and that's all. It feels like nothing happened.
+Click the ship. You hear the hit (your own sound, if you made one with the speaker button), and that's all. It feels like nothing happened.
 
 ```rust example=feel
 use bevy::prelude::*;
