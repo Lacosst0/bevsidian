@@ -4,7 +4,7 @@ tags: [bsn, ui]
 ---
 # Scenes and BSN
 
-Your first scene. By the end you will have spawned a menu, made a wider copy of it without repeating anything, and seen the same scene style build a 3D world. #bsn
+Your first scene: spawn a menu, make a wider copy without repeating yourself, then build a 3D world the same way. #bsn
 
 > [!NOTE]
 > You can always spawn with `commands.spawn((A, B))`. BSN is for when you spawn *trees*, reuse pieces, or want less boilerplate. The two mix freely. The map of all BSN notes is [[BSN]].
@@ -24,9 +24,7 @@ fn menu_plain(mut commands: Commands) {
 }
 ```
 
-The plain version is fine for this. BSN pays off when the tree grows, or when you want to reuse it.
-
-Now the same as a scene. You write one with `bsn!` and return it as `impl Scene`. Components are separated by whitespace, children by `--`:
+Fine at this size. Now the same as a scene, written with `bsn!` and returned as `impl Scene`. Components are separated by whitespace, children by `--`:
 
 ```rust preview=menu
 use bevy::prelude::*;
@@ -48,7 +46,7 @@ fn setup(mut commands: Commands) {
 }
 ```
 
-The preview above is that exact scene, running. Two things to notice:
+The preview is that exact scene, running. Notice two things:
 
 - `Node { flex_direction: ..., row_gap: ... }` names two fields. Everything else keeps its default. That is **patching**, and it is the idea the rest of BSN stands on.
 - `Children [ ... ]` spawns each `--`-separated entry as a child entity. `Text("Play")` is one entity with a `Text`.
@@ -67,7 +65,7 @@ fn wide_menu() -> impl Scene {
 }
 ```
 
-`@menu()` brings in the whole menu, then `Node { width: px(400) }` changes only the width. The rows, the gap and the direction stay. This is how you make a *variant* without copying: a "danger" button from a button, a "boss" from an enemy.
+`@menu()` brings in the whole menu; `Node { width: px(400) }` changes only the width. That's how you make a *variant* without copying: a "danger" button from a button, a boss from an enemy.
 
 ```rust
 use bevy::prelude::*;

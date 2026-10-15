@@ -9,13 +9,13 @@ feature: 3D worlds
 
 Shapes, light, models and a world around them.
 
-1. [[Transforms]]
-2. [[Cameras]]
+1. [[Transforms]]: position, rotation, scale.
+2. [[Cameras]]: what you look through.
 3. [[Camera crates]] (extra): follow and orbit cameras.
 4. [[3D]]: the area's index.
-5. [[Meshes and materials]]
-6. [[Lighting]]
-7. [[Models and glTF]]
-8. [[3D animation]]
-9. [[3D authoring crates]] (extra)
+5. [[Meshes and materials]]: shapes and surfaces.
+6. [[Lighting]]: sun, lamps, shadows.
+7. [[Models and glTF]]: from Blender to Bevy.
+8. [[3D animation]]: play the model's clips.
+9. [[3D authoring crates]] (extra): build levels in an editor.
 10. [[Environment]]: sky, fog and shadows.

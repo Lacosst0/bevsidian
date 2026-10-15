@@ -21,7 +21,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 ```
 
-`from_color` is perfect for prototypes: no art needed.
+`from_color` is perfect for prototypes: no art needed yet.
 
 ## Order: z decides
 
@@ -51,7 +51,7 @@ fn spawn_squares(mut commands: Commands) {
 }
 ```
 
-Rule of thumb: give each *layer* its own z. Background at -10, ground at 0, characters at 1, effects at 5.
+Give each *layer* its own z: background -10, ground 0, characters 1, effects 5.
 
 ## Change it while playing
 
@@ -68,7 +68,7 @@ fn breathe(time: Res<Time>, mut squares: Query<&mut Transform, With<Breathing>>)
 
 ## Click to place
 
-Pointer events (see [[Picking]]) tell you where something was clicked. The preview forwards your clicks to the stage; this observer adds a square at the click, with a pop ([[Audio]]; make your own pop with the speaker button on [[Audio]]'s sound example):
+Pointer events ([[Picking]]) say where the click landed. This observer adds a square there, with a pop sound (yours, if you made one on [[Audio]]):
 
 ```rust example=sprites
 #[derive(Component)]
@@ -154,7 +154,7 @@ fn feet(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 ## Make it yours
 
-Press the **brush** button above a game preview to draw a 16 × 16 pixel sprite of your own. It is saved, and from then on it plays in the examples: as the player in Dodge ([[Make a game]]), the ship in [[Input]] and [[Transforms]], the agent in [[Pathfinding]] and the player in [[Game AI]]. Start over to get the examples' own pictures back. There is a voxel model to build too: see [[3D]].
+Press the **brush** button above a game preview and draw a 16 × 16 sprite. It's saved, and every example uses it: the ship in Dodge ([[Make a game]]), [[Transforms]] and [[Input]], the player in [[Game AI]] and [[Game feel]], the agent in [[Pathfinding]], the balls in [[Physics]]. Until you do, they fly the starting pixel ship. Build a voxel model for the rocks too: [[3D]].
 
 ## Next
 
