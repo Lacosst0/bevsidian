@@ -512,7 +512,7 @@ fn spawn_nodes(
     old: Query<Entity, With<GraphNode>>,
     mut built: Local<Option<u64>>,
 ) {
-    let vault = vault.get_untracked();
+    let vault = vault.0.clone();
     if *built == Some(vault.revision) {
         return;
     }
@@ -921,7 +921,7 @@ fn attach_viewport(
 }
 
 fn toggle_camera(nav: Res<Nav>, mut cameras: Query<&mut Camera, With<GraphCamera>>) {
-    let active = nav.view.get_untracked() == View::Graph;
+    let active = nav.view == View::Graph;
     for mut camera in &mut cameras {
         if camera.is_active != active {
             camera.is_active = active;
@@ -993,7 +993,7 @@ fn frame(
     viewport: Query<&ComputedNode, With<GraphViewport>>,
     nav: Res<Nav>,
 ) {
-    if !state.framing || nav.view.get_untracked() != View::Graph {
+    if !state.framing || nav.view != View::Graph {
         return;
     }
     let Ok(viewport) = viewport.single() else {
@@ -1100,12 +1100,12 @@ fn style_nodes(
     mut fills: Query<&mut MeshMaterial2d<ColorMaterial>, (With<GraphFill>, Without<GraphRing>)>,
     camera: Query<&Projection, With<GraphCamera>>,
 ) {
-    if nav.view.get_untracked() != View::Graph {
+    if nav.view != View::Graph {
         return;
     }
     let scale = camera.single().map_or(1.0, ortho_scale);
-    let current = nav.current.get_untracked();
-    let visited = nav.visited.get_untracked();
+    let current = nav.current;
+    let visited = nav.visited.clone();
     let focus = state.hovered.or(state.dragging);
     let focus_neighbors = focus.map(|f| neighbors(&state, f)).unwrap_or_default();
     let paint = &state.paint;
@@ -1254,10 +1254,10 @@ fn declutter_labels(
         With<GraphLabel>,
     >,
 ) {
-    if nav.view.get_untracked() != View::Graph {
+    if nav.view != View::Graph {
         return;
     }
-    let current = nav.current.get_untracked();
+    let current = nav.current;
     let first = |e: Entity| Some(e) == state.hovered || Some(e) == state.selected;
     let mut order: Vec<_> = nodes
         .iter()
@@ -1374,7 +1374,7 @@ fn on_move(
     let Some(world) = to_world(event.pointer.position, event.entity, &nodes_ui, &camera) else {
         return;
     };
-    let editing = nav.map_edit.get_untracked();
+    let editing = nav.map_edit;
     let hovered = pick_any(world, editing, &nodes, &things);
     if state.hovered != hovered {
         state.hovered = hovered;
@@ -1412,7 +1412,7 @@ fn on_press(
         return;
     }
     // Touch has no hover, so pick here as well.
-    let editing = nav.map_edit.get_untracked();
+    let editing = nav.map_edit;
     let node = to_world(event.pointer.position, event.entity, &nodes_ui, &camera)
         .and_then(|world| pick_any(world, editing, &nodes, &things));
     state.hovered = node;
@@ -1433,7 +1433,7 @@ fn on_click(
     event: On<PointerClick>,
     mut state: ResMut<GraphState>,
     nodes: Query<&GraphNode>,
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
 ) {
     if event.button != PointerButton::Primary {
         return;
@@ -1446,7 +1446,7 @@ fn on_click(
     else {
         return;
     };
-    if nav.map_edit.get_untracked() {
+    if nav.map_edit {
         // Editing: a click chooses what the inspector edits (or, on empty sky, nothing).
         state.selected = target;
         return;
@@ -1499,7 +1499,7 @@ fn on_drag(
         press.moved = true;
         state.press = Some(press);
         // Only an edited map moves; otherwise a drag anywhere pans.
-        if nav.map_edit.get_untracked() {
+        if nav.map_edit {
             state.dragging = press.node;
             state.selected = press.node.or(state.selected);
         }
@@ -1655,7 +1655,7 @@ fn pinch_zoom(
 ) {
     let fingers: Vec<Vec2> = touches.iter().map(Touch::position).collect();
     let (true, [a, b], Ok(viewport)) = (
-        nav.view.get_untracked() == View::Graph,
+        nav.view == View::Graph,
         fingers.as_slice(),
         viewport.single(),
     ) else {

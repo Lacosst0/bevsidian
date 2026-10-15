@@ -151,20 +151,20 @@ fn spawn_readout(mut commands: Commands) {
 }
 
 fn update_readout(
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
     mut stats: ResMut<FrameStats>,
     mut root: Single<&mut Node, With<FpsReadout>>,
     mut text: Single<&mut Text, With<FpsText>>,
     mut probing: Local<bool>,
 ) {
-    let shown = nav.show_fps.get_untracked();
+    let shown = nav.show_fps;
     let display = if shown { Display::Flex } else { Display::None };
     if root.display != display {
         root.display = display;
     }
     // The refresh-rate probe runs while the readout or the Settings panel (which shows the
     // VSync target) is open.
-    let probe = shown || nav.settings.get_untracked();
+    let probe = shown || nav.settings;
     if *probing != probe {
         *probing = probe;
         display_probe(probe);
@@ -174,8 +174,10 @@ fn update_readout(
     }
     stats.last_refresh = Instant::now();
     if probe {
-        nav.display_hz
-            .set_if_neq(display_hz().map(|hz| hz.round() as u32));
+        let hz = display_hz().map(|hz| hz.round() as u32);
+        if nav.display_hz != hz {
+            nav.display_hz = hz;
+        }
     }
     if !shown || stats.interval == 0.0 {
         return;
@@ -237,7 +239,7 @@ fn display_hz() -> Option<f64> {
 /// Applies the `VSync` setting (desktop only: browsers always present in sync with the
 /// display).
 fn apply_vsync(nav: Res<Nav>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let mode = if nav.vsync.get_untracked() {
+    let mode = if nav.vsync {
         PresentMode::AutoVsync
     } else {
         PresentMode::AutoNoVsync

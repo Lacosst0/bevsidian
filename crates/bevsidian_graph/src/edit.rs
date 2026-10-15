@@ -58,7 +58,7 @@ pub(crate) fn thing_at(
 pub(crate) fn edit_map(
     mut commands: Commands,
     nav: Res<Nav>,
-    vault: Res<Vault>,
+    mut vault: ResMut<Vault>,
     mut state: ResMut<GraphState>,
     nodes: Query<(Entity, &GraphNode, &Transform), Without<MapThing>>,
     things: Query<(Entity, &MapThing, &Transform), Without<GraphNode>>,
@@ -66,7 +66,7 @@ pub(crate) fn edit_map(
     mut pending: Local<Option<Pick>>,
     mut was_editing: Local<bool>,
 ) {
-    let editing = nav.map_edit.get_untracked();
+    let editing = nav.map_edit;
     if editing != *was_editing {
         *was_editing = editing;
         state.editing = editing;
@@ -92,7 +92,7 @@ pub(crate) fn edit_map(
     if !editing {
         return;
     }
-    let data = vault.get_untracked();
+    let data = vault.0.clone();
     let Some(world_map) = &data.map else {
         return;
     };
@@ -202,20 +202,20 @@ mod tests {
         let node = {
             let world = app.world_mut();
             let mut q = world.query::<(Entity, &GraphNode)>();
-            let data = vault.get_untracked();
+            let data = vault.0.clone();
             q.iter(world)
                 .find(|(_, n)| data.notes[n.note].name == "A")
                 .unwrap()
                 .0
         };
-        app.world().resource::<Nav>().map_edit.set(true);
+        app.world_mut().resource_mut::<Nav>().map_edit = true;
         app.world_mut()
             .get_mut::<Transform>(node)
             .unwrap()
             .translation = Vec3::new(-40.0, 25.0, 1.0);
         app.world_mut().resource_mut::<GraphState>().dropped = Some(node);
         app.update();
-        let data = vault.get_untracked();
+        let data = app.world().resource::<Vault>().0.clone();
         let map = data.map.as_ref().unwrap();
         let place = map.place("A").unwrap();
         assert_eq!(place.at, Vec2::new(-40.0, 25.0));

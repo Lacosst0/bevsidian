@@ -249,7 +249,7 @@ pub(crate) fn draw_lines(
     line_mesh: Query<&Mesh2d, With<LinesMesh>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    if nav.view.get_untracked() != View::Graph {
+    if nav.view != View::Graph {
         return;
     }
     let (Ok(mesh), Ok(projection)) = (line_mesh.single(), camera.single()) else {

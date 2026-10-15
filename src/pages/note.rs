@@ -1,35 +1,19 @@
 //! The note page: the open note rendered from markdown (or the editor), in a centred column.
 
-use bevsidian_core::signal::memo;
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 use bevy_ui_commonmark::{MdTheme, RenderOptions, markdown_scene};
 use bevy_ui_textselect::SelectableText;
 
 use bevsidian_core::{
-    Vault,
+    Vault, VaultData,
     nav::{LayoutMode, Nav, NotePane},
     vault::NoteId,
 };
 use bevsidian_ui::prelude::*;
 
-pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
-    // Re-rendered when the note, the text size, the layout or the note's content changes.
-    let key = {
-        let (current, size, mode, vault) = (
-            nav.current.clone(),
-            nav.text_size.clone(),
-            nav.mode.clone(),
-            vault.clone(),
-        );
-        memo(move || (current.get(), size.get(), mode.get(), vault.get().revision))
-    };
-    let (mode, editing, current) = (nav.mode.clone(), nav.editing.clone(), nav.current.clone());
-    let pager = (nav.clone(), vault.clone());
-    let render = move |(id, size, mode, _): (NoteId, u32, LayoutMode, u64)| {
-        note_body(id, size, mode, &vault, &theme)
-    };
-    let top = back_to_top(nav.clone());
+#[component]
+pub fn note_page(nav: Watch<Res<Nav>>, vault: Watch<Res<Vault>>, theme: MdTheme) -> impl Scene {
     view! {
         Node { flex_grow: 1.0, flex_basis: px(0), min_width: px(0), min_height: px(0) }
         Children [
@@ -45,7 +29,7 @@ pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
                 width: Val::Percent(100.0),
                 max_width: px(784),
                 min_width: px(0),
-                padding: $(if $mode == LayoutMode::Compact {
+                padding: $(if $nav.mode == LayoutMode::Compact {
                     UiRect::new(px(20), px(20), px(24), px(140))
                 } else {
                     UiRect::new(px(48), px(48), px(40), px(120))
@@ -54,27 +38,31 @@ pub fn note_page(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
                 align_self: AlignSelf::Start,
             }
             Children [
-                if $editing {
+                if $nav.editing {
                     Node { position_type: PositionType::Relative, width: Val::Percent(100.0) }
-                    crate::editor::EditorSlot($current)
+                    crate::editor::EditorSlot($nav.current)
                 } else {
-                    let (nav, vault) = pager.clone();
+                    let theme = theme.clone();
                     Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
                     Children [
-                        let render = render.clone();
-                        match $key {
-                            key => { @{render(key)} },
+                        // Re-rendered when the note, the text size, the layout or the note's
+                        // content changes.
+                        match ($nav.current, $nav.text_size, $nav.mode, $vault.revision) {
+                            (id, size, mode, _) => {
+                                let theme = theme.clone();
+                                @{vault.with_untracked(|vault| note_body(id, size, mode, vault, &theme))}
+                            },
                         }
                         --
-                        @{path_pager(nav, vault)}
+                        @{path_pager()}
                     ]
                 }
             ]
         ]
         --
-        @{top}
+        @{back_to_top()}
         --
-        @{crate::overlays::find::find_bar(nav.clone())}
+        @{crate::overlays::find::find_bar()}
         ]
     }
 }
@@ -91,52 +79,47 @@ struct PathPlace {
     next: Option<(NoteId, String)>,
 }
 
+/// Where the current note is on the followed path, if it is on it.
+fn place(nav: &Nav, vault: &VaultData) -> Option<PathPlace> {
+    let path = vault.path(nav.path?)?;
+    let current = nav.current;
+    let step = path.steps.iter().position(|&s| s == current);
+    if step.is_none() && current != path.note {
+        return None;
+    }
+    let named = |id: NoteId| (id, vault.notes[id].name.clone());
+    Some(PathPlace {
+        path: path.note,
+        name: vault.notes[path.note].name.clone(),
+        step: step.map(|s| s + 1),
+        steps: path.steps.len(),
+        previous: step
+            .map(|s| s.checked_sub(1).map_or(path.note, |p| path.steps[p]))
+            .map(named),
+        next: path
+            .steps
+            .get(step.map_or(0, |s| s + 1))
+            .copied()
+            .map(named),
+    })
+}
+
 /// At the end of a note on the followed path: the path, the step, and links to the previous
 /// and next notes (from the path's own note, a link to its first step).
-fn path_pager(nav: Nav, vault: Vault) -> impl Scene {
-    let place = {
-        let (current, path, vault) = (nav.current.clone(), nav.path.clone(), vault.clone());
-        memo(move || {
-            let data = vault.get();
-            let path = data.path(path.get()?)?;
-            let current = current.get();
-            let step = path.steps.iter().position(|&s| s == current);
-            if step.is_none() && current != path.note {
-                return None;
-            }
-            let named = |id: NoteId| (id, data.notes[id].name.clone());
-            Some(PathPlace {
-                path: path.note,
-                name: data.notes[path.note].name.clone(),
-                step: step.map(|s| s + 1),
-                steps: path.steps.len(),
-                previous: step
-                    .map(|s| s.checked_sub(1).map_or(path.note, |p| path.steps[p]))
-                    .map(named),
-                next: path
-                    .steps
-                    .get(step.map_or(0, |s| s + 1))
-                    .copied()
-                    .map(named),
-            })
-        })
-    };
+#[component]
+fn path_pager(nav: Watch<Res<Nav>>, vault: Watch<Res<Vault>>) -> impl Scene {
     view! {
         Node { flex_direction: FlexDirection::Column, width: Val::Percent(100.0) }
         Children [
-            match $place {
-                Some(place) => {
-                    let nav = nav.clone();
-                    @{pager(&nav, &place)}
-                },
+            match $(place(&$nav, &$vault)) {
+                Some(place) => { @{pager(&place)} },
                 None => {},
             }
         ]
     }
 }
 
-fn pager(nav: &Nav, place: &PathPlace) -> impl Scene + use<> {
-    let (open_path, stop) = (nav.clone(), nav.path.clone());
+fn pager(place: &PathPlace) -> impl Scene + use<> {
     let path = place.path;
     let where_ = match place.step {
         Some(number) => format!("Step {number} of {}", place.steps),
@@ -147,10 +130,9 @@ fn pager(nav: &Nav, place: &PathPlace) -> impl Scene + use<> {
             // Keeps the other link on its side.
             return Box::new(bsn! { Node { flex_grow: 1.0, flex_basis: px(0) } }) as Box<dyn Scene>;
         };
-        let nav = nav.clone();
         Box::new(bsn! {
             @{page_link(direction, label, &title)}
-            on(move |_: On<Activate>| nav.open(id, None))
+            on(move |_: On<Activate>, mut n: ResMut<Nav>| n.open(id, None))
         }) as Box<dyn Scene>
     };
     let previous = link(PageDirection::Previous, "Previous", &place.previous);
@@ -168,14 +150,14 @@ fn pager(nav: &Nav, place: &PathPlace) -> impl Scene + use<> {
             Node { align_items: AlignItems::Center, column_gap: px(8), min_height: px(28) }
             Children [
                 @{text_button(Variant::Ghost, Size::Xs, &place.name)}
-                on(move |_: On<Activate>| open_path.open(path, None))
+                on(move |_: On<Activate>, mut n: ResMut<Nav>| n.open(path, None))
                 --
                 @{caption(&where_)}
                 --
                 Node { flex_grow: 1.0 }
                 --
                 @{icon_button(Variant::Ghost, Size::IconXs, "x")}
-                on(move |_: On<Activate>| stop.set(None))
+                on(|_: On<Activate>, mut n: ResMut<Nav>| n.path = None)
             ]
             --
             Node { column_gap: px(12) }
@@ -186,18 +168,18 @@ fn pager(nav: &Nav, place: &PathPlace) -> impl Scene + use<> {
 
 /// A round button floating at the bottom right once the note is scrolled down; it eases back
 /// to the top.
-fn back_to_top(nav: Nav) -> impl Scene {
-    let (scrolled, mode) = (nav.scrolled.clone(), nav.mode.clone());
+#[component]
+fn back_to_top(nav: Watch<Res<Nav>>) -> impl Scene {
     let shadow = shadow::popover();
     view! {
         Node {
             position_type: PositionType::Absolute,
-            right: $(if $mode == LayoutMode::Compact { px(16) } else { px(24) }),
-            bottom: $(if $mode == LayoutMode::Compact { px(16) } else { px(24) }),
+            right: $(if $nav.mode == LayoutMode::Compact { px(16) } else { px(24) }),
+            bottom: $(if $nav.mode == LayoutMode::Compact { px(16) } else { px(24) }),
         }
         Pickable::IGNORE
         Children [
-            if $scrolled {
+            if $nav.scrolled {
                 let shadow = shadow.clone();
                 @{icon_button(Variant::Outline, Size::IconLg, "arrow-up")}
                 Tooltip::new("Back to top")
@@ -221,10 +203,9 @@ fn note_body(
     id: NoteId,
     text_size: u32,
     mode: LayoutMode,
-    vault: &Vault,
+    vault: &VaultData,
     theme: &MdTheme,
 ) -> Box<dyn Scene> {
-    let vault = vault.get_untracked();
     let mut theme = theme.clone();
     theme.base_size = text_size as f32;
     if mode == LayoutMode::Compact {
@@ -233,7 +214,7 @@ fn note_body(
     let note = &vault.notes[id];
     let icon = note.icon;
     // In the colour of the note's route on the map.
-    let tint = bevsidian_graph::note_colors(&vault)
+    let tint = bevsidian_graph::note_colors(vault)
         .get(&id)
         .copied()
         .unwrap_or(color::FOREGROUND);

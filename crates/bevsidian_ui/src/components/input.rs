@@ -1,7 +1,6 @@
-//! A one-line text field (shadcn/ui `Input`) mirrored into a signal, with a leading icon, a
+//! A one-line text field (shadcn/ui `Input`) mirrored into a [`Binding`], with a leading icon, a
 //! placeholder and a clear button.
 
-use bevsidian_core::signal::{Signal, signal};
 use bevy::{
     ecs::template::FromTemplate,
     input_focus::{AutoFocus, InputFocus, tab_navigation::TabIndex},
@@ -14,6 +13,7 @@ use bevy::{
 use bevy_radioactive::view::view;
 
 use crate::{
+    binding::Binding,
     components::{
         button::{Size, Variant, icon_button},
         icon::icon,
@@ -26,14 +26,14 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Update, (mirror_values, show_focus, track_focus_within));
 }
 
-/// Keeps the signal true while keyboard focus is on this entity or inside it: a search field
+/// Keeps the value true while keyboard focus is on this entity or inside it: a search field
 /// and the suggestions under it, say, so the suggestions stay open while one is clicked.
 #[derive(Component, Clone)]
-pub struct FocusWithin(pub Signal<bool>);
+pub struct FocusWithin(pub Binding<bool>);
 
-/// Mirrors the field's text into the signal whenever it is edited.
+/// Mirrors the field's text into the value whenever it is edited.
 #[derive(Component, Clone)]
-pub struct InputValue(pub Signal<String>);
+pub struct InputValue(pub Binding<String>);
 
 /// The bordered box around a field; its border brightens while the field has focus.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -63,14 +63,14 @@ pub struct InputFieldProps {
     pub icon: &'static str,
     pub placeholder: String,
     /// Mirrors the text.
-    pub value: Option<Signal<String>>,
+    pub value: Option<Binding<String>>,
     /// Focus the field when it appears.
     pub autofocus: bool,
 }
 
 impl InputField {
     fn scene(props: InputFieldProps) -> impl Scene {
-        let value = props.value.unwrap_or_else(|| signal(String::new));
+        let value = props.value.unwrap_or_default();
         let leading: Vec<Box<dyn Scene>> = (!props.icon.is_empty())
             .then(|| Box::new(icon(props.icon, 16.0, color::MUTED_FOREGROUND)) as Box<dyn Scene>)
             .into_iter()
@@ -142,6 +142,7 @@ fn clear(
     buttons: Query<&ClearsInput>,
     mut fields: Query<(&mut EditableText, Option<&InputValue>)>,
     mut focus: ResMut<InputFocus>,
+    mut commands: Commands,
 ) {
     let Ok(ClearsInput(field)) = buttons.get(activate.entity) else {
         return;
@@ -149,15 +150,18 @@ fn clear(
     if let Ok((mut text, value)) = fields.get_mut(*field) {
         text.clear();
         if let Some(value) = value {
-            value.0.set_if_neq(String::new());
+            value.0.set(&mut commands, String::new());
         }
         focus.set(*field, bevy::input_focus::FocusCause::Navigated);
     }
 }
 
-fn mirror_values(fields: Query<(&EditableText, &InputValue), Changed<EditableText>>) {
+fn mirror_values(
+    fields: Query<(&EditableText, &InputValue), Changed<EditableText>>,
+    mut commands: Commands,
+) {
     for (text, value) in &fields {
-        value.0.set_if_neq(text.value().to_string());
+        value.0.set(&mut commands, text.value().to_string());
     }
 }
 
@@ -165,6 +169,7 @@ fn track_focus_within(
     focus: Res<InputFocus>,
     parents: Query<&ChildOf>,
     areas: Query<(Entity, &FocusWithin)>,
+    mut commands: Commands,
 ) {
     if !focus.is_changed() {
         return;
@@ -173,7 +178,7 @@ fn track_focus_within(
     for (area, within) in &areas {
         let inside =
             focused.is_some_and(|f| f == area || parents.iter_ancestors(f).any(|a| a == area));
-        within.0.set_if_neq(inside);
+        within.0.set(&mut commands, inside);
     }
 }
 

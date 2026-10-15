@@ -56,8 +56,8 @@ fn keep_awake(
     let busy = scroll.busy()
         || touches.iter().next().is_some()
         || selection.is_busy()
-        || (nav.view.get_untracked() == View::Graph && graph.animating())
-        || nav.anchor.with_untracked(Option::is_some)
+        || (nav.view == View::Graph && graph.animating())
+        || nav.anchor.is_some()
         || focus.get().is_some_and(|e| editable.contains(e))
         || smooth.iter().any(SmoothScroll::animating)
         || previews
@@ -69,7 +69,7 @@ fn keep_awake(
         // and the next flick of a scroll often follows right away.
         *awake_until = now + AWAKE_TAIL;
     }
-    let cap = nav.max_fps.get_untracked();
+    let cap = nav.max_fps;
     let mode = if now < *awake_until {
         if cap == 0 {
             // Next frame as soon as the display allows.
@@ -103,13 +103,14 @@ pub const IDLE: bevy::winit::UpdateMode = bevy::winit::UpdateMode::Reactive {
     react_to_window_events: true,
 };
 
-fn update_layout_mode(window: Query<&Window, With<PrimaryWindow>>, nav: Res<Nav>) {
+fn update_layout_mode(window: Query<&Window, With<PrimaryWindow>>, mut nav: ResMut<Nav>) {
     let Ok(window) = window.single() else {
         return;
     };
     let mode = LayoutMode::from_width(window.width());
-    if nav.mode.set_if_neq(mode) {
-        nav.drawer.set_if_neq(false);
+    if nav.mode != mode {
+        nav.mode = mode;
+        nav.drawer = false;
     }
 }
 
@@ -122,11 +123,16 @@ fn sync_scroll_speed(nav: Res<Nav>, mut speed: ResMut<ScrollSpeed>) {
 fn detect_touch(
     mut touches: MessageReader<TouchInput>,
     mut mouse: MessageReader<MouseButtonInput>,
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
 ) {
-    if touches.read().last().is_some() {
-        nav.touch.set_if_neq(true);
+    let touch = if touches.read().last().is_some() {
+        true
     } else if mouse.read().last().is_some() {
-        nav.touch.set_if_neq(false);
+        false
+    } else {
+        return;
+    };
+    if nav.touch != touch {
+        nav.touch = touch;
     }
 }

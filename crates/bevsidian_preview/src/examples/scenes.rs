@@ -117,10 +117,9 @@ mod bsn {
 
 /// `Bevsidian/UI kit.md`
 mod kit {
-    use bevsidian_core::signal::signal;
     use bevsidian_ui::prelude::*;
     use bevy::{prelude::*, ui_widgets::Activate};
-    use bevy_radioactive::view::view;
+    use bevy_radioactive::view::{Watch, component, view};
 
     pub fn buttons() -> impl Scene {
         bsn! {
@@ -144,26 +143,24 @@ mod kit {
         }
     }
 
-    pub fn view_tabs() -> impl Scene {
-        let current = signal(|| 0);
-        let (note, graph) = (current.clone(), current.clone());
+    #[component]
+    pub fn view_tabs(current: Watch<Local<u32>>) -> impl Scene {
         view! {
             @{tab_list()}
             Children [
                 @{tab("Note")}
                 Selected($current == 0)
-                on(move |_: On<Activate>| note.set(0))
+                on(move |_: On<Activate>| current.set(0))
                 --
                 @{tab("Graph")}
                 Selected($current == 1)
-                on(move |_: On<Activate>| graph.set(1))
+                on(move |_: On<Activate>| current.set(1))
             ]
         }
     }
 
-    pub fn badges() -> impl Scene {
-        let active = signal(|| true);
-        let toggle = active.clone();
+    #[component]
+    pub fn badges(#[init(true)] active: Watch<Local<bool>>) -> impl Scene {
         view! {
             Node { flex_direction: FlexDirection::Column, row_gap: px(12) }
             Children [
@@ -175,7 +172,7 @@ mod kit {
                     --
                     @{badge_button("#beginner")}
                     Selected($active)
-                    on(move |_: On<Activate>| toggle.update(|on| *on = !*on))
+                    on(move |_: On<Activate>| active.update(|on| *on = !*on))
                 ]
                 --
                 @{shortcuts(&[("Ctrl O", "switch"), ("Esc", "close")])}
@@ -183,8 +180,17 @@ mod kit {
         }
     }
 
-    pub fn settings_card() -> impl Scene {
-        let (size, speed, fps) = (signal(|| 16), signal(|| 1), signal(|| true));
+    #[component]
+    pub fn settings_card(
+        #[init(16)] size: Watch<Local<u32>>,
+        #[init(1)] speed: Watch<Local<u32>>,
+        #[init(true)] fps: Watch<Local<bool>>,
+    ) -> impl Scene {
+        let (size, speed, fps) = (
+            Binding::local(size),
+            Binding::local(speed),
+            Binding::local(fps),
+        );
         let speeds = vec![
             (1, "1×".to_owned()),
             (2, "2×".to_owned()),
@@ -213,10 +219,9 @@ mod kit {
 
 /// `UI layout.md`
 mod layout {
-    use bevsidian_core::signal::signal;
     use bevsidian_ui::prelude::*;
     use bevy::prelude::*;
-    use bevy_radioactive::view::view;
+    use bevy_radioactive::view::{Watch, component, view};
 
     fn named<T>(options: Vec<(T, &str)>) -> Vec<(T, String)> {
         options
@@ -226,10 +231,12 @@ mod layout {
     }
 
     /// Three boxes in a container whose flex settings you change.
-    pub fn flex() -> impl Scene {
-        let direction = signal(|| FlexDirection::Row);
-        let justify = signal(|| JustifyContent::Start);
-        let align = signal(|| AlignItems::Start);
+    #[component]
+    pub fn flex(
+        direction: Watch<Local<FlexDirection>>,
+        #[init(JustifyContent::Start)] justify: Watch<Local<JustifyContent>>,
+        #[init(AlignItems::Start)] align: Watch<Local<AlignItems>>,
+    ) -> impl Scene {
         let directions = named(vec![
             (FlexDirection::Row, "row"),
             (FlexDirection::Column, "column"),
@@ -255,11 +262,11 @@ mod layout {
         view! {
             Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
             Children [
-                @{field("flex-direction", None, segmented(directions, direction.clone()))}
+                @{field("flex-direction", None, segmented(directions, Binding::local(direction)))}
                 --
-                @{field("justify-content", None, segmented(justifies, justify.clone()))}
+                @{field("justify-content", None, segmented(justifies, Binding::local(justify)))}
                 --
-                @{field("align-items", None, segmented(aligns, align.clone()))}
+                @{field("align-items", None, segmented(aligns, Binding::local(align)))}
                 --
                 Node {
                     height: px(150),
@@ -301,18 +308,20 @@ mod layout {
     }
 
     /// Eight cells in a grid whose columns and gap you change.
-    pub fn grid() -> impl Scene {
-        let columns = signal(|| 3_u16);
-        let gap = signal(|| 4_u32);
+    #[component]
+    pub fn grid(
+        #[init(3)] columns: Watch<Local<u16>>,
+        #[init(4)] gap: Watch<Local<u32>>,
+    ) -> impl Scene {
         let column_options = named(vec![(1, "1"), (2, "2"), (3, "3"), (4, "4")]);
         let gap_options = named(vec![(0, "0"), (4, "4"), (12, "12")]);
         let cells: Vec<_> = (0..8).map(|i| cell(i, 36.0)).collect();
         view! {
             Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
             Children [
-                @{field("columns", None, segmented(column_options, columns.clone()))}
+                @{field("columns", None, segmented(column_options, Binding::local(columns)))}
                 --
-                @{field("gap", None, segmented(gap_options, gap.clone()))}
+                @{field("gap", None, segmented(gap_options, Binding::local(gap)))}
                 --
                 Node {
                     display: Display::Grid,
@@ -330,9 +339,8 @@ mod layout {
     }
 
     /// A row of three boxes: how much the middle one grows, and whether the row wraps.
-    pub fn grow() -> impl Scene {
-        let grow = signal(|| 0_u32);
-        let wrap = signal(|| false);
+    #[component]
+    pub fn grow(grow: Watch<Local<u32>>, wrap: Watch<Local<bool>>) -> impl Scene {
         let grow_options = named(vec![(0, "0"), (1, "1"), (2, "2")]);
         let wrap_options = named(vec![(false, "nowrap"), (true, "wrap")]);
         let fixed = |index: usize| {
@@ -344,9 +352,9 @@ mod layout {
         view! {
             Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
             Children [
-                @{field("flex-grow (middle)", None, segmented(grow_options, grow.clone()))}
+                @{field("flex-grow (middle)", None, segmented(grow_options, Binding::local(grow)))}
                 --
-                @{field("flex-wrap", None, segmented(wrap_options, wrap.clone()))}
+                @{field("flex-wrap", None, segmented(wrap_options, Binding::local(wrap)))}
                 --
                 Node {
                     column_gap: px(8),
@@ -374,10 +382,9 @@ mod layout {
 
 /// `Colors and math.md`
 pub mod maths {
-    use bevsidian_core::signal::signal;
     use bevsidian_ui::prelude::*;
     use bevy::prelude::*;
-    use bevy_radioactive::view::view;
+    use bevy_radioactive::view::{Watch, component, view};
 
     fn named<T>(options: Vec<(T, &str)>) -> Vec<(T, String)> {
         options
@@ -399,10 +406,12 @@ pub mod maths {
     }
 
     /// Pick a hue and a lightness, then how far to mix towards white.
-    pub fn colour_lab() -> impl Scene {
-        let hue = signal(|| 210_u32);
-        let lightness = signal(|| 50_u32);
-        let amount = signal(|| 50_u32);
+    #[component]
+    pub fn colour_lab(
+        #[init(210)] hue: Watch<Local<u32>>,
+        #[init(50)] lightness: Watch<Local<u32>>,
+        #[init(50)] amount: Watch<Local<u32>>,
+    ) -> impl Scene {
         let hues = named(vec![
             (0, "0"),
             (60, "60"),
@@ -418,11 +427,11 @@ pub mod maths {
         view! {
             Node { flex_direction: FlexDirection::Column, row_gap: px(8), width: Val::Percent(100.0) }
             Children [
-                @{field("hue (degrees)", None, segmented(hues, hue.clone()))}
+                @{field("hue (degrees)", None, segmented(hues, Binding::local(hue)))}
                 --
-                @{field("lightness", None, segmented(lightnesses, lightness.clone()))}
+                @{field("lightness", None, segmented(lightnesses, Binding::local(lightness)))}
                 --
-                @{field("mix amount", None, segmented(amounts, amount.clone()))}
+                @{field("mix amount", None, segmented(amounts, Binding::local(amount)))}
                 --
                 Node { column_gap: px(16), align_items: AlignItems::FlexStart }
                 Children [
@@ -497,8 +506,8 @@ pub mod maths {
     }
 
     /// A ball that travels along a track using the curve you pick.
-    pub fn easing() -> impl Scene {
-        let curve = signal(Curve::default);
+    #[component]
+    pub fn easing(curve: Watch<Local<Curve>>) -> impl Scene {
         let curves = named(vec![
             (Curve::Linear, "Linear"),
             (Curve::QuadraticOut, "QuadraticOut"),
@@ -510,7 +519,7 @@ pub mod maths {
         view! {
             Node { flex_direction: FlexDirection::Column, row_gap: px(10), width: Val::Percent(100.0) }
             Children [
-                @{field("EaseFunction", None, segmented(curves, curve.clone()))}
+                @{field("EaseFunction", None, segmented(curves, Binding::local(curve)))}
                 --
                 Node {
                     height: px(28),

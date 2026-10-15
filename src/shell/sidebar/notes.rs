@@ -3,10 +3,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use bevsidian_core::signal::memo;
-use bevsidian_core::signal::{Signal, signal};
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::{effect, view};
+use bevy_radioactive::view::{Watch, component, effect, view};
 
 use bevsidian_core::{
     Vault,
@@ -21,28 +19,38 @@ use super::FollowSelection;
 const ROW: [f32; 2] = [32.0, 40.0];
 const SUB_ROW: [f32; 2] = [28.0, 36.0];
 
-pub fn notes(nav: Nav, vault: Vault) -> impl Scene {
-    // Notes whose headings are shown. Opening a note shows its headings and folds the rest.
-    let expanded: Signal<BTreeSet<NoteId>> = signal(BTreeSet::new);
-    // Folders folded by the user (folders start open).
-    let folded: Signal<BTreeSet<String>> = signal(BTreeSet::new);
-    let (current, follow) = (nav.current.clone(), expanded.clone());
-    let key = {
-        let (query, tag, touch, vault) = (
-            nav.query.clone(),
-            nav.tag.clone(),
-            nav.touch.clone(),
-            vault.clone(),
-        );
-        memo(move || (query.get(), tag.get(), touch.get(), vault.get().revision))
+/// Notes whose headings are shown, and folders folded by the user (folders start open).
+#[derive(Clone, Default)]
+struct Tree {
+    expanded: Watch<Local<'static, BTreeSet<NoteId>>>,
+    folded: Watch<Local<'static, BTreeSet<String>>>,
+}
+
+/// Opening a note shows its headings and folds the rest; `followed` is the note that last did.
+#[component]
+pub fn notes(
+    nav: Watch<Res<Nav>>,
+    vault: Watch<Res<Vault>>,
+    expanded: Watch<Local<BTreeSet<NoteId>>>,
+    folded: Watch<Local<BTreeSet<String>>>,
+    followed: Watch<Local<Option<NoteId>>>,
+) -> impl Scene {
+    let tree = Tree {
+        expanded: expanded.clone(),
+        folded,
     };
     view! {
         Node { flex_direction: FlexDirection::Column, flex_shrink: 0.0 }
-        effect(move |_: &mut Commands| follow.set(BTreeSet::from([current.get()])))
+        effect(move |_: &mut Commands| {
+            let current = nav.with(|nav| nav.current);
+            if followed.set_if_neq(Some(current)) {
+                expanded.set(BTreeSet::from([current]));
+            }
+        })
         Children [
-            match $key {
+            match ($nav.query, $nav.tag, $nav.touch, $vault.revision) {
                 (query, tag, touch, _) => {
-                    @{list(&vault.get_untracked(), &query, tag.as_deref(), touch, &nav, &expanded, &folded)}
+                    @{vault.with_untracked(|vault| list(vault, &query, tag.as_deref(), touch, &tree))}
                 },
             }
         ]
@@ -55,9 +63,7 @@ fn list(
     query: &str,
     tag: Option<&str>,
     touch: bool,
-    nav: &Nav,
-    expanded: &Signal<BTreeSet<NoteId>>,
-    closed: &Signal<BTreeSet<String>>,
+    tree: &Tree,
 ) -> Box<dyn Scene> {
     let searching = !query.trim().is_empty() || tag.is_some();
     let rows: Vec<Box<dyn Scene>> = if searching {
@@ -66,12 +72,11 @@ fn list(
             vec![Box::new(empty("No matching notes"))]
         } else {
             ids.into_iter()
-                .map(|id| Box::new(result_row(id, data, query, touch, nav)) as Box<dyn Scene>)
+                .map(|id| Box::new(result_row(id, data, query, touch)) as Box<dyn Scene>)
                 .collect()
         }
     } else {
-        let tree = Folder::of(data);
-        folder_contents(&tree, data, touch, nav, expanded, closed)
+        folder_contents(&Folder::of(data), data, touch, tree)
     };
     let title = if searching { "Results" } else { "Notes" };
     Box::new(bsn! {
@@ -121,61 +126,53 @@ fn folder_contents(
     folder: &Folder,
     data: &VaultData,
     touch: bool,
-    nav: &Nav,
-    expanded: &Signal<BTreeSet<NoteId>>,
-    closed: &Signal<BTreeSet<String>>,
+    tree: &Tree,
 ) -> Vec<Box<dyn Scene>> {
     let folders = folder
         .folders
         .values()
-        .map(|sub| Box::new(folder_row(sub, data, touch, nav, expanded, closed)) as Box<dyn Scene>);
+        .map(|sub| Box::new(folder_row(sub, data, touch, tree)) as Box<dyn Scene>);
     let notes = folder
         .notes
         .iter()
-        .map(|&id| Box::new(note_row(id, data, touch, nav, expanded)) as Box<dyn Scene>);
+        .map(|&id| Box::new(note_row(id, data, touch, tree)) as Box<dyn Scene>);
     folders.chain(notes).collect()
 }
 
-fn folder_row(
-    folder: &Folder,
-    data: &VaultData,
-    touch: bool,
-    nav: &Nav,
-    expanded: &Signal<BTreeSet<NoteId>>,
-    closed: &Signal<BTreeSet<String>>,
-) -> impl Scene + use<> {
-    let children = folder_contents(folder, data, touch, nav, expanded, closed);
-    let path = folder.path.clone();
-    let (is_open, toggle) = set_toggle(closed.clone(), path.clone(), true);
-    let (row_toggle, shown) = (toggle.clone(), is_open.clone());
+fn folder_row(folder: &Folder, data: &VaultData, touch: bool, tree: &Tree) -> impl Scene + use<> {
+    let children = folder_contents(folder, data, touch, tree);
+    let shown = member(tree.folded.clone(), folder.path.clone(), true);
+    let toggle = shown.clone();
     view! {
         Node { flex_direction: FlexDirection::Column }
         Children [
             @{item()}
             Node { height: px(ROW[usize::from(touch)]) }
-            on(move |_: On<Activate>| row_toggle())
+            on(move |_: On<Activate>, mut commands: Commands| toggle.update(&mut commands, |was| !was))
             Children [
                 @{item_icon("folder")}
                 --
                 @{item_label(&folder.name)}
                 --
-                @{disclosure(is_open.clone(), toggle.clone())}
+                @{disclosure(shown.clone())}
             ]
             --
             @{tree_children()}
-            Node { display: $(if shown() { Display::Flex } else { Display::None }) }
+            Node { display: $(if $shown { Display::Flex } else { Display::None }) }
             Children [ {children} ]
         ]
     }
 }
 
+/// A note, and under it (while expanded) its headings.
+#[component]
 fn note_row(
+    nav: Watch<Res<Nav>>,
     id: NoteId,
     data: &VaultData,
     touch: bool,
-    nav: &Nav,
-    expanded: &Signal<BTreeSet<NoteId>>,
-) -> impl Scene + use<> {
+    tree: &Tree,
+) -> impl Scene {
     let note = &data.notes[id];
     // A lone level-1 heading is the title: it is not part of the outline.
     let titles = note.doc.headings.iter().filter(|h| h.level == 1).count();
@@ -189,57 +186,58 @@ fn note_row(
     let headings: Vec<Box<dyn Scene>> = outline
         .iter()
         .map(|heading| {
-            let (nav, text, slug) = (nav.clone(), heading.text.clone(), heading.slug.clone());
-            let (section, current) = (nav.section.clone(), nav.current.clone());
+            let (text, slug) = (heading.text.clone(), heading.slug.clone());
+            let nav = nav.clone();
             let indent = 8.0 + 12.0 * f32::from(heading.level - top);
             Box::new(view! {
                 @{sub_item(None, &heading.text)}
                 Node { height: px(SUB_ROW[usize::from(touch)]), padding: UiRect::new(px(indent), px(8), px(0), px(0)) }
                 // The section being read.
-                Selected($($current == id && $section.as_deref() == Some(slug.as_str())))
+                Selected($(nav.with(|nav| nav.current == id && nav.section.as_deref() == Some(slug.as_str()))))
                 FollowSelection
-                on(move |_: On<Activate>| nav.open(id, Some(text.clone())))
+                on(move |_: On<Activate>, mut n: ResMut<Nav>| n.open(id, Some(text.clone())))
             }) as Box<dyn Scene>
         })
         .collect();
     let has_outline = !headings.is_empty();
-    let (is_open, toggle) = set_toggle(expanded.clone(), id, false);
+    let outlined = member(tree.expanded.clone(), id, false);
     let chevron: Vec<Box<dyn Scene>> = has_outline
-        .then(|| Box::new(disclosure(is_open.clone(), toggle)) as Box<dyn Scene>)
+        .then(|| Box::new(disclosure(outlined.clone())) as Box<dyn Scene>)
         .into_iter()
         .collect();
-    let (current, open) = (nav.current.clone(), nav.clone());
+    let (icon, name) = (note.icon, note.name.clone());
     view! {
         Node { flex_direction: FlexDirection::Column }
         Children [
             @{item()}
             Node { height: px(ROW[usize::from(touch)]) }
-            Selected($($current == id))
+            Selected($nav.current == id)
             FollowSelection
-            on(move |_: On<Activate>| open.open(id, None))
+            on(move |_: On<Activate>, mut n: ResMut<Nav>| n.open(id, None))
             Children [
-                @{item_icon_char(note.icon)}
+                @{item_icon_char(icon)}
                 --
-                @{item_label(&note.name)}
+                @{item_label(&name)}
                 --
                 {chevron}
             ]
             --
             @{tree_children()}
-            Node { display: $(if has_outline && is_open() { Display::Flex } else { Display::None }) }
+            Node { display: $(if has_outline && $outlined { Display::Flex } else { Display::None }) }
             Children [ {headings} ]
         ]
     }
 }
 
 /// A search result: the note, and under it where the query matched.
+#[component]
 fn result_row(
+    nav: Watch<Res<Nav>>,
     id: NoteId,
     data: &VaultData,
     query: &str,
     touch: bool,
-    nav: &Nav,
-) -> impl Scene + use<> {
+) -> impl Scene {
     let note = &data.notes[id];
     // The excerpt on one line, cut at the end, with the matched term brighter.
     let excerpt: Vec<Box<dyn Scene>> = data
@@ -269,7 +267,7 @@ fn result_row(
         })
         .into_iter()
         .collect();
-    let (current, open) = (nav.current.clone(), nav.clone());
+    let (icon, name) = (note.icon, note.name.clone());
     let row = px(ROW[usize::from(touch)]);
     view! {
         @{item()}
@@ -283,40 +281,34 @@ fn result_row(
             row_gap: px(2),
             overflow: Overflow::clip(),
         }
-        Selected($($current == id))
-        on(move |_: On<Activate>| open.open(id, None))
+        Selected($nav.current == id)
+        on(move |_: On<Activate>, mut n: ResMut<Nav>| n.open(id, None))
         Children [
             Node { column_gap: px(8), align_items: AlignItems::Center, min_width: px(0) }
             Pickable::IGNORE
-            Children [ @{item_icon_char(note.icon)} -- @{item_label(&note.name)} ]
+            Children [ @{item_icon_char(icon)} -- @{item_label(&name)} ]
             --
             {excerpt}
         ]
     }
 }
 
-/// Reads and flips the membership of `key` in a set signal. With `inverted`, membership means
-/// closed (for things that start open).
-fn set_toggle<K>(
-    set: Signal<BTreeSet<K>>,
-    key: K,
-    inverted: bool,
-) -> (
-    impl Fn() -> bool + Clone + Send + Sync + 'static,
-    impl Fn() + Clone + Send + Sync + 'static,
-)
+/// Whether `key` is in a set of the tree's state, as a binding; with `inverted`, being in
+/// the set means closed (for things that start open).
+fn member<K>(set: Watch<Local<'static, BTreeSet<K>>>, key: K, inverted: bool) -> Binding<bool>
 where
     K: Ord + Clone + Send + Sync + 'static,
 {
-    let (read, write, k) = (set.clone(), set, key.clone());
-    (
-        move || read.with(|s| s.contains(&key)) != inverted,
-        move || {
-            write.update(|s| {
-                if !s.remove(&k) {
-                    s.insert(k.clone());
-                }
-            });
+    let k = key.clone();
+    Binding::local_part(
+        set,
+        move |set: &BTreeSet<K>| set.contains(&key) != inverted,
+        move |set, open| {
+            if open == inverted {
+                set.remove(&k);
+            } else {
+                set.insert(k.clone());
+            }
         },
     )
 }

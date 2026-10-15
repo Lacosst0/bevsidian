@@ -47,7 +47,7 @@ fn main() {
             .iter()
             .map(|(path, source)| (path.as_str(), source.as_str())),
     ));
-    let nav = Nav::new(vault.get_untracked().home);
+    let nav = Nav::new(vault.home);
     App::new()
         .add_plugins(DefaultPlugins.set(stepping_quiet()).set(WindowPlugin {
             primary_window: Some(Window {

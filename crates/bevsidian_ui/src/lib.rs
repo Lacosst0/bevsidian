@@ -6,7 +6,8 @@
 //! sizes and states, map its Tailwind classes onto [`tokens`], and add it as one file under
 //! `components/`. See `README.md` in this crate for the conventions.
 //!
-//! Every component is a function returning a `bsn!` scene (`view!` when it reads signals).
+//! Every component is a function returning a `bsn!` scene (`view!` when it reads a watch).
+//! Controls show and set a [`Binding`]: a component's own state or a field of a resource.
 //! Use it like any scene and patch it: add `on(...)` handlers, components, or `Node` fields.
 //!
 //! ```ignore
@@ -20,12 +21,14 @@
 //! [`Selected`] or [`Disabled`], together with the [`Tint`] of the labels inside, so
 //! reactive code only flips `Selected($(...))`.
 
+pub mod binding;
 pub mod components;
 pub mod surface;
 pub mod tokens;
 
 use bevy::prelude::*;
 
+pub use binding::Binding;
 pub use components::*;
 pub use surface::{Disabled, Selected, Surface, SurfaceBorder, Tint};
 pub use tokens::{
@@ -37,6 +40,7 @@ pub use tokens::{
 /// Everything: `use bevsidian_ui::prelude::*;`.
 pub mod prelude {
     pub use crate::{
+        binding::Binding,
         components::*,
         surface::{Disabled, Selected, Surface, SurfaceBorder, Tint},
         tokens::{

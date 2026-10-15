@@ -2,7 +2,7 @@
 //! a close button that clears the selection.
 
 use bevy::{prelude::*, ui_widgets::Activate};
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 use bevy_ui_textselect::{
     ClearSelection, CopySelection, PreserveSelection, SelectAll, TextSelection,
 };
@@ -14,21 +14,21 @@ pub fn plugin(app: &mut App) {
     app.add_systems(Update, track_selection);
 }
 
-fn track_selection(selection: Res<TextSelection>, nav: Res<Nav>) {
-    if selection.is_changed() {
-        nav.has_selection.set_if_neq(!selection.is_collapsed());
+fn track_selection(selection: Res<TextSelection>, mut nav: ResMut<Nav>) {
+    if selection.is_changed() && nav.has_selection == selection.is_collapsed() {
+        nav.has_selection = !selection.is_collapsed();
     }
 }
 
-pub fn selection_bar(nav: Nav) -> impl Scene {
-    let (has_selection, touch) = (nav.has_selection.clone(), nav.touch.clone());
+#[component]
+pub fn selection_bar(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), bottom: px(24), justify_content: JustifyContent::Center }
         GlobalZIndex(layer::TOOLBAR)
         Pickable::IGNORE
         PreserveSelection
         Children [
-            if $has_selection && $touch {
+            if $nav.has_selection && $nav.touch {
                 @{popover()}
                 Node { flex_direction: FlexDirection::Row, align_items: AlignItems::Center, column_gap: px(2) }
                 Children [

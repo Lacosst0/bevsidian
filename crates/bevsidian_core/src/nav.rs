@@ -1,6 +1,5 @@
 //! Navigation state (current note, history, view, filters) and the systems that drive it.
 
-use crate::signal::{Signal, signal};
 use bevy::{
     input::{ButtonState, keyboard::KeyboardInput},
     input_focus::InputFocus,
@@ -50,81 +49,87 @@ pub enum Studio {
     Sounds,
 }
 
-/// Reactive navigation state, shared by the UI (through `view!` signals) and systems.
-#[derive(Resource, Clone)]
+/// Navigation state, shared by systems and the UI: views watch it (`Watch<Res<Nav>>`) and
+/// handlers change it through `ResMut<Nav>`. Systems that run every frame only write a field
+/// when its value changes, so watchers wake only on real changes.
+#[derive(Resource, Clone, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent switches of the interface, each watched on its own"
+)]
 pub struct Nav {
-    pub current: Signal<NoteId>,
-    pub view: Signal<View>,
-    pub query: Signal<String>,
-    pub tag: Signal<Option<String>>,
-    pub back: Signal<Vec<NoteId>>,
-    pub forward: Signal<Vec<NoteId>>,
+    pub current: NoteId,
+    pub view: View,
+    pub query: String,
+    pub tag: Option<String>,
+    pub back: Vec<NoteId>,
+    pub forward: Vec<NoteId>,
     /// Heading slug or footnote label to scroll to once the note is rendered.
-    pub anchor: Signal<Option<Anchor>>,
+    pub anchor: Option<Anchor>,
     /// Slug of the heading whose section is at the top of the reading pane: where the reader
     /// is in the current note (`None` above the first heading, and in the graph).
-    pub section: Signal<Option<String>>,
+    pub section: Option<String>,
     /// The reading pane is scrolled far enough down to offer "back to top".
-    pub scrolled: Signal<bool>,
+    pub scrolled: bool,
     /// The current note's links popover is open.
-    pub links: Signal<bool>,
+    pub links: bool,
     /// The reading path being followed (its note): the map lights its line and numbers its
     /// steps, and its notes link to the previous and next step.
-    pub path: Signal<Option<NoteId>>,
+    pub path: Option<NoteId>,
     /// The routes chosen in the map's checklist (their path notes), beside the main quest:
     /// the map shows only their lines. `None` until the reader has chosen.
-    pub quests: Signal<Option<Vec<NoteId>>>,
+    pub quests: Option<Vec<NoteId>>,
     /// The map shows every note and line, whatever routes are chosen.
-    pub whole_map: Signal<bool>,
+    pub whole_map: bool,
     /// The map's checklist ("What's in your game?") is open.
-    pub map_setup: Signal<bool>,
+    pub map_setup: bool,
     /// The map is being edited: notes and objects can be moved, reshaped, added and removed.
-    pub map_edit: Signal<bool>,
+    pub map_edit: bool,
     /// "Make it yours" is open, on its pixel sprite or voxel model.
-    pub studio: Signal<Option<Studio>>,
+    pub studio: Option<Studio>,
     /// The examples play sounds.
-    pub sound: Signal<bool>,
+    pub sound: bool,
     /// Notes the reader has opened, in the order first opened (the map lights their stars).
-    pub visited: Signal<Vec<NoteId>>,
+    pub visited: Vec<NoteId>,
     /// Find in the note (`Ctrl+F`): open, what to find, which match is current and how
     /// many there are.
-    pub find: Signal<bool>,
-    pub find_query: Signal<String>,
-    pub find_index: Signal<usize>,
-    pub find_count: Signal<usize>,
+    pub find: bool,
+    pub find_query: String,
+    pub find_index: usize,
+    pub find_count: usize,
     /// Quick switcher state.
-    pub switcher: Signal<bool>,
-    pub switcher_query: Signal<String>,
-    pub switcher_index: Signal<usize>,
+    pub switcher: bool,
+    pub switcher_query: String,
+    pub switcher_index: usize,
     /// Window width class.
-    pub mode: Signal<LayoutMode>,
+    pub mode: LayoutMode,
     /// The sidebar drawer is open (phones).
-    pub drawer: Signal<bool>,
+    pub drawer: bool,
     /// The inline sidebar is collapsed (tablets and desktops).
-    pub sidebar_collapsed: Signal<bool>,
+    pub sidebar_collapsed: bool,
     /// The last input was a touch.
-    pub touch: Signal<bool>,
+    pub touch: bool,
     /// Some text is selected.
-    pub has_selection: Signal<bool>,
+    pub has_selection: bool,
     /// The on-screen keyboard is wanted.
-    pub keyboard: Signal<bool>,
+    pub keyboard: bool,
     /// Reading text size in logical px.
-    pub text_size: Signal<u32>,
+    pub text_size: u32,
     /// Settings panel open.
-    pub settings: Signal<bool>,
+    pub settings: bool,
     /// Scroll speed in percent of the default.
-    pub scroll_speed: Signal<u32>,
+    pub scroll_speed: u32,
     /// Show the frame-rate readout.
-    pub show_fps: Signal<bool>,
+    pub show_fps: bool,
     /// Frame-rate cap while animating; 0 = as fast as the display allows.
-    pub max_fps: Signal<u32>,
+    pub max_fps: u32,
     /// Wait for the display's refresh (desktop only; browsers always do).
-    pub vsync: Signal<bool>,
+    pub vsync: bool,
     /// Refresh rate the browser offers the page (measured while Settings or the FPS readout
     /// is open; web only).
-    pub display_hz: Signal<Option<u32>>,
+    pub display_hz: Option<u32>,
     /// The current note is open in the editor.
-    pub editing: Signal<bool>,
+    pub editing: bool,
 }
 
 /// How many notes the quick switcher lists.
@@ -156,45 +161,45 @@ pub enum Anchor {
 impl Nav {
     pub fn new(home: NoteId) -> Self {
         Self {
-            current: signal(|| home),
-            view: signal(View::default),
-            query: signal(String::new),
-            tag: signal(|| None),
-            back: signal(Vec::new),
-            forward: signal(Vec::new),
-            anchor: signal(|| None),
-            section: signal(|| None),
-            scrolled: signal(|| false),
-            links: signal(|| false),
-            path: signal(|| None),
-            quests: signal(|| None),
-            whole_map: signal(|| false),
-            map_setup: signal(|| false),
-            map_edit: signal(|| false),
-            studio: signal(|| None),
-            sound: signal(|| true),
-            visited: signal(Vec::new),
-            find: signal(|| false),
-            find_query: signal(String::new),
-            find_index: signal(|| 0),
-            find_count: signal(|| 0),
-            switcher: signal(|| false),
-            switcher_query: signal(String::new),
-            switcher_index: signal(|| 0),
-            mode: signal(LayoutMode::default),
-            drawer: signal(|| false),
-            sidebar_collapsed: signal(|| false),
-            touch: signal(|| false),
-            has_selection: signal(|| false),
-            keyboard: signal(|| false),
-            text_size: signal(|| 16),
-            settings: signal(|| false),
-            scroll_speed: signal(|| 100),
-            show_fps: signal(|| false),
-            max_fps: signal(|| 0),
-            vsync: signal(|| true),
-            display_hz: signal(|| None),
-            editing: signal(|| false),
+            current: home,
+            view: View::default(),
+            query: String::new(),
+            tag: None,
+            back: Vec::new(),
+            forward: Vec::new(),
+            anchor: None,
+            section: None,
+            scrolled: false,
+            links: false,
+            path: None,
+            quests: None,
+            whole_map: false,
+            map_setup: false,
+            map_edit: false,
+            studio: None,
+            sound: true,
+            visited: Vec::new(),
+            find: false,
+            find_query: String::new(),
+            find_index: 0,
+            find_count: 0,
+            switcher: false,
+            switcher_query: String::new(),
+            switcher_index: 0,
+            mode: LayoutMode::default(),
+            drawer: false,
+            sidebar_collapsed: false,
+            touch: false,
+            has_selection: false,
+            keyboard: false,
+            text_size: 16,
+            settings: false,
+            scroll_speed: 100,
+            show_fps: false,
+            max_fps: 0,
+            vsync: true,
+            display_hz: None,
+            editing: false,
         }
     }
 
@@ -202,14 +207,12 @@ impl Nav {
     /// visited last (most recent first, not the open one), then the others. Returns them with
     /// how many lead as recent.
     pub fn switcher_results(&self, vault: &VaultData) -> (Vec<NoteId>, usize) {
-        let query = self.switcher_query.get_untracked();
-        let mut results = vault.search(&query, None);
+        let mut results = vault.search(&self.switcher_query, None);
         let mut recent = 0;
-        if query.trim().is_empty() {
-            let current = self.current.get_untracked();
+        if self.switcher_query.trim().is_empty() {
             let mut visited: Vec<NoteId> = Vec::new();
-            for &id in self.back.get_untracked().iter().rev() {
-                if id != current && !visited.contains(&id) && visited.len() < SWITCHER_RECENT {
+            for &id in self.back.iter().rev() {
+                if id != self.current && !visited.contains(&id) && visited.len() < SWITCHER_RECENT {
                     visited.push(id);
                 }
             }
@@ -222,166 +225,145 @@ impl Nav {
         (results, recent)
     }
 
+    /// The highlighted switcher row: the keyboard can point past a list that shrank as the
+    /// query grew, and then the last one is meant.
+    pub fn switcher_choice(&self, count: usize) -> usize {
+        self.switcher_index.min(count.saturating_sub(1))
+    }
+
     /// Opens a note, recording history.
-    pub fn open(&self, id: NoteId, heading: Option<String>) {
-        let current = self.current.get_untracked();
-        if current != id {
-            self.back.update(|b| b.push(current));
-            self.forward.update(Vec::clear);
-            self.current.set(id);
+    pub fn open(&mut self, id: NoteId, heading: Option<String>) {
+        if self.current != id {
+            self.back.push(self.current);
+            self.forward.clear();
+            self.current = id;
         }
-        self.view.set_if_neq(View::Note);
+        self.view = View::Note;
         self.close_overlays();
-        self.anchor
-            .set(heading.map(|h| Anchor::Heading(bevy_ui_commonmark::slugify(&h))));
+        self.anchor = heading.map(|h| Anchor::Heading(bevy_ui_commonmark::slugify(&h)));
     }
 
-    pub fn go_back(&self) {
-        if let Some(prev) = self.back.update(Vec::pop) {
-            let current = self.current.get_untracked();
-            self.forward.update(|f| f.push(current));
-            self.current.set(prev);
-            self.view.set_if_neq(View::Note);
+    pub fn go_back(&mut self) {
+        if let Some(prev) = self.back.pop() {
+            self.forward.push(self.current);
+            self.current = prev;
+            self.view = View::Note;
             self.close_overlays();
         }
     }
 
-    pub fn go_forward(&self) {
-        if let Some(next) = self.forward.update(Vec::pop) {
-            let current = self.current.get_untracked();
-            self.back.update(|b| b.push(current));
-            self.current.set(next);
-            self.view.set_if_neq(View::Note);
+    pub fn go_forward(&mut self) {
+        if let Some(next) = self.forward.pop() {
+            self.back.push(self.current);
+            self.current = next;
+            self.view = View::Note;
             self.close_overlays();
         }
     }
 
-    pub fn close_drawer(&self) {
-        self.drawer.set_if_neq(false);
-    }
-
-    /// Closes the drawer and the links popover (after navigating).
     /// Opens find in the note (in the reading view).
-    pub fn open_find(&self) {
-        if self.view.get_untracked() == View::Note && !self.editing.get_untracked() {
-            self.find.set(true);
+    pub fn open_find(&mut self) {
+        if self.view == View::Note && !self.editing {
+            self.find = true;
         }
     }
 
     /// Moves to the next (`1`) or previous (`-1`) match of find, wrapping around.
-    pub fn step_find(&self, by: isize) {
-        let count = self.find_count.get_untracked();
+    pub fn step_find(&mut self, by: isize) {
+        let count = self.find_count;
         if count > 0 {
-            let index = self.find_index.get_untracked().min(count - 1);
-            self.find_index.set(
-                (index.cast_signed() + by)
-                    .rem_euclid(count.cast_signed())
-                    .cast_unsigned(),
-            );
+            let index = self.find_index.min(count - 1);
+            self.find_index = (index.cast_signed() + by)
+                .rem_euclid(count.cast_signed())
+                .cast_unsigned();
         }
     }
 
-    pub fn close_overlays(&self) {
-        self.close_drawer();
-        self.links.set_if_neq(false);
+    /// Closes the drawer and the links popover (after navigating).
+    pub fn close_overlays(&mut self) {
+        self.drawer = false;
+        self.links = false;
     }
 
     /// Shows or hides the sidebar: the drawer on phones, the inline column elsewhere.
-    pub fn toggle_sidebar(&self) {
-        if self.mode.get_untracked().drawer() {
-            self.drawer.update(|open| *open = !*open);
+    pub fn toggle_sidebar(&mut self) {
+        if self.mode.drawer() {
+            self.drawer = !self.drawer;
         } else {
-            self.sidebar_collapsed
-                .update(|collapsed| *collapsed = !*collapsed);
+            self.sidebar_collapsed = !self.sidebar_collapsed;
         }
     }
 
     /// Changes the reading text size by `delta` px.
-    pub fn change_text_size(&self, delta: i32) {
-        let next = self
+    pub fn change_text_size(&mut self, delta: i32) {
+        self.text_size = self
             .text_size
-            .get_untracked()
             .saturating_add_signed(delta)
             .clamp(*TEXT_SIZES.start(), *TEXT_SIZES.end());
-        self.text_size.set_if_neq(next);
     }
 
     /// Changes the scroll speed by `steps` steps.
-    pub fn change_scroll_speed(&self, steps: i32) {
-        let next = self
+    pub fn change_scroll_speed(&mut self, steps: i32) {
+        self.scroll_speed = self
             .scroll_speed
-            .get_untracked()
             .saturating_add_signed(steps * SCROLL_SPEED_STEP)
             .clamp(*SCROLL_SPEEDS.start(), *SCROLL_SPEEDS.end());
-        self.scroll_speed.set_if_neq(next);
     }
 
     /// Moves the frame-rate cap one choice up or down.
-    pub fn change_max_fps(&self, steps: i32) {
-        let current = self.max_fps.get_untracked();
+    pub fn change_max_fps(&mut self, steps: i32) {
         let index = MAX_FPS_CHOICES
             .iter()
-            .position(|c| *c == current)
+            .position(|c| *c == self.max_fps)
             .unwrap_or(MAX_FPS_CHOICES.len() - 1);
         let next = index
             .saturating_add_signed(steps as isize)
             .min(MAX_FPS_CHOICES.len() - 1);
-        self.max_fps.set_if_neq(MAX_FPS_CHOICES[next]);
+        self.max_fps = MAX_FPS_CHOICES[next];
     }
 
     /// Multiplier for wheel deltas and touch flings.
     pub fn scroll_factor(&self) -> f32 {
-        BASE_SCROLL_FACTOR * self.scroll_speed.get_untracked() as f32 / 100.0
-    }
-
-    pub fn show(&self, view: View) {
-        self.view.set_if_neq(view);
-    }
-
-    pub fn clear_tag(&self) {
-        self.tag.set(None);
+        BASE_SCROLL_FACTOR * self.scroll_speed as f32 / 100.0
     }
 
     /// Opens or closes the editor for the current note (switching to the note view).
-    pub fn toggle_editing(&self) {
-        let editing = self.view.get_untracked() == View::Note && self.editing.get_untracked();
-        self.view.set_if_neq(View::Note);
-        self.editing.set(!editing);
+    pub fn toggle_editing(&mut self) {
+        let editing = self.view == View::Note && self.editing;
+        self.view = View::Note;
+        self.editing = !editing;
     }
 
-    pub fn toggle_graph(&self) {
-        let next = match self.view.get_untracked() {
+    pub fn toggle_graph(&mut self) {
+        self.view = match self.view {
             View::Note => View::Graph,
             View::Graph => View::Note,
         };
-        self.view.set(next);
     }
 
     /// Toggles a tag filter on the file list.
-    pub fn toggle_tag(&self, tag: &str) {
-        let next = if self.tag.get_untracked().as_deref() == Some(tag) {
+    pub fn toggle_tag(&mut self, tag: &str) {
+        self.tag = if self.tag.as_deref() == Some(tag) {
             None
         } else {
             Some(tag.to_owned())
         };
-        let filtering = next.is_some();
-        self.tag.set(next);
         // On phones the note list lives in a drawer: show the filtered list.
-        if filtering && self.mode.get_untracked().drawer() {
-            self.drawer.set_if_neq(true);
+        if self.tag.is_some() && self.mode.drawer() {
+            self.drawer = true;
         }
     }
 
-    pub fn open_switcher(&self) {
-        self.switcher_query.set(String::new());
-        self.switcher_index.set(0);
-        self.switcher.set(true);
+    pub fn open_switcher(&mut self) {
+        self.switcher_query.clear();
+        self.switcher_index = 0;
+        self.switcher = true;
     }
 }
 
 fn on_link(
     link: On<MdLinkActivated>,
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
     vault: Res<Vault>,
     touch: Res<bevy_ui_touchscroll::TouchScroll>,
 ) {
@@ -391,20 +373,19 @@ fn on_link(
     }
     match &link.target {
         LinkTarget::Wiki(wiki) => {
-            if let Some(id) = vault.get_untracked().resolve(wiki) {
+            if let Some(id) = vault.resolve(wiki) {
                 nav.open(id, wiki.heading.clone());
             } else if wiki.target.is_empty()
                 && let Some(heading) = &wiki.heading
             {
                 // `[[#Heading]]` links inside the current note.
-                nav.anchor
-                    .set(Some(Anchor::Heading(bevy_ui_commonmark::slugify(heading))));
+                nav.anchor = Some(Anchor::Heading(bevy_ui_commonmark::slugify(heading)));
             } else {
                 warn!("no note named {:?}", wiki.target);
             }
         }
         LinkTarget::Tag(tag) => nav.toggle_tag(tag),
-        LinkTarget::Footnote(label) => nav.anchor.set(Some(Anchor::Footnote(label.clone()))),
+        LinkTarget::Footnote(label) => nav.anchor = Some(Anchor::Footnote(label.clone())),
         LinkTarget::Url(url) => open_url(url),
         LinkTarget::Docs(path) => open_url(&crate::docs::url(path)),
     }
@@ -425,35 +406,32 @@ pub fn open_url(url: &str) {
 }
 
 /// Opening a path's note starts following that path.
-fn follow_paths(nav: Res<Nav>, vault: Res<Vault>, mut last: Local<Option<NoteId>>) {
-    let current = nav.current.get_untracked();
+fn follow_paths(mut nav: ResMut<Nav>, vault: Res<Vault>, mut last: Local<Option<NoteId>>) {
+    let current = nav.current;
     if *last == Some(current) {
         return;
     }
     *last = Some(current);
-    if vault.get_untracked().path(current).is_some() {
-        nav.path.set_if_neq(Some(current));
+    if vault.path(current).is_some() && nav.path != Some(current) {
+        nav.path = Some(current);
     }
 }
 
 /// The note being read counts as visited.
-fn mark_visited(nav: Res<Nav>, mut last: Local<Option<NoteId>>) {
-    let current = nav.current.get_untracked();
-    if *last == Some(current) {
-        return;
-    }
-    *last = Some(current);
-    if !nav.visited.get_untracked().contains(&current) {
-        nav.visited.update(|v| v.push(current));
+fn mark_visited(mut nav: ResMut<Nav>) {
+    let current = nav.current;
+    if !nav.visited.contains(&current) {
+        nav.visited.push(current);
     }
 }
 
 /// Typing in the quick switcher starts again from its first result.
-fn reset_switcher_index(nav: Res<Nav>, mut last: Local<String>) {
-    let query = nav.switcher_query.get_untracked();
-    if *last != query {
-        *last = query;
-        nav.switcher_index.set_if_neq(0);
+fn reset_switcher_index(mut nav: ResMut<Nav>, mut last: Local<String>) {
+    if *last != nav.switcher_query {
+        last.clone_from(&nav.switcher_query);
+        if nav.switcher_index != 0 {
+            nav.switcher_index = 0;
+        }
     }
 }
 
@@ -461,7 +439,7 @@ fn shortcuts(
     mut keys_in: MessageReader<KeyboardInput>,
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
     vault: Res<Vault>,
     mut focus: ResMut<InputFocus>,
     mut selection: ResMut<TextSelection>,
@@ -480,62 +458,53 @@ fn shortcuts(
         }
         let command = modifiers.ctrl || modifiers.super_key;
         let alt = modifiers.alt;
+        let step = if modifiers.shift { -1 } else { 1 };
         match input.key_code {
             KeyCode::KeyO if command => nav.open_switcher(),
             KeyCode::KeyF if command => nav.open_find(),
-            KeyCode::F3 if nav.find.get_untracked() => {
-                nav.step_find(if modifiers.shift { -1 } else { 1 });
-            }
+            KeyCode::F3 if nav.find => nav.step_find(step),
             KeyCode::KeyG if command => nav.toggle_graph(),
             KeyCode::KeyE if command => nav.toggle_editing(),
-            KeyCode::Comma if command => nav.settings.set(!nav.settings.get_untracked()),
+            KeyCode::Comma if command => nav.settings = !nav.settings,
             KeyCode::Equal | KeyCode::NumpadAdd if command => nav.change_text_size(1),
             KeyCode::Minus | KeyCode::NumpadSubtract if command => nav.change_text_size(-1),
             KeyCode::ArrowLeft if alt => nav.go_back(),
             KeyCode::ArrowRight if alt => nav.go_forward(),
             KeyCode::Escape => {
-                if nav.find.get_untracked() {
-                    nav.find.set(false);
+                if nav.find {
+                    nav.find = false;
                     focus.clear();
-                } else if nav.links.get_untracked() {
-                    nav.links.set(false);
-                } else if nav.switcher.get_untracked() {
-                    nav.switcher.set(false);
+                } else if nav.links {
+                    nav.links = false;
+                } else if nav.switcher {
+                    nav.switcher = false;
                     focus.clear();
-                } else if nav.settings.get_untracked() {
-                    nav.settings.set(false);
-                } else if nav.drawer.get_untracked() {
-                    nav.close_drawer();
+                } else if nav.settings {
+                    nav.settings = false;
+                } else if nav.drawer {
+                    nav.drawer = false;
                 } else {
                     selection.clear();
                 }
             }
-            KeyCode::ArrowDown | KeyCode::ArrowUp if nav.switcher.get_untracked() => {
-                let count = nav.switcher_results(&vault.get_untracked()).0.len().max(1);
-                let index = nav.switcher_index.get_untracked();
-                let next = if input.key_code == KeyCode::ArrowDown {
+            KeyCode::ArrowDown | KeyCode::ArrowUp if nav.switcher => {
+                let count = nav.switcher_results(&vault).0.len().max(1);
+                let index = nav.switcher_index;
+                nav.switcher_index = if input.key_code == KeyCode::ArrowDown {
                     (index + 1) % count
                 } else {
                     (index + count - 1) % count
                 };
-                nav.switcher_index.set(next);
             }
-            KeyCode::Enter | KeyCode::NumpadEnter
-                if nav.find.get_untracked() && !nav.switcher.get_untracked() =>
-            {
-                nav.step_find(if modifiers.shift { -1 } else { 1 });
+            KeyCode::Enter | KeyCode::NumpadEnter if nav.find && !nav.switcher => {
+                nav.step_find(step);
             }
-            KeyCode::Enter | KeyCode::NumpadEnter if nav.switcher.get_untracked() => {
-                let (results, _) = nav.switcher_results(&vault.get_untracked());
-                // The index may point past a list that shrank as the query grew.
-                let index = nav
-                    .switcher_index
-                    .get_untracked()
-                    .min(results.len().saturating_sub(1));
-                if let Some(id) = results.get(index) {
-                    nav.open(*id, None);
+            KeyCode::Enter | KeyCode::NumpadEnter if nav.switcher => {
+                let (results, _) = nav.switcher_results(&vault);
+                if let Some(&id) = results.get(nav.switcher_choice(results.len())) {
+                    nav.open(id, None);
                 }
-                nav.switcher.set(false);
+                nav.switcher = false;
                 focus.clear();
             }
             _ => {}
@@ -559,7 +528,7 @@ fn reset_scroll_on_navigation(
         With<NotePane>,
     >,
 ) {
-    let current = nav.current.get_untracked();
+    let current = nav.current;
     if *last != Some(current) {
         *last = Some(current);
         for (mut scroll, smooth) in &mut panes {
@@ -575,12 +544,14 @@ fn reset_scroll_on_navigation(
 /// How far (logical px) the reading pane scrolls before "back to top" shows.
 const SCROLLED_PAST: f32 = 600.0;
 
-fn track_scrolled(nav: Res<Nav>, panes: Query<&ScrollPosition, With<NotePane>>) {
-    let scrolled = nav.view.get_untracked() == View::Note
+fn track_scrolled(mut nav: ResMut<Nav>, panes: Query<&ScrollPosition, With<NotePane>>) {
+    let scrolled = nav.view == View::Note
         && panes
             .single()
             .is_ok_and(|position| position.y > SCROLLED_PAST);
-    nav.scrolled.set_if_neq(scrolled);
+    if nav.scrolled != scrolled {
+        nav.scrolled = scrolled;
+    }
 }
 
 /// A heading counts as the current section once its top passes this far (logical px) below
@@ -590,12 +561,12 @@ const SECTION_LINE: f32 = 96.0;
 /// Follows the reading position: the last heading whose top is above the section line (or,
 /// scrolled to the end, the last heading on screen).
 fn track_section(
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
     panes: Query<(&ComputedNode, &UiGlobalTransform, &ScrollPosition), With<NotePane>>,
     headings: Query<(&MdHeading, &ComputedNode, &UiGlobalTransform)>,
 ) {
     let section = match panes.single() {
-        Ok((pane, pane_at, scroll)) if nav.view.get_untracked() == View::Note => {
+        Ok((pane, pane_at, scroll)) if nav.view == View::Note => {
             let scale = pane.inverse_scale_factor.recip();
             let top = pane_at.translation.y - pane.size.y / 2.0;
             // At the very end the last sections can't reach the line: then any heading on
@@ -615,7 +586,9 @@ fn track_section(
         }
         _ => None,
     };
-    nav.section.set_if_neq(section);
+    if nav.section != section {
+        nav.section = section;
+    }
 }
 
 /// Where a heading or footnote lands when scrolled to: this far (logical px) below the top of
@@ -625,7 +598,7 @@ const ANCHOR_MARGIN: f32 = 24.0;
 /// Scrolls the reading pane so the anchor's target sits at its top, even if it was already
 /// on screen.
 fn scroll_to_anchor(
-    nav: Res<Nav>,
+    mut nav: ResMut<Nav>,
     headings: Query<(Entity, &MdHeading)>,
     footnotes: Query<(Entity, &MdFootnote)>,
     targets: Query<(&ComputedNode, &UiGlobalTransform)>,
@@ -633,7 +606,7 @@ fn scroll_to_anchor(
     mut commands: Commands,
     mut wait: Local<u8>,
 ) {
-    let Some(anchor) = nav.anchor.get_untracked() else {
+    let Some(anchor) = nav.anchor.clone() else {
         *wait = 0;
         return;
     };
@@ -664,9 +637,9 @@ fn scroll_to_anchor(
         } else {
             commands.trigger(ScrollIntoView { entity });
         }
-        nav.anchor.set(None);
+        nav.anchor = None;
     } else if *wait > 30 {
-        nav.anchor.set(None);
+        nav.anchor = None;
     }
 }
 

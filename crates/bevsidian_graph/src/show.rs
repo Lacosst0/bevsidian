@@ -19,8 +19,8 @@ pub(crate) fn show_nodes(
     mut state: ResMut<GraphState>,
     mut nodes: Query<(&mut GraphNode, &mut Transform, &mut Visibility)>,
 ) {
-    let all = state.whole || nav.map_edit.get_untracked();
-    let current = nav.current.get_untracked();
+    let all = state.whole || nav.map_edit;
+    let current = nav.current;
     let mut appeared = false;
     for (mut node, mut transform, mut visibility) in &mut nodes {
         let visible = shows(all, node.forced, node.note == current);

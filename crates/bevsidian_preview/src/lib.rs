@@ -259,7 +259,7 @@ fn studio_button(studio: Studio) -> impl Scene + use<> {
     bsn! {
         @{button(Variant::Ghost, Size::IconXs)}
         Tooltip::new(tip)
-        on(move |_: On<Activate>, nav: Res<Nav>| nav.studio.set(Some(studio)))
+        on(move |_: On<Activate>, mut n: ResMut<Nav>| n.studio = Some(studio))
         Children [ @{tinted_icon(icon, 14.0, Variant::Ghost.tint())} ]
     }
 }
@@ -411,10 +411,9 @@ mod tests {
         );
 
         // With sound off, it is dropped.
-        app.world()
-            .resource::<bevsidian_core::nav::Nav>()
-            .sound
-            .set(false);
+        app.world_mut()
+            .resource_mut::<bevsidian_core::nav::Nav>()
+            .sound = false;
         let mut runtime = app.world_mut().get_mut::<PreviewRuntime>(host).unwrap();
         runtime
             .world

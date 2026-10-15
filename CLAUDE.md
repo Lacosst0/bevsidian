@@ -11,8 +11,13 @@ An Obsidian-like documentation vault for Bevy, written in Bevy 0.20 (BSN scenes,
   `shadcn-ui/ui`) and follow its anatomy, sizes and states. The kit's README maps Tailwind
   classes to tokens.
 - One component per file in `crates/bevsidian_ui/src/components/`, one function returning
-  `bsn!` (or `view!` when it reads signals). Callers compose with `@{...}` and patch fields
-  rather than adding options. Use a `SceneComponent` with props when a marker is queried.
+  `bsn!` (or a `#[component]` with `view!` when it watches state). Callers compose with
+  `@{...}` and patch fields rather than adding options. Use a `SceneComponent` with props when
+  a marker is queried. Controls take a `Binding` (component state or a resource field).
+- State is plain resources (`Nav`, `Vault`): views read them through `Watch<Res<..>>` and
+  handlers write them through `ResMut` (systems that run every frame write a field only when
+  it changes). In `view!`, a handler with several parameters must not name a watch (the
+  macro splits its arguments on commas): call the `ResMut<Nav>` parameter `n`.
 - App screens: `src/shell` (sidebar, top bar), `src/pages` (note, graph), `src/overlays`
   (dialogs, menus, toasts, keyboard). One screen or overlay per file.
 - Colours only from `bevsidian_ui::color`. Translucent tokens are calibrated for Bevy's

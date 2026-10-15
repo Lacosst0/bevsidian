@@ -1,16 +1,18 @@
-//! A switch (shadcn/ui `Switch`) bound to a boolean signal.
+//! A switch (shadcn/ui `Switch`) bound to a boolean.
 
-use bevsidian_core::signal::Signal;
 use bevy::{
     input_focus::tab_navigation::TabIndex, picking::cursor::EntityCursor, prelude::*,
     ui_widgets::Activate, window::SystemCursorIcon,
 };
 use bevy_radioactive::view::view;
 
-use crate::tokens::{color, radius};
+use crate::{
+    binding::Binding,
+    tokens::{color, radius},
+};
 
 /// On (white track, dark thumb at the end) or off (grey track, white thumb at the start).
-pub fn switch(value: Signal<bool>) -> impl Scene {
+pub fn switch(value: Binding<bool>) -> impl Scene {
     let toggle = value.clone();
     view! {
         Node {
@@ -25,7 +27,7 @@ pub fn switch(value: Signal<bool>) -> impl Scene {
         bevy::ui_widgets::Button
         TabIndex(0)
         EntityCursor::System(SystemCursorIcon::Pointer)
-        on(move |_: On<Activate>| toggle.update(|on| *on = !*on))
+        on(move |_: On<Activate>, mut commands: Commands| toggle.update(&mut commands, |on| !on))
         Children [
             Node { width: px(14), height: px(14), border_radius: BorderRadius::all(px(radius::FULL)) }
             BackgroundColor($(if $value { color::BACKGROUND } else { color::FOREGROUND }))

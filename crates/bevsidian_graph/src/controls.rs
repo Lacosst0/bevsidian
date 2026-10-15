@@ -85,7 +85,7 @@ pub fn zoom_controls() -> impl Scene {
             Tooltip::new("Edit the map")
             Node { border: UiRect::top(px(1.0)), border_radius: BorderRadius::ZERO }
             BorderColor::all(color::BORDER)
-            on(|_: On<Activate>, nav: Res<Nav>| nav.map_edit.update(|on| *on = !*on))
+            on(|_: On<Activate>, mut n: ResMut<Nav>| n.map_edit = !n.map_edit)
         ]
     }
 }
@@ -355,7 +355,7 @@ pub fn edit_bar() -> impl Scene {
                     @{vertical_separator()} Node { margin: UiRect::horizontal(px(4)), height: px(20) }
                     --
                     @{text_button(Variant::Primary, Size::Sm, "Done")}
-                    on(|_: On<Activate>, nav: Res<Nav>| nav.map_edit.set(false))
+                    on(|_: On<Activate>, mut n: ResMut<Nav>| n.map_edit = false)
                 ]
                 --
                 Node {
@@ -420,8 +420,8 @@ pub(crate) fn show_legend(
     )>,
     mut name: Query<&mut Text, With<InspectorName>>,
 ) {
-    let editing = nav.map_edit.get_untracked();
-    let data = vault.get_untracked();
+    let editing = nav.map_edit;
+    let data = vault.0.clone();
     let note = state.selected.and_then(|e| nodes.get(e).ok());
     let thing = state.selected.and_then(|e| things.get(e).ok());
     let place = note.and_then(|n| data.map.as_ref()?.place(&data.notes[n.note].name));

@@ -2,34 +2,35 @@
 //! matching what is typed (all of them when it is empty, a leading `#` is optional); picking
 //! one filters the note list by it.
 
-use bevsidian_core::signal::memo;
-use bevsidian_core::signal::signal;
 use bevy::{input_focus::InputFocus, prelude::*, ui_widgets::Activate};
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
-use bevsidian_core::{Vault, nav::Nav};
+use bevsidian_core::{Vault, VaultData, nav::Nav};
 use bevsidian_ui::prelude::*;
 
-pub fn search(nav: Nav, vault: Vault) -> impl Scene {
-    let focused = signal(|| false);
-    let within = FocusWithin(focused.clone());
-    let query = Some(nav.query.clone());
-    // Tags matching the query, with their note counts.
-    let suggestions = {
-        let (query, vault) = (nav.query.clone(), vault.clone());
-        memo(move || {
-            let typed = query.get().trim().trim_start_matches('#').to_lowercase();
-            vault
-                .get()
-                .tags
-                .iter()
-                .filter(|(name, _)| name.to_lowercase().contains(&typed))
-                .map(|(name, notes)| (name.clone(), notes.len()))
-                .collect::<Vec<_>>()
-        })
-    };
-    let (rows, any) = (suggestions.clone(), suggestions);
-    let (active, touch) = (nav.tag.clone(), nav.touch.clone());
+/// Tags matching the query, with their note counts.
+fn suggestions(nav: &Nav, vault: &VaultData) -> Vec<(String, usize)> {
+    let typed = nav.query.trim().trim_start_matches('#').to_lowercase();
+    vault
+        .tags
+        .iter()
+        .filter(|(name, _)| name.to_lowercase().contains(&typed))
+        .map(|(name, notes)| (name.clone(), notes.len()))
+        .collect()
+}
+
+#[component]
+pub fn search(
+    nav: Watch<Res<Nav>>,
+    vault: Watch<Res<Vault>>,
+    focused: Watch<Local<bool>>,
+) -> impl Scene {
+    let within = FocusWithin(Binding::local(focused.clone()));
+    let query = Some(Binding::resource(
+        nav.clone(),
+        |n: &Nav| n.query.clone(),
+        |n, query| n.query = query,
+    ));
     let shadow = shadow::popover();
     view! {
         Node { flex_direction: FlexDirection::Column, margin: UiRect::vertical(px(8)), flex_shrink: 0.0 }
@@ -37,8 +38,8 @@ pub fn search(nav: Nav, vault: Vault) -> impl Scene {
         Children [
             @InputField { @icon: "search", @placeholder: "Search notes…", @value: query }
             --
-            if $focused && !$(any.with(Vec::is_empty)) {
-                let (shadow, nav) = (shadow.clone(), nav.clone());
+            if $focused && !$(suggestions(&$nav, &$vault).is_empty()) {
+                let shadow = shadow.clone();
                 Node {
                     position_type: PositionType::Absolute,
                     top: px(40),
@@ -60,14 +61,14 @@ pub fn search(nav: Nav, vault: Vault) -> impl Scene {
                     @{group_label("Filter by tag")}
                     --
                     #[key(entry.clone())]
-                    for entry in $rows {
+                    for entry in $(suggestions(&$nav, &$vault)) {
                         let (name, notes) = entry;
-                        let (nav, filter, text) = (nav.clone(), name.clone(), name.clone());
+                        let (filter, text) = (name.clone(), name.clone());
                         @{item()}
-                        Node { height: $(if $touch { px(40) } else { px(32) }) }
-                        Selected($($active.as_deref() == Some(name.as_str())))
-                        on(move |_: On<Activate>, mut focus: ResMut<InputFocus>| {
-                            nav.toggle_tag(&filter);
+                        Node { height: $(if $nav.touch { px(40) } else { px(32) }) }
+                        Selected($nav.tag.as_deref() == Some(name.as_str()))
+                        on(move |_: On<Activate>, mut n: ResMut<Nav>, mut focus: ResMut<InputFocus>| {
+                            n.toggle_tag(&filter);
                             focus.clear();
                         })
                         Children [

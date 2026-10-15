@@ -1,78 +1,63 @@
 //! The graph page: the map with its quest log, legend, edit bar and zoom controls.
 
-use bevsidian_core::signal::memo;
-use bevsidian_core::signal::signal;
 use bevy::{prelude::*, ui_widgets::Activate};
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
-use bevsidian_core::{Nav, Vault, vault::Quest};
+use bevsidian_core::{Nav, NoteId, Vault, VaultData, vault::Quest};
 use bevsidian_graph::{GraphViewport, edit_bar, hover_hint, legend, route_color, zoom_controls};
 use bevsidian_ui::prelude::*;
 
-pub fn graph_page(nav: Nav, vault: Vault) -> impl Scene {
+/// The map; `folded` starts its quest log folded (on phones).
+pub fn graph_page(folded: bool) -> impl Scene {
     bsn! {
         Node { flex_grow: 1.0, flex_basis: px(0), overflow: Overflow::clip() }
         GraphViewport
         Children [
-            @{quest_log(nav, vault)} -- @{legend()} -- @{hover_hint()} -- @{edit_bar()} -- @{zoom_controls()}
+            @{quest_log(folded)} -- @{legend()} -- @{hover_hint()} -- @{edit_bar()} -- @{zoom_controls()}
         ]
     }
 }
 
-/// The routes on the map, in a card that folds down to its header (folded at first on
-/// phones): the main quest and the routes chosen in the checklist, each with how many of its
-/// steps the reader has visited. Choosing one follows it (its line lights up, its steps are
-/// numbered and each of its notes links to the next); each wears its colour on the map.
-/// "Choose features" reopens the checklist and "Whole map" shows every note and line.
-/// Hidden when the vault has no routes.
-fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
-    let rows = {
-        let (vault, quests) = (vault.clone(), nav.quests.clone());
-        memo(move || {
-            let data = vault.get();
-            let chosen = quests.get().unwrap_or_default();
-            data.paths
-                .iter()
-                .filter(|p| p.quest == Quest::Main || chosen.contains(&p.note))
-                .map(|p| {
-                    let note = &data.notes[p.note];
-                    let tint = route_color(&data, p.note);
-                    (p.note, note.icon, tint, note.name.clone(), p.steps.clone())
-                })
-                .collect::<Vec<_>>()
+/// A route in the quest log: its note, icon, colour, name and steps.
+type RouteRow = (NoteId, char, Color, String, Vec<NoteId>);
+
+/// The main quest and the routes chosen in the checklist.
+fn routes(nav: &Nav, vault: &VaultData) -> Vec<RouteRow> {
+    let chosen = nav.quests.clone().unwrap_or_default();
+    vault
+        .paths
+        .iter()
+        .filter(|p| p.quest == Quest::Main || chosen.contains(&p.note))
+        .map(|p| {
+            let note = &vault.notes[p.note];
+            let tint = route_color(vault, p.note);
+            (p.note, note.icon, tint, note.name.clone(), p.steps.clone())
         })
-    };
-    let any = {
-        let vault = vault.clone();
-        memo(move || !vault.get().paths.is_empty())
-    };
-    let followed = {
-        let (path, vault) = (nav.path.clone(), vault.clone());
-        memo(move || {
-            let path = path.get()?;
-            Some(vault.get().notes[path].name.clone())
-        })
-    };
-    let open = signal({
-        let mode = nav.mode.clone();
-        move || !mode.get_untracked().drawer()
-    });
-    let (toggle, fold) = (open.clone(), open.clone());
-    let current = nav.path.clone();
-    let whole = nav.whole_map.clone();
+        .collect()
+}
+
+/// The routes on the map, in a card that folds down to its header: the main quest and the
+/// routes chosen in the checklist, each with how many of its steps the reader has visited.
+/// Choosing one follows it (its line lights up, its steps are numbered and each of its notes
+/// links to the next); each wears its colour on the map. "Choose features" reopens the
+/// checklist and "Whole map" shows every note and line. Hidden when the vault has no routes.
+#[component]
+fn quest_log(
+    nav: Watch<Res<Nav>>,
+    vault: Watch<Res<Vault>>,
+    folded: bool,
+    #[init(!folded)] open: Watch<Local<bool>>,
+) -> impl Scene {
+    // Folds the log from a route's row (`open` can't be named in a handler that takes
+    // system parameters).
+    let fold = open.clone();
     let shadow = shadow::popover();
     view! {
         Node { position_type: PositionType::Absolute, left: px(16), top: px(16) }
         Pickable::IGNORE
         Children [
-            if $any {
-                let (shadow, nav, toggle, followed, fold) = (
-                    shadow.clone(),
-                    nav.clone(),
-                    toggle.clone(),
-                    followed.clone(),
-                    fold.clone(),
-                );
+            if !$vault.paths.is_empty() {
+                let (shadow, fold) = (shadow.clone(), fold.clone());
                 Node {
                     flex_direction: FlexDirection::Column,
                     width: px(248),
@@ -86,7 +71,7 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                 Children [
                     @{item()}
                     Tooltip::new("Show or hide your routes")
-                    on(move |_: On<Activate>| toggle.update(|shown| *shown = !*shown))
+                    on(move |_: On<Activate>| open.update(|shown| *shown = !*shown))
                     Children [
                         @{item_icon("map")}
                         --
@@ -94,7 +79,11 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                         Node { flex_grow: 0.0 }
                         --
                         // Folded, which route is followed.
-                        Text($(if $open { String::new() } else { followed.get().unwrap_or_default() }))
+                        Text($(if $open {
+                            String::new()
+                        } else {
+                            $nav.path.map(|path| $vault.notes[path].name.clone()).unwrap_or_default()
+                        }))
                         @{insert(font(size::XS, bevy::text::FontWeight::NORMAL))}
                         TextColor(color::MUTED_FOREGROUND)
                         TextLayout { linebreak: LineBreak::NoWrap }
@@ -108,24 +97,20 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                     ]
                     --
                     if $open {
-                        let (nav, fold) = (nav.clone(), fold.clone());
-                        let (setup, all) = (nav.map_setup.clone(), nav.whole_map.clone());
+                        let fold = fold.clone();
                         Node { flex_direction: FlexDirection::Column }
                         Children [
                             @{separator()}
                             Node { margin: UiRect::vertical(px(4)) }
                             --
                             #[key(entry.0)]
-                            for entry in $rows {
+                            for entry in $(routes(&$nav, &$vault)) {
                                 let (note, icon, tint, name, steps) = entry;
-                                let (choose, fold, visited) = (nav.path.clone(), fold.clone(), nav.visited.clone());
-                                let total = steps.len();
+                                let (total, fold) = (steps.len(), fold.clone());
                                 @{item()}
-                                Selected($current == Some(note))
-                                on(move |_: On<Activate>| {
-                                    choose.update(|path| {
-                                        *path = if *path == Some(note) { None } else { Some(note) };
-                                    });
+                                Selected($nav.path == Some(note))
+                                on(move |_: On<Activate>, mut n: ResMut<Nav>| {
+                                    n.path = if n.path == Some(note) { None } else { Some(note) };
                                     // Out of the way of the route; the header names it.
                                     fold.set(false);
                                 })
@@ -135,7 +120,7 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                                     --
                                     @{item_label(&name)}
                                     --
-                                    Text($(visited.with(|v| format!("{}/{total}", steps.iter().filter(|s| v.contains(s)).count()))))
+                                    Text($(nav.with(|nav| format!("{}/{total}", steps.iter().filter(|s| nav.visited.contains(s)).count()))))
                                     @{insert(font(size::XS, bevy::text::FontWeight::NORMAL))}
                                     TextColor(color::MUTED_FOREGROUND)
                                     Node { flex_shrink: 0.0 }
@@ -147,12 +132,12 @@ fn quest_log(nav: Nav, vault: Vault) -> impl Scene {
                             Node { margin: UiRect::vertical(px(4)) }
                             --
                             @{item()}
-                            on(move |_: On<Activate>| setup.set(true))
+                            on(|_: On<Activate>, mut n: ResMut<Nav>| n.map_setup = true)
                             Children [ @{item_icon("list-checks")} -- @{item_label("Choose features…")} ]
                             --
                             @{item()}
-                            Selected($whole)
-                            on(move |_: On<Activate>| all.update(|on| *on = !*on))
+                            Selected($nav.whole_map)
+                            on(|_: On<Activate>, mut n: ResMut<Nav>| n.whole_map = !n.whole_map)
                             Children [ @{item_icon("orbit")} -- @{item_label("Whole map")} ]
                         ]
                     }

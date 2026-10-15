@@ -5,7 +5,7 @@ tags: [bevsidian]
 ---
 # UI kit
 
-Bevsidian's interface is built from a small component library, `bevsidian_ui`, modelled on [shadcn/ui](https://ui.shadcn.com): its dark *neutral* palette, sizes and states, with one orange accent kept for links. Every component is a plain function returning a BSN scene (`bsn!`, or `view!` when it reads signals), so you use it with `@{...}` and patch it like any other scene. The previews below are the real components. This is how *this app* is built, not part of Bevy: for Bevy's own UI start at [[UI]]. #bevsidian
+Bevsidian's interface is built from a small component library, `bevsidian_ui`, modelled on [shadcn/ui](https://ui.shadcn.com): its dark *neutral* palette, sizes and states, with one orange accent kept for links. Every component is a plain function returning a BSN scene (`bsn!`, or `view!` when it reads a watch), so you use it with `@{...}` and patch it like any other scene. The previews below are the real components. This is how *this app* is built, not part of Bevy: for Bevy's own UI start at [[UI]]. #bevsidian
 
 ## Buttons
 
@@ -37,22 +37,21 @@ pub fn buttons() -> impl Scene {
 
 ## Tabs
 
-The Note / Graph switch in the top bar. The selected tab is bound to a signal with `Selected($...)`; click to try it:
+The Note / Graph switch in the top bar. The tab list is a `#[component]` whose `Watch<Local<u32>>` remembers the selected tab, shown with `Selected($...)`; click to try it:
 
 ```rust preview=kit-tabs
-pub fn view_tabs() -> impl Scene {
-    let current = signal(|| 0);
-    let (note, graph) = (current.clone(), current.clone());
+#[component]
+pub fn view_tabs(current: Watch<Local<u32>>) -> impl Scene {
     view! {
         @{tab_list()}
         Children [
             @{tab("Note")}
             Selected($current == 0)
-            on(move |_: On<Activate>| note.set(0))
+            on(move |_: On<Activate>| current.set(0))
             --
             @{tab("Graph")}
             Selected($current == 1)
-            on(move |_: On<Activate>| graph.set(1))
+            on(move |_: On<Activate>| current.set(1))
         ]
     }
 }
@@ -63,9 +62,8 @@ pub fn view_tabs() -> impl Scene {
 Tags are outline badges; a selected one (the active filter) fills in.
 
 ```rust preview=kit-badges
-pub fn badges() -> impl Scene {
-    let active = signal(|| true);
-    let toggle = active.clone();
+#[component]
+pub fn badges(#[init(true)] active: Watch<Local<bool>>) -> impl Scene {
     view! {
         Node { flex_direction: FlexDirection::Column, row_gap: px(12) }
         Children [
@@ -77,7 +75,7 @@ pub fn badges() -> impl Scene {
                 --
                 @{badge_button("#beginner")}
                 Selected($active)
-                on(move |_: On<Activate>| toggle.update(|on| *on = !*on))
+                on(move |_: On<Activate>| active.update(|on| *on = !*on))
             ]
             --
             @{shortcuts(&[("Ctrl O", "switch"), ("Esc", "close")])}
@@ -88,11 +86,16 @@ pub fn badges() -> impl Scene {
 
 ## Forms
 
-`field` lays out a label, an optional description and a control. `stepper` disables its buttons at the ends of its range, and `segmented` selects nothing when the value matches no option:
+`field` lays out a label, an optional description and a control. Controls show and set a `Binding`: `Binding::local(watch)` for the component's own state, or `Binding::resource(watch, get, set)` for a field of a resource (the app's settings are fields of `Nav`). `stepper` disables its buttons at the ends of its range, and `segmented` selects nothing when the value matches no option:
 
 ```rust preview=kit-form
-pub fn settings_card() -> impl Scene {
-    let (size, speed, fps) = (signal(|| 16), signal(|| 1), signal(|| true));
+#[component]
+pub fn settings_card(
+    #[init(16)] size: Watch<Local<u32>>,
+    #[init(1)] speed: Watch<Local<u32>>,
+    #[init(true)] fps: Watch<Local<bool>>,
+) -> impl Scene {
+    let (size, speed, fps) = (Binding::local(size), Binding::local(speed), Binding::local(fps));
     let speeds = vec![(1, "1×".to_owned()), (2, "2×".to_owned()), (3, "3×".to_owned())];
     bsn! {
         @{card()}

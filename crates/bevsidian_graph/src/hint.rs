@@ -95,9 +95,9 @@ pub(crate) fn show_hint(
 ) {
     let hovered = state
         .hovered
-        .filter(|_| state.dragging.is_none() && !nav.touch.get_untracked())
+        .filter(|_| state.dragging.is_none() && !nav.touch)
         .and_then(|e| nodes.get(e).ok().map(|n| (e, n)));
-    let editing = nav.map_edit.get_untracked();
+    let editing = nav.map_edit;
     let key = hovered.map(|(e, _)| (e, editing));
     if *last == key && !bars.is_empty() {
         return;
@@ -113,7 +113,7 @@ pub(crate) fn show_hint(
     let Some((_, node)) = hovered else {
         return;
     };
-    let name = vault.get_untracked().notes[node.note].name.clone();
+    let name = vault.0.clone().notes[node.note].name.clone();
     let click = if editing {
         "choose it; drag it to move it"
     } else {

@@ -10,7 +10,7 @@ use bevy::{
     text::FontWeight,
     ui_widgets::{Activate, ScrollArea, ScrollIntoView},
 };
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
 use bevsidian_core::{
     Vault,
@@ -43,17 +43,16 @@ fn follow_selection(
 }
 
 /// The sidebar column (or drawer).
-pub fn sidebar(nav: Nav, vault: Vault) -> impl Scene {
-    let (mode, drawer_open, collapsed) = (
-        nav.mode.clone(),
-        nav.drawer.clone(),
-        nav.sidebar_collapsed.clone(),
-    );
+#[component]
+pub fn sidebar(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node {
-            display: $(if ($mode.drawer() && $drawer_open) || (!$mode.drawer() && !$collapsed) { Display::Flex } else { Display::None }),
-            position_type: $(if $mode.drawer() { PositionType::Absolute } else { PositionType::Relative }),
-            width: $(if $mode.drawer() { Val::Percent(86.0) } else { px(264) }),
+            display: $(nav.with(|nav| {
+                let shown = if nav.mode.drawer() { nav.drawer } else { !nav.sidebar_collapsed };
+                if shown { Display::Flex } else { Display::None }
+            })),
+            position_type: $(if $nav.mode.drawer() { PositionType::Absolute } else { PositionType::Relative }),
+            width: $(if $nav.mode.drawer() { Val::Percent(86.0) } else { px(264) }),
             max_width: px(320),
             height: Val::Percent(100.0),
             flex_shrink: 0.0,
@@ -61,16 +60,16 @@ pub fn sidebar(nav: Nav, vault: Vault) -> impl Scene {
             padding: UiRect::all(px(8)),
             border: UiRect::right(px(1)),
         }
-        GlobalZIndex($(if $mode.drawer() { layer::DRAWER } else { 0 }))
+        GlobalZIndex($(if $nav.mode.drawer() { layer::DRAWER } else { 0 }))
         BackgroundColor(color::CARD)
         BorderColor::all(color::BORDER)
-        BoxShadow::new(color::SHADOW.with_alpha($(if $mode.drawer() { 0.45 } else { 0.0 })), px(0), px(16), px(0), px(48))
+        BoxShadow($(drawer_shadow($nav.mode.drawer())))
         Children [
-            @{header(nav.clone(), vault.clone())}
+            @{header()}
             --
-            @{search::search(nav.clone(), vault.clone())}
+            @{search::search()}
             --
-            @{tag_filter(nav.clone())}
+            @{tag_filter()}
             --
             Node {
                 flex_direction: FlexDirection::Column,
@@ -82,24 +81,36 @@ pub fn sidebar(nav: Nav, vault: Vault) -> impl Scene {
             }
             ScrollArea
             Children [
-                @{notes::notes(nav.clone(), vault.clone())}
+                @{notes::notes()}
             ]
             --
-            @{footer(nav.clone())}
+            @{footer()}
         ]
     }
 }
 
+/// The drawer's shadow over the page (none inline).
+fn drawer_shadow(drawer: bool) -> Vec<ShadowStyle> {
+    let alpha = if drawer { 0.45 } else { 0.0 };
+    BoxShadow::new(
+        color::SHADOW.with_alpha(alpha),
+        px(0),
+        px(16),
+        px(0),
+        px(48),
+    )
+    .0
+}
+
 /// The app mark, the vault's note count, and on phones a close button.
-fn header(nav: Nav, vault: Vault) -> impl Scene {
-    let mode = nav.mode.clone();
+#[component]
+fn header(nav: Watch<Res<Nav>>, vault: Watch<Res<Vault>>) -> impl Scene {
     let mark = icon_tile(
         glyph("book-open").chars().next().unwrap_or(' '),
         32.0,
         TileStyle::Inverted,
     );
     let count = insert(font(size::XS, FontWeight::NORMAL));
-    let make = nav.clone();
     view! {
         Node { height: px(48), align_items: AlignItems::Center, column_gap: px(10), padding: UiRect::horizontal(px(8)), flex_shrink: 0.0 }
         Children [
@@ -107,7 +118,7 @@ fn header(nav: Nav, vault: Vault) -> impl Scene {
             // yours".
             Node { width: px(32), height: px(32), flex_shrink: 0.0 }
             Tooltip::new("Make it yours: draw your own sprite")
-            on(move |_: On<bevy::picking::events::PointerClick>| make.studio.set(Some(Studio::Sprite)))
+            on(|_: On<bevy::picking::events::PointerClick>, mut n: ResMut<Nav>| n.studio = Some(Studio::Sprite))
             Children [
                 @{mark}
                 --
@@ -122,7 +133,7 @@ fn header(nav: Nav, vault: Vault) -> impl Scene {
             Children [
                 @{label("Bevsidian", size::BASE, FontWeight::SEMIBOLD, color::FOREGROUND)}
                 --
-                Text($(match vault.get().notes.len() {
+                Text($(match $vault.notes.len() {
                     1 => "1 note".to_owned(),
                     n => format!("{n} notes"),
                 }))
@@ -131,32 +142,30 @@ fn header(nav: Nav, vault: Vault) -> impl Scene {
                 Pickable::IGNORE
             ]
             --
-            if $mode.drawer() {
-                let nav = nav.clone();
+            if $nav.mode.drawer() {
                 @{icon_button(Variant::Ghost, Size::IconLg, "x")}
                 Node { margin: UiRect::right(px(-8)) }
-                on(move |_: On<Activate>| nav.close_drawer())
+                on(|_: On<Activate>, mut n: ResMut<Nav>| n.drawer = false)
             }
         ]
     }
 }
 
 /// The active tag filter, as a filled badge that clears it.
-fn tag_filter(nav: Nav) -> impl Scene {
-    let tag = nav.tag.clone();
+#[component]
+fn tag_filter(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node { flex_wrap: FlexWrap::Wrap, padding: UiRect::horizontal(px(4)), flex_shrink: 0.0 }
         Children [
-            match $tag.clone() {
+            match $nav.tag {
                 Some(name) => {
-                    let nav = nav.clone();
                     Node { column_gap: px(6), align_items: AlignItems::Center, margin: UiRect::bottom(px(8)) }
                     Children [
                         @{caption("Filtered by")}
                         --
                         @{badge_button(&format!("#{name}  ×"))}
                         Selected(true)
-                        on(move |_: On<Activate>| nav.clear_tag())
+                        on(|_: On<Activate>, mut n: ResMut<Nav>| n.tag = None)
                     ]
                 },
                 None => {},
@@ -166,22 +175,21 @@ fn tag_filter(nav: Nav) -> impl Scene {
 }
 
 /// Settings, pinned under the scrolling part.
-fn footer(nav: Nav) -> impl Scene {
-    let touch = nav.touch.clone();
-    let open = nav.settings.clone();
+#[component]
+fn footer(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node { flex_direction: FlexDirection::Column, padding: UiRect::top(px(8)), border: UiRect::top(px(1)), flex_shrink: 0.0 }
         BorderColor::all(color::BORDER)
         Children [
             @{item()}
-            Node { height: $(if $touch { px(44) } else { px(32) }) }
-            on(move |_: On<Activate>| open.update(|shown| *shown = !*shown))
+            Node { height: $(if $nav.touch { px(44) } else { px(32) }) }
+            on(|_: On<Activate>, mut n: ResMut<Nav>| n.settings = !n.settings)
             Children [
                 @{item_icon("sliders-horizontal")}
                 --
                 @{item_label("Settings")}
                 --
-                if !$touch {
+                if !$nav.touch {
                     @{kbd_group("Ctrl ,")}
                 }
             ]
@@ -190,16 +198,15 @@ fn footer(nav: Nav) -> impl Scene {
 }
 
 /// Dims the page behind the open drawer; tapping it closes the drawer.
-pub fn backdrop(nav: Nav) -> impl Scene {
-    let (mode, drawer_open) = (nav.mode.clone(), nav.drawer.clone());
+#[component]
+pub fn backdrop(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0) }
         GlobalZIndex(layer::DRAWER_BACKDROP)
         Pickable::IGNORE
         Children [
-            if $drawer_open && $mode.drawer() {
-                let nav = nav.clone();
-                @{scrim(move || nav.close_drawer())}
+            if $nav.drawer && $nav.mode.drawer() {
+                @{scrim(|world| world.resource_mut::<Nav>().drawer = false)}
             }
         ]
     }

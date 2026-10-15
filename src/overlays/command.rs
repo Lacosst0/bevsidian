@@ -1,69 +1,64 @@
 //! The quick switcher (`Ctrl+O`), a command palette over the notes: type to filter, arrows to
 //! move, Enter to open.
 
-use bevsidian_core::signal::{Memo, memo};
 use bevy::{prelude::*, text::FontWeight, ui_widgets::Activate};
-use bevy_radioactive::view::view;
+use bevy_radioactive::view::{Watch, component, view};
 
-use bevsidian_core::{Vault, nav::Nav, vault::NoteId};
+use bevsidian_core::{Vault, VaultData, nav::Nav, vault::NoteId};
 use bevsidian_ui::prelude::*;
 
-pub fn command_palette(nav: Nav, vault: Vault) -> impl Scene {
-    let open = nav.switcher.clone();
+#[component]
+pub fn command_palette(nav: Watch<Res<Nav>>) -> impl Scene {
     view! {
         Node { position_type: PositionType::Absolute, width: Val::Percent(100.0), height: Val::Percent(100.0) }
         GlobalZIndex(layer::COMMAND)
         Pickable::IGNORE
         Children [
-            if $open {
-                let close = nav.switcher.clone();
-                @{scrim(move || close.set(false))}
+            if $nav.switcher {
+                @{scrim(|world| world.resource_mut::<Nav>().switcher = false)}
                 Node { justify_content: JustifyContent::Center, align_items: AlignItems::Start, padding: UiRect::top(Val::Percent(8.0)) }
-                Children [ @{palette(nav.clone(), vault.clone())} ]
+                Children [ @{palette()} ]
             }
         ]
     }
 }
 
-/// A row of the list: a group label, or a note with its index among the notes.
+/// A row of the list: a group label, or a note with its index among the notes (and whether
+/// it is the last).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Row {
     Label(&'static str),
-    Note(usize, NoteId),
+    Note {
+        index: usize,
+        id: NoteId,
+        last: bool,
+    },
 }
 
-fn palette(nav: Nav, vault: Vault) -> impl Scene {
-    let results = {
-        let (nav, vault) = (nav.clone(), vault.clone());
-        memo(move || {
-            // What the results depend on.
-            let _ = (
-                nav.switcher_query.get(),
-                nav.current.get(),
-                nav.back.with(Vec::len),
-            );
-            nav.switcher_results(&vault.get())
-        })
-    };
-    // With no query, the notes visited last come first, under their own label.
-    let rows = {
-        let results = results.clone();
-        memo(move || {
-            let (notes, recent) = results.get();
-            let mut rows = Vec::new();
-            for (i, &id) in notes.iter().enumerate() {
-                if i == 0 {
-                    rows.push(Row::Label(if recent > 0 { "Recent" } else { "Notes" }));
-                } else if i == recent {
-                    rows.push(Row::Label("Notes"));
-                }
-                rows.push(Row::Note(i, id));
-            }
-            rows
-        })
-    };
-    let query = Some(nav.switcher_query.clone());
-    let (emptiness, touch) = (results.clone(), nav.touch.clone());
+/// The switcher's rows. With no query, the notes visited last come first, under their own
+/// label.
+fn rows(nav: &Nav, vault: &VaultData) -> Vec<Row> {
+    let (notes, recent) = nav.switcher_results(vault);
+    let mut rows = Vec::new();
+    for (index, &id) in notes.iter().enumerate() {
+        if index == 0 {
+            rows.push(Row::Label(if recent > 0 { "Recent" } else { "Notes" }));
+        } else if index == recent {
+            rows.push(Row::Label("Notes"));
+        }
+        let last = index + 1 == notes.len();
+        rows.push(Row::Note { index, id, last });
+    }
+    rows
+}
+
+#[component]
+fn palette(nav: Watch<Res<Nav>>, vault: Watch<Res<Vault>>) -> impl Scene {
+    let query = Some(Binding::resource(
+        nav.clone(),
+        |n: &Nav| n.switcher_query.clone(),
+        |n, query| n.switcher_query = query,
+    ));
     let shadow = shadow::dialog();
     view! {
         Node {
@@ -90,17 +85,16 @@ fn palette(nav: Nav, vault: Vault) -> impl Scene {
             bevy::ui_widgets::ScrollArea
             Children [
                 #[key(*entry)]
-                for entry in $rows {
-                    let scene = row(&nav, &vault, &results, entry);
-                    @{scene}
+                for entry in $(rows(&$nav, &$vault)) {
+                    @{vault.with_untracked(|vault| row(entry, vault))}
                 }
                 --
-                if $(emptiness.with(|(notes, _)| notes.is_empty())) {
+                if $($nav.switcher_results(&$vault).0.is_empty()) {
                     @{empty("No notes match")}
                 }
             ]
             --
-            if !$touch {
+            if !$nav.touch {
                 Node { height: px(40), padding: UiRect::horizontal(px(12)), align_items: AlignItems::Center, border: UiRect::top(px(1)) }
                 BorderColor::all(color::BORDER)
                 Children [ @{shortcuts(&[("↑ ↓", "navigate"), ("↵", "open"), ("Esc", "close")])} ]
@@ -109,28 +103,22 @@ fn palette(nav: Nav, vault: Vault) -> impl Scene {
     }
 }
 
-fn row(nav: &Nav, vault: &Vault, results: &Memo<(Vec<NoteId>, usize)>, row: Row) -> Box<dyn Scene> {
-    let (i, id) = match row {
-        Row::Label(text) => return Box::new(group_label(text)),
-        Row::Note(i, id) => (i, id),
+#[component]
+fn row(nav: Watch<Res<Nav>>, row: Row, vault: &VaultData) -> impl Scene + use<> {
+    let (index, id, last) = match row {
+        Row::Label(text) => return Box::new(group_label(text)) as Box<dyn Scene>,
+        Row::Note { index, id, last } => (index, id, last),
     };
-    let (open, index, touch, listed) = (
-        nav.clone(),
-        nav.switcher_index.clone(),
-        nav.touch.clone(),
-        results.clone(),
-    );
-    let data = vault.get_untracked();
-    let note = &data.notes[id];
+    let note = &vault.notes[id];
     let (icon, name, path) = (note.icon, note.name.clone(), note.path.clone());
     Box::new(view! {
         @{item()}
-        Node { height: $(if $touch { px(44) } else { px(36) }) }
+        Node { height: $(if $nav.touch { px(44) } else { px(36) }) }
         // The keyboard can point past a shrunken list: then the last one is meant.
-        Selected($($index.min(listed.with(|(notes, _)| notes.len()).saturating_sub(1)) == i))
-        on(move |_: On<Activate>| {
-            open.open(id, None);
-            open.switcher.set(false);
+        Selected($nav.switcher_index == index || (last && $nav.switcher_index > index))
+        on(move |_: On<Activate>, mut n: ResMut<Nav>| {
+            n.open(id, None);
+            n.switcher = false;
         })
         Children [
             @{item_icon_char(icon)}
