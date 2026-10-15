@@ -7,7 +7,7 @@ hub: true
 Everything you need to make a game with **Bevy 0.20**, one small step at a time. Each note is short, has code you can run right on the page, and links to the next thing to learn. #bevy
 
 > [!TIP]
-> Open the **Map** (`Ctrl+G`). Bevy is the brightest star, in the middle; the main quest spirals out of it, and a route branches off the spiral for every kind of game. Tick what your game has, and the map shows the routes to build it.
+> Open the **Map** (`Ctrl+G`). Bevy is in the middle, the eye of a white bird drawn by the main quest, and a route branches off the bird for every kind of game. Tick what your game has, and the map shows the routes to build it.
 
 ## The map
 
@@ -36,7 +36,7 @@ A route is a list of notes to read in order, drawn on the map as a line of stars
 
 **Main quest**, always on the map:
 
-- [[Your first game]]: the spiral out of Bevy, to a game of your own.
+- [[Your first game]]: the bird around Bevy, to a game of your own.
 
 **What's in your game?** Each feature is a route that branches off the main quest:
 

@@ -1,7 +1,7 @@
 //! Routes on the map: the reading paths drawn as lines between their notes.
 //!
 //! The main quest (`quest: main`) starts at the hub; every other route starts at the stop of
-//! the main quest nearest its first step (or at the hub), so lines branch off the spiral
+//! the main quest nearest its first step (or at the hub), so lines branch off the main quest
 //! instead of all crossing the hub. A route's core steps are joined in order; each optional
 //! step hangs from the route's core step nearest it, so a spur is always short (on the main
 //! quest, a plain line like the rest of it). The map

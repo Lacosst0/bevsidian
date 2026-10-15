@@ -4,7 +4,7 @@ map: true
 ---
 # Map
 
-Where everything sits on the map (`Ctrl+G`). Bevy is in the middle; the main quest, [[Your first game]], spirals out of it, and every other route on [[Bevy]] branches off the spiral toward its area.
+Where everything sits on the map (`Ctrl+G`). Bevy is in the middle; the main quest, [[Your first game]], draws a bird around it after Bevy's logo (Bevy is its eye), and every other route on [[Bevy]] branches off the bird toward its area.
 
 Edit the map with the pencil under the zoom buttons: drag notes and objects, change a note's shape, add landmarks, labels and nebulae. Changes are saved here, in the block below, which you can also edit by hand.
 
@@ -32,23 +32,23 @@ Every note is a filled shape with its icon inside and its name above: dark until
 | square | a crate: a library |
 
 ```map
-# ── The capital and the main quest, spiralling out of it ───────
+# ── The capital and the main quest, drawn as a bird ─────────────
 Bevy                          @      0,      0   octagon large
-Start                         @      0,   -180
-Hello Bevy                    @   -130,   -215   diamond
-Entities and components       @   -210,   -120
-Systems                       @   -270,      0
-Queries                       @   -260,    150
-Sprites                       @   -165,    285
-Commands                      @      0,    360
-Resources                     @    195,    340
-Time and timers               @    365,    210
-Events and observers          @    450,      0
-Run conditions                @    415,   -240
-Make a game                   @    255,   -440   star large
-Game feel                     @    450,   -500
-Project setup                 @   -260,   -330
-App and plugins               @   -110,   -435
+Start                         @     65,   -100
+Hello Bevy                    @    170,    -20   diamond
+Entities and components       @     30,    115
+Systems                       @    -85,     65
+Queries                       @   -140,    170
+Sprites                       @   -280,    280
+Commands                      @   -240,     10
+Resources                     @   -370,    -75
+Time and timers               @   -495,   -115
+Events and observers          @   -385,   -205
+Run conditions                @   -205,   -250
+Make a game                   @    -45,   -195   star large
+Game feel                     @     65,   -290
+Project setup                 @   -160,   -370
+App and plugins               @    -55,   -335
 
 # ── Tooling (south) ─────────────────────────────────────────────
 Tooling                       @     30,   -840
@@ -183,7 +183,7 @@ bevy_light_2d                 @   -575,   1495
 bevy_firefly                  @   -445,   1540
 
 # ── Input (west-south-west) ─────────────────────────────────────
-Keyboard and mouse            @   -590,   -335
+Keyboard and mouse            @   -475,   -300
 Input                         @   -715,   -490
 Input mapping                 @   -925,   -465
 Gamepad and touch             @  -1030,   -630   star

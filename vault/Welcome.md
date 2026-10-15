@@ -11,7 +11,7 @@ icon: house
 
 ## Start here
 
-Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the map (`Ctrl+G`) to see it: Bevy in the middle, the main quest spiralling out of it and a route for every kind of game.
+Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the map (`Ctrl+G`) to see it: Bevy in the middle, the main quest drawn around it as a bird and a route for every kind of game.
 
 1. [[Bevy]]: the map of all areas.
 2. [[Your first game]]: the fastest path to something playable.

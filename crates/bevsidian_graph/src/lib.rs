@@ -1,7 +1,7 @@
 //! The graph view, drawn as a hand-made star map.
 //!
 //! Every note is a filled shape where the vault's map note puts it ([`bevsidian_core::map`]):
-//! Bevy, the largest, in the middle, the main quest as a spiral winding out of it, and the
+//! Bevy, the largest, in the middle, the main quest drawn round it as a bird after Bevy's logo, and the
 //! sky behind them ([`world`]). The shape says what a note is (a hexagon for an area, a
 //! diamond for a milestone, a star for a route's goal, a square for a crate…; see
 //! [`shapes`]), the note's icon sits inside it and its name above; it is dim until the note
