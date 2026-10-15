@@ -12,7 +12,10 @@ use bevy::{
 };
 use bevy_radioactive::view::view;
 
-use bevsidian_core::{Vault, nav::Nav};
+use bevsidian_core::{
+    Vault,
+    nav::{Nav, Studio},
+};
 use bevsidian_ui::prelude::*;
 
 pub fn plugin(app: &mut App) {
@@ -96,10 +99,24 @@ fn header(nav: Nav, vault: Vault) -> impl Scene {
         TileStyle::Inverted,
     );
     let count = insert(font(size::XS, FontWeight::NORMAL));
+    let make = nav.clone();
     view! {
         Node { height: px(48), align_items: AlignItems::Center, column_gap: px(10), padding: UiRect::horizontal(px(8)), flex_shrink: 0.0 }
         Children [
-            @{mark}
+            // The mark, with the reader's sprite over it once drawn; a click opens "Make it
+            // yours".
+            Node { width: px(32), height: px(32), flex_shrink: 0.0 }
+            Tooltip::new("Make it yours: draw your own sprite")
+            on(move |_: On<bevy::picking::events::PointerClick>| make.studio.set(Some(Studio::Sprite)))
+            Children [
+                @{mark}
+                --
+                Node { position_type: PositionType::Absolute, left: px(4), top: px(4), width: px(24), height: px(24) }
+                ImageNode::default()
+                crate::overlays::studio::YourMark
+                Visibility::Hidden
+                Pickable::IGNORE
+            ]
             --
             Node { flex_direction: FlexDirection::Column, flex_grow: 1.0, min_width: px(0) }
             Children [

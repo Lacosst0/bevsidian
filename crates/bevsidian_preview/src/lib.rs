@@ -16,10 +16,12 @@ pub mod example;
 mod examples;
 mod game;
 mod runtime;
+pub mod yours;
 
 use bevy::{prelude::*, ui_widgets::Activate};
 use bevy_ui_commonmark::{CodeBlockInfo, CodeHighlight, CodePreview, MdCodeGroup};
 
+use bevsidian_core::nav::{Nav, Studio};
 use bevsidian_ui::{
     Size, Tooltip, Variant, button, glyph, inset, text_button, tinted_icon, vertical_separator,
 };
@@ -28,11 +30,12 @@ pub use runtime::PreviewRuntime;
 use example::{Action, Kind, Options, View};
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins(examples::plugin)
+    app.add_plugins((examples::plugin, yours::plugin))
         .add_observer(start_world_preview)
         .add_systems(
             Update,
             (
+                rebuild_previews,
                 play_previews,
                 (show_controls, cards::show_cards, game::draw_games),
             )
@@ -45,6 +48,7 @@ pub fn plugin(app: &mut App) {
 pub fn code_preview(block: &CodeBlockInfo) -> Option<CodePreview> {
     if let Some(options) = Options::parse(block.info) {
         let example = examples::find(&options.name)?;
+        let preview_name = options.name.clone();
         let preview = WorldPreview {
             options,
             code: block.code.to_owned(),
@@ -59,7 +63,8 @@ pub fn code_preview(block: &CodeBlockInfo) -> Option<CodePreview> {
                 CodePreview {
                     body: Box::new(cards::cards_frame(preview)),
                     actions: (stepping || !buttons.is_empty()).then(|| {
-                        Box::new(controls(Playback::Cards { stepping }, &buttons)) as Box<dyn Scene>
+                        Box::new(controls(Playback::Cards { stepping }, &buttons, None))
+                            as Box<dyn Scene>
                     }),
                 }
             }
@@ -73,6 +78,7 @@ pub fn code_preview(block: &CodeBlockInfo) -> Option<CodePreview> {
                     actions: Some(Box::new(controls(
                         Playback::Game,
                         &example.actions_for(block.code),
+                        yours::studio_for(&preview_name),
                     ))),
                 }
             }
@@ -111,6 +117,34 @@ fn start_world_preview(add: On<Add<WorldPreview>>, mut commands: Commands) {
             host.insert(runtime);
         }
     });
+}
+
+/// Starts again the previews built from the reader's model when it changes, so they show the
+/// new one.
+fn rebuild_previews(
+    yours: Res<yours::Yours>,
+    previews: Query<(Entity, &WorldPreview)>,
+    mut seen: Local<u64>,
+    mut commands: Commands,
+) {
+    if *seen == yours.revision {
+        return;
+    }
+    let first = *seen == 0;
+    *seen = yours.revision;
+    if first {
+        return;
+    }
+    for (entity, preview) in &previews {
+        if yours::studio_for(&preview.options.name) == Some(Studio::Voxels) {
+            commands.entity(entity).remove::<PreviewRuntime>();
+            let preview = preview.clone();
+            commands
+                .entity(entity)
+                .remove::<WorldPreview>()
+                .insert(preview);
+        }
+    }
 }
 
 fn play_previews(time: Res<Time<Real>>, mut previews: Query<&mut PreviewRuntime>) {
@@ -158,9 +192,10 @@ enum Playback {
     Game,
 }
 
-/// Play / pause and restart (with stepping, also step back and forward), and the block's
-/// action buttons, in the code block's header.
-fn controls(playback: Playback, actions: &[&Action]) -> impl Scene {
+/// Play / pause and restart (with stepping, also step back and forward), the block's action
+/// buttons, and "Make it yours" where the example draws the reader's sprite or model, in the
+/// code block's header.
+fn controls(playback: Playback, actions: &[&Action], studio: Option<Studio>) -> impl Scene {
     let stepping = matches!(playback, Playback::Cards { stepping: true });
     let steps: Vec<Box<dyn Scene>> = if stepping {
         vec![
@@ -186,9 +221,15 @@ fn controls(playback: Playback, actions: &[&Action]) -> impl Scene {
         .enumerate()
         .map(|(index, action)| Box::new(action_button(index, action.label)) as Box<dyn Scene>)
         .collect();
+    let make: Vec<Box<dyn Scene>> = studio
+        .map(|studio| Box::new(studio_button(studio)) as Box<dyn Scene>)
+        .into_iter()
+        .collect();
     bsn! {
         Node { align_items: AlignItems::Center, column_gap: px(2) }
         Children [
+            {make}
+            --
             {buttons}
             --
             {steps}
@@ -197,6 +238,26 @@ fn controls(playback: Playback, actions: &[&Action]) -> impl Scene {
             --
             @{vertical_separator()}
         ]
+    }
+}
+
+/// Opens "Make it yours" on the sprite or the model this example draws.
+fn studio_button(studio: Studio) -> impl Scene + use<> {
+    let (icon, tip) = match studio {
+        Studio::Sprite => (
+            "brush",
+            "Draw your own sprite: it plays in every 2D example",
+        ),
+        Studio::Voxels => (
+            "box",
+            "Build your own voxel model: it appears in the examples",
+        ),
+    };
+    bsn! {
+        @{button(Variant::Ghost, Size::IconXs)}
+        Tooltip::new(tip)
+        on(move |_: On<Activate>, nav: Res<Nav>| nav.studio.set(Some(studio)))
+        Children [ @{tinted_icon(icon, 14.0, Variant::Ghost.tint())} ]
     }
 }
 

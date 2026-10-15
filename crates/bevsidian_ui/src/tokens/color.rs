@@ -134,3 +134,24 @@ pub const MAP_LINK: Color = Color::srgb(0.486, 0.29, 0.129);
 pub const SCRIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.8);
 /// Drop shadows.
 pub const SHADOW: Color = Color::srgba(0.0, 0.0, 0.0, 0.45);
+
+/// The colours of the reader's pixel sprite and voxel model ("Make it yours"): PICO-8's
+/// sixteen, made for small pixel art.
+pub const PIXEL_PALETTE: [Color; 16] = [
+    Color::srgb(0.000, 0.000, 0.000), // black #000000
+    Color::srgb(0.114, 0.169, 0.325), // dark blue #1d2b53
+    Color::srgb(0.494, 0.145, 0.325), // dark purple #7e2553
+    Color::srgb(0.000, 0.529, 0.317), // dark green #008751
+    Color::srgb(0.671, 0.322, 0.212), // brown #ab5236
+    Color::srgb(0.373, 0.341, 0.310), // dark grey #5f574f
+    Color::srgb(0.761, 0.765, 0.780), // light grey #c2c3c7
+    Color::srgb(1.000, 0.945, 0.910), // white #fff1e8
+    Color::srgb(1.000, 0.000, 0.302), // red #ff004d
+    Color::srgb(1.000, 0.639, 0.000), // orange #ffa300
+    Color::srgb(1.000, 0.925, 0.153), // yellow #ffec27
+    Color::srgb(0.000, 0.894, 0.212), // green #00e436
+    Color::srgb(0.161, 0.678, 1.000), // blue #29adff
+    Color::srgb(0.514, 0.463, 0.612), // lavender #83769c
+    Color::srgb(1.000, 0.467, 0.659), // pink #ff77a8
+    Color::srgb(1.000, 0.800, 0.667), // peach #ffccaa
+];

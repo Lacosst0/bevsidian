@@ -27,6 +27,7 @@ mod stage;
 mod states;
 mod tilemap;
 mod timers;
+mod voxels;
 
 use bevy::prelude::*;
 
@@ -34,7 +35,7 @@ use crate::example::Example;
 
 /// Every example's name.
 #[cfg(test)]
-pub const NAMES: [&str; 21] = [
+pub const NAMES: [&str; 22] = [
     "ai",
     "animation",
     "bouncing",
@@ -56,6 +57,7 @@ pub const NAMES: [&str; 21] = [
     "states",
     "tilemap",
     "timers",
+    "voxels",
 ];
 
 /// The example a code block names with `example=NAME`.
@@ -82,6 +84,7 @@ pub fn find(name: &str) -> Option<&'static Example> {
         "states" => &states::EXAMPLE,
         "tilemap" => &tilemap::EXAMPLE,
         "timers" => &timers::EXAMPLE,
+        "voxels" => &voxels::EXAMPLE,
         _ => return None,
     })
 }

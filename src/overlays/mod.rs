@@ -1,4 +1,5 @@
-//! Everything that floats over the page: dialogs (settings, the map's checklist), menus,
+//! Everything that floats over the page: dialogs (settings, the map's checklist, "Make it
+//! yours"), menus,
 //! toolbars, toasts, find in the note, the autoscroll marker and the on-screen keyboard.
 
 pub mod autoscroll;
@@ -10,6 +11,7 @@ pub mod links;
 pub mod quests;
 pub mod selection_bar;
 pub mod settings;
+pub mod studio;
 pub mod toast;
 
 use bevy::prelude::*;
@@ -24,5 +26,6 @@ pub fn plugin(app: &mut App) {
         toast::plugin,
         selection_bar::plugin,
         keyboard::plugin,
+        studio::plugin,
     ));
 }

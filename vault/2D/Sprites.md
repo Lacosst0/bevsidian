@@ -141,6 +141,10 @@ fn feet(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 `DefaultPlugins.set(ImagePlugin::default_nearest())` stops Bevy from smoothing images when it scales them. Scale your sprites by whole numbers (`Transform::from_scale(Vec3::splat(4.0))`) or use a camera with a fixed pixel size.
 
+## Make it yours
+
+Press the **brush** button above a game preview to draw a 16 × 16 pixel sprite of your own. It is saved, and from then on it plays in the examples: as the player in Dodge ([[Make a game]]), the ship in [[Input]] and [[Transforms]], the agent in [[Pathfinding]] and the player in [[Game AI]]. Start over to get the examples' own pictures back. There is a voxel model to build too: see [[3D]].
+
 ## Next
 
 [[Texture atlases]], then [[Sprite animation]].

@@ -39,6 +39,15 @@ pub enum View {
     Graph,
 }
 
+/// What "Make it yours" edits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Studio {
+    /// A 16 × 16 pixel sprite, drawn in the 2D examples.
+    Sprite,
+    /// An 8 × 8 × 8 voxel model.
+    Voxels,
+}
+
 /// Reactive navigation state, shared by the UI (through `view!` signals) and systems.
 #[derive(Resource, Clone)]
 pub struct Nav {
@@ -69,6 +78,8 @@ pub struct Nav {
     pub map_setup: Signal<bool>,
     /// The map is being edited: notes and objects can be moved, reshaped, added and removed.
     pub map_edit: Signal<bool>,
+    /// "Make it yours" is open, on its pixel sprite or voxel model.
+    pub studio: Signal<Option<Studio>>,
     /// Notes the reader has opened, in the order first opened (the map lights their stars).
     pub visited: Signal<Vec<NoteId>>,
     /// Find in the note (`Ctrl+F`): open, what to find, which match is current and how
@@ -156,6 +167,7 @@ impl Nav {
             whole_map: signal(|| false),
             map_setup: signal(|| false),
             map_edit: signal(|| false),
+            studio: signal(|| None),
             visited: signal(Vec::new),
             find: signal(|| false),
             find_query: signal(String::new),

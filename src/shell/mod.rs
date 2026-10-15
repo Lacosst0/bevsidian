@@ -54,6 +54,8 @@ fn shell(nav: Nav, vault: Vault, theme: MdTheme) -> impl Scene {
             --
             @{overlays::quests::quest_dialog(nav.clone(), vault)}
             --
+            @{overlays::studio::studio_dialog(nav.clone())}
+            --
             @{overlays::selection_bar::selection_bar(nav.clone())}
             --
             @{overlays::keyboard::keyboard(nav)}

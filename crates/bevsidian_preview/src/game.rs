@@ -18,7 +18,11 @@ use bevy::{
 use bevy_ui_textselect::NoTextSelection;
 use bevy_ui_touchscroll::{OwnsDrags, TouchScroll};
 
-use crate::{WorldPreview, runtime::PreviewRuntime};
+use crate::{
+    WorldPreview,
+    runtime::PreviewRuntime,
+    yours::{self, Yours},
+};
 
 /// A game preview, `size` world units across.
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -60,18 +64,18 @@ pub(crate) fn game_frame(
     }
 }
 
-/// Updates the nodes of the sprites of the games that changed or resized.
+/// Updates the nodes of the sprites of the games that changed or resized (all of them when
+/// the reader's sprite or model changes: the player-like sprites show the reader's sprite,
+/// obstacles and enemies their model, once they have made them).
 pub(crate) fn draw_games(
-    mut games: Query<
-        (
-            Entity,
-            &mut PreviewRuntime,
-            &GameView,
-            &ComputedNode,
-            Option<&Children>,
-        ),
-        Or<(Changed<PreviewRuntime>, Changed<ComputedNode>)>,
-    >,
+    mut games: Query<(
+        Entity,
+        &mut PreviewRuntime,
+        &GameView,
+        Ref<ComputedNode>,
+        Option<&Children>,
+    )>,
+    yours: Res<Yours>,
     mut drawn: Query<(
         &Drawn,
         &mut Node,
@@ -84,6 +88,9 @@ pub(crate) fn draw_games(
     mut commands: Commands,
 ) {
     for (host, mut runtime, view, computed, children) in &mut games {
+        if !runtime.is_changed() && !computed.is_changed() && !yours.is_changed() {
+            continue;
+        }
         // Logical px per world unit.
         let scale = computed.size().x * computed.inverse_scale_factor() / view.size.x;
         if scale <= 0.0 {
@@ -95,11 +102,22 @@ pub(crate) fn draw_games(
             .filter_map(|&child| drawn.get(child).ok().map(|d| (d.0.0, child)))
             .collect();
         let world = &mut runtime.bypass_change_detection().world;
+        let swaps = swaps(world, &yours);
         let mut sprites = world.query::<(Entity, &Sprite, &Transform, Option<&Anchor>)>();
         for (entity, sprite, transform, anchor) in sprites.iter(world) {
-            let size = sprite_size(sprite, &images, &layouts) * transform.scale.truncate().abs();
+            let mut size =
+                sprite_size(sprite, &images, &layouts) * transform.scale.truncate().abs();
+            let swap = swaps
+                .iter()
+                .find(|(ids, _)| ids.iter().any(|&id| world.entity(entity).contains_id(id)))
+                .map(|(_, image)| image.clone());
             let center =
                 transform.translation.truncate() - anchor.map_or(Vec2::ZERO, |a| a.0) * size;
+            // The reader's picture, as big as the sprite's longer side, keeping its shape.
+            if let Some(picture) = swap.as_ref().and_then(|h| images.get(h)) {
+                let picture = picture.size_f32();
+                size = picture * (size.max_element() / picture.max_element().max(1.0));
+            }
             let top_left = Vec2::new(
                 center.x - size.x / 2.0 + view.size.x / 2.0,
                 view.size.y / 2.0 - center.y - size.y / 2.0,
@@ -113,26 +131,34 @@ pub(crate) fn draw_games(
                 rotation: Rot2::radians(-angle),
                 ..default()
             };
-            let image = ImageNode {
-                image: sprite.image.clone(),
-                color: sprite.color,
-                flip_x: sprite.flip_x ^ (transform.scale.x < 0.0),
-                flip_y: sprite.flip_y ^ (transform.scale.y < 0.0),
-                rect: sprite.rect,
-                texture_atlas: sprite.texture_atlas.clone(),
-                image_mode: match sprite.image_mode {
-                    SpriteImageMode::Tiled {
-                        tile_x,
-                        tile_y,
-                        stretch_value,
-                    } => NodeImageMode::Tiled {
-                        tile_x,
-                        tile_y,
-                        stretch_value: stretch_value * scale,
+            let image = if let Some(picture) = swap {
+                ImageNode {
+                    image: picture,
+                    flip_x: sprite.flip_x ^ (transform.scale.x < 0.0),
+                    ..default()
+                }
+            } else {
+                ImageNode {
+                    image: sprite.image.clone(),
+                    color: sprite.color,
+                    flip_x: sprite.flip_x ^ (transform.scale.x < 0.0),
+                    flip_y: sprite.flip_y ^ (transform.scale.y < 0.0),
+                    rect: sprite.rect,
+                    texture_atlas: sprite.texture_atlas.clone(),
+                    image_mode: match sprite.image_mode {
+                        SpriteImageMode::Tiled {
+                            tile_x,
+                            tile_y,
+                            stretch_value,
+                        } => NodeImageMode::Tiled {
+                            tile_x,
+                            tile_y,
+                            stretch_value: stretch_value * scale,
+                        },
+                        _ => NodeImageMode::Stretch,
                     },
-                    _ => NodeImageMode::Stretch,
-                },
-                ..default()
+                    ..default()
+                }
             };
             let z = ZIndex((transform.translation.z * 16.0) as i32);
             if let Some(node) = nodes.remove(&entity)
@@ -168,6 +194,34 @@ pub(crate) fn draw_games(
             commands.entity(node).despawn();
         }
     }
+}
+
+/// The components whose sprites show the reader's pictures, with the picture: their sprite,
+/// then their model, each once made.
+fn swaps(
+    world: &World,
+    yours: &Yours,
+) -> Vec<(Vec<bevy::ecs::component::ComponentId>, Handle<Image>)> {
+    let named = |names: &[&str]| -> Vec<bevy::ecs::component::ComponentId> {
+        world
+            .components()
+            .iter_registered()
+            .filter(|(_, info)| {
+                let name = info.name().to_string();
+                let short = name.rsplit("::").next().unwrap_or(&name);
+                names.contains(&short)
+            })
+            .map(|(id, _)| id)
+            .collect()
+    };
+    let mut out = Vec::new();
+    if yours.made_sprite {
+        out.push((named(&yours::SPRITE_OF), yours.sprite.clone()));
+    }
+    if yours.made_voxels {
+        out.push((named(&yours::MODEL_OF), yours.model.clone()));
+    }
+    out
 }
 
 fn same_image(a: &ImageNode, b: &ImageNode) -> bool {

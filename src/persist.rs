@@ -1,8 +1,11 @@
-//! Remembers the settings (text size, scroll speed, frame rate), the map's chosen routes and
-//! the notes visited between visits: on the web in `localStorage`, natively not at all. Also
-//! the storage behind saved note edits.
+//! Remembers the settings (text size, scroll speed, frame rate), the map's chosen routes, the
+//! notes visited and the reader's own sprite and voxel model ("Make it yours") between
+//! visits: on the web in `localStorage`, natively in a file per setting in the user's data
+//! folder. Also the storage behind saved note edits on the web.
 
 use bevy::prelude::*;
+
+use bevsidian_preview::yours::{self, SPRITE, VOXELS, Yours};
 
 use bevsidian_core::{
     Vault,
@@ -11,8 +14,8 @@ use bevsidian_core::{
 };
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(Startup, (load, load_map))
-        .add_systems(Last, (save, save_map));
+    app.add_systems(Startup, (load, load_map, load_yours))
+        .add_systems(Last, (save, save_map, save_yours));
 }
 
 const TEXT_SIZE_KEY: &str = "bevsidian.textSize";
@@ -23,6 +26,47 @@ const VSYNC_KEY: &str = "bevsidian.vsync";
 const QUESTS_KEY: &str = "bevsidian.quests";
 const WHOLE_MAP_KEY: &str = "bevsidian.wholeMap";
 const VISITED_KEY: &str = "bevsidian.visited";
+const SPRITE_KEY: &str = "bevsidian.sprite";
+const VOXELS_KEY: &str = "bevsidian.voxels";
+
+/// The reader's sprite and model, if they made them (an empty value: they started over).
+fn load_yours(mut yours: ResMut<Yours>) {
+    if let Some(pixels) = read(SPRITE_KEY).and_then(|v| yours::decode(&v, SPRITE * SPRITE)) {
+        yours.pixels = pixels;
+        yours.made_sprite = true;
+    }
+    if let Some(voxels) = read(VOXELS_KEY).and_then(|v| yours::decode(&v, VOXELS * VOXELS * VOXELS))
+    {
+        yours.voxels = voxels;
+        yours.made_voxels = true;
+    }
+}
+
+fn save_yours(yours: Res<Yours>, mut last: Local<Option<(String, String)>>) {
+    if !yours.is_changed() {
+        return;
+    }
+    let stored = |made: bool, cells: &[yours::Cell]| {
+        if made {
+            yours::encode(cells)
+        } else {
+            String::new()
+        }
+    };
+    let current = (
+        stored(yours.made_sprite, &yours.pixels),
+        stored(yours.made_voxels, &yours.voxels),
+    );
+    if last.as_ref() == Some(&current) {
+        return;
+    }
+    // The first change only records what `load_yours` restored.
+    if last.is_some() {
+        write(SPRITE_KEY, &current.0);
+        write(VOXELS_KEY, &current.1);
+    }
+    *last = Some(current);
+}
 
 /// Notes by name, one per line (names survive notes being added or removed).
 fn names(vault: &Vault, ids: &[NoteId]) -> String {
@@ -131,8 +175,7 @@ pub(crate) fn read(key: &str) -> Option<String> {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let _ = key;
-        None
+        std::fs::read_to_string(native_file(key)?).ok()
     }
 }
 
@@ -146,6 +189,36 @@ pub(crate) fn write(key: &str, value: &str) {
     }
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let _ = (key, value);
+        // A setting that cannot be written lasts for this run only.
+        if let Some(file) = native_file(key) {
+            let _ = file
+                .parent()
+                .map(std::fs::create_dir_all)
+                .transpose()
+                .and_then(|_| std::fs::write(file, value));
+        }
     }
+}
+
+/// Where a setting lives natively: a file named after its key in the user's data folder
+/// (`$XDG_DATA_HOME/bevsidian`, `~/.local/share/bevsidian`, or `%APPDATA%\bevsidian`).
+#[cfg(not(target_arch = "wasm32"))]
+fn native_file(key: &str) -> Option<std::path::PathBuf> {
+    let base = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME").map(|home| std::path::Path::new(&home).join(".local/share"))
+        })
+        .or_else(|| std::env::var_os("APPDATA").map(std::path::PathBuf::from))?;
+    let name: String = key
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    Some(base.join("bevsidian").join(name))
 }
