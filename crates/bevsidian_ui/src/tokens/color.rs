@@ -91,22 +91,31 @@ pub const MAP_PLATE: Color = BACKGROUND;
 pub const MAP_RING: Color = Color::srgb(0.227, 0.227, 0.227);
 /// `#5a5a5a`: the outline of a note's shape once it is read.
 pub const MAP_RING_LIT: Color = Color::srgb(0.353, 0.353, 0.353);
-/// The colours of the routes on the map (Tailwind's 400 shades: bright on the sky, and not
-/// orange, which is the note being read). A route also has a bullet with its icon, so routes
-/// never tell apart by colour alone.
-pub const MAP_ROUTES: [Color; 12] = [
-    Color::srgb(0.220, 0.741, 0.973), // sky #38bdf8
-    Color::srgb(0.655, 0.545, 0.980), // violet #a78bfa
-    Color::srgb(0.204, 0.827, 0.600), // emerald #34d399
-    Color::srgb(0.984, 0.443, 0.522), // rose #fb7185
-    Color::srgb(0.984, 0.749, 0.141), // amber #fbbf24
-    Color::srgb(0.133, 0.827, 0.933), // cyan #22d3ee
-    Color::srgb(0.639, 0.902, 0.208), // lime #a3e635
-    Color::srgb(0.910, 0.475, 0.976), // fuchsia #e879f9
-    Color::srgb(0.506, 0.549, 0.973), // indigo #818cf8
-    Color::srgb(0.176, 0.831, 0.749), // teal #2dd4bf
-    Color::srgb(0.957, 0.447, 0.714), // pink #f472b6
+/// The colour of route `index` of `count` on the map: the routes take even steps along
+/// [`MAP_ROUTES`] in the order they sit round the map, so neighbours have neighbouring hues
+/// that still tell apart.
+pub fn map_route(index: usize, count: usize) -> Color {
+    let last = MAP_ROUTES.len() - 1;
+    let step = (index * last + count.saturating_sub(1).max(1) / 2) / count.saturating_sub(1).max(1);
+    MAP_ROUTES[step.min(last)]
+}
+/// The route colours, round the colour wheel from yellow to rose (Tailwind's 400 shades:
+/// bright on the sky). No red, amber or orange: orange is the note being read.
+pub const MAP_ROUTES: [Color; 14] = [
     Color::srgb(0.980, 0.800, 0.082), // yellow #facc15
+    Color::srgb(0.639, 0.902, 0.208), // lime #a3e635
+    Color::srgb(0.290, 0.871, 0.502), // green #4ade80
+    Color::srgb(0.204, 0.827, 0.600), // emerald #34d399
+    Color::srgb(0.176, 0.831, 0.749), // teal #2dd4bf
+    Color::srgb(0.133, 0.827, 0.933), // cyan #22d3ee
+    Color::srgb(0.220, 0.741, 0.973), // sky #38bdf8
+    Color::srgb(0.376, 0.647, 0.980), // blue #60a5fa
+    Color::srgb(0.506, 0.549, 0.973), // indigo #818cf8
+    Color::srgb(0.655, 0.545, 0.980), // violet #a78bfa
+    Color::srgb(0.753, 0.518, 0.988), // purple #c084fc
+    Color::srgb(0.910, 0.475, 0.976), // fuchsia #e879f9
+    Color::srgb(0.957, 0.447, 0.714), // pink #f472b6
+    Color::srgb(0.984, 0.443, 0.522), // rose #fb7185
 ];
 /// `#6b6b6b`: the main quest's lines.
 pub const MAP_LINE: Color = Color::srgb(0.42, 0.42, 0.42);

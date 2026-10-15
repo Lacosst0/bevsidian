@@ -134,9 +134,9 @@ pub fn legend() -> impl Scene {
     // A note: lit once read, dim before.
     let note = |tint: Color| -> Box<dyn Scene> { Box::new(icon("circle", 14.0, tint)) };
     let (read, unread) = (note(color::BODY), note(color::DISABLED_FOREGROUND));
-    // A route's bullet: its icon on a disc of its colour.
-    let route = color::MAP_ROUTES[0];
-    let bullet: Box<dyn Scene> = Box::new(bsn! {
+    // A route's first page: filled with its colour.
+    let route = color::map_route(6, 14);
+    let first_page: Box<dyn Scene> = Box::new(bsn! {
         Node {
             width: px(16),
             height: px(16),
@@ -192,7 +192,7 @@ pub fn legend() -> impl Scene {
             --
             @{row(arrow, "Reading order")}
             --
-            @{row(bullet, "Where a route begins")}
+            @{row(first_page, "First page of a route")}
         ]
     }
 }

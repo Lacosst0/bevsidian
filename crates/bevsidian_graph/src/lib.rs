@@ -5,8 +5,8 @@
 //! sky behind them ([`world`]). The shape says what a note is (a hexagon for an area, a
 //! diamond for a milestone, a star for a route's goal, a square for a crate…; see
 //! [`shapes`]), the note's icon sits inside it and its name above; it is dim until the note
-//! is read. Routes are coloured lines with arrows in reading order and a bullet where each
-//! begins ([`lines`], [`routes`]): the map shows the main quest, the routes the reader chose
+//! is read. Routes are coloured lines with arrows in reading order, their first page filled
+//! with their colour ([`lines`], [`routes`]): the map shows the main quest, the routes the reader chose
 //! in its checklist and the route being followed; everything else shows with the whole map
 //! ([`show`]).
 //!
@@ -86,7 +86,7 @@ pub fn plugin(app: &mut App) {
                 camera_motion,
                 sharpen_labels,
                 style_nodes,
-                place_bullets,
+                declutter_labels,
                 fit_plates,
                 world::show_handles,
                 world::scale_objects,
@@ -162,15 +162,6 @@ struct GraphRing {
     bold: Handle<Mesh>,
 }
 
-/// A route's bullet: a disc in the route's colour with its icon, on the line where the route
-/// begins (as metro maps mark each line), so routes tell apart by more than colour.
-#[derive(Component)]
-struct RouteBullet {
-    route: NoteId,
-    /// The two notes of the line it sits on.
-    on: (Entity, Entity),
-}
-
 /// Text drawn in the graph world, re-rasterized as the camera zooms so it stays sharp.
 #[derive(Component)]
 struct GraphText {
@@ -188,8 +179,12 @@ pub struct GraphState {
     lines: Vec<lines::Line>,
     /// The colour of each route's lines.
     colors: HashMap<NoteId, Color>,
-    /// The routes (but the main quest) each note is a step of, in vault order.
+    /// The routes (but the main quest) each note is a step of, in vault order, or is tied to.
     note_routes: HashMap<NoteId, Vec<NoteId>>,
+    /// Where each route begins (its first page off the main quest): the routes from it.
+    stations: HashMap<NoteId, Vec<NoteId>>,
+    /// The notes no route takes tied into each route.
+    tied: HashMap<NoteId, Vec<NoteId>>,
     /// The routes shown (their path notes), the one followed, and whether the whole map is.
     active: Vec<NoteId>,
     followed: Option<NoteId>,
@@ -243,7 +238,7 @@ struct NodePaint {
     ring_hovered: Handle<ColorMaterial>,
     ring_current: Handle<ColorMaterial>,
     plate: Handle<ColorMaterial>,
-    /// Each route's colour, for its bullet and its notes' outlines, and dimmed (with the
+    /// Each route's colour, for its notes' outlines and its first page, and dimmed (with the
     /// whole map, for the routes not shown).
     routes: HashMap<NoteId, Handle<ColorMaterial>>,
     routes_dim: HashMap<NoteId, Handle<ColorMaterial>>,
@@ -279,19 +274,56 @@ impl GraphState {
     }
 }
 
-/// The colour of a route's lines: the main quest's are light grey, every other route takes
-/// the next colour of [`color::MAP_ROUTES`], in the order of the routes.
+/// The colour of a route's lines: the main quest's are grey; the others go round a colour
+/// wheel ([`color::map_route`]) in the order they sit round the map, starting from the main
+/// quest's first step and turning anticlockwise, so routes side by side have neighbouring
+/// colours. Where a route sits is the middle of its steps off the main quest.
 pub fn route_color(vault: &VaultData, route: NoteId) -> Color {
-    let others = vault
+    let wheel = route_wheel(vault);
+    wheel
+        .iter()
+        .position(|&r| r == route)
+        .map_or(color::MAP_LINE, |i| color::map_route(i, wheel.len()))
+}
+
+/// The routes but the main quest, in the order they sit round the map (see [`route_color`]).
+fn route_wheel(vault: &VaultData) -> Vec<NoteId> {
+    use bevsidian_core::vault::Quest;
+    let place = |id: NoteId| {
+        vault
+            .map
+            .as_ref()?
+            .place(&vault.notes[id].name)
+            .map(|p| p.at)
+    };
+    let main: &[NoteId] = vault
         .paths
         .iter()
-        .filter(|p| p.quest != bevsidian_core::vault::Quest::Main);
-    others
-        .clone()
-        .position(|p| p.note == route)
-        .map_or(color::MAP_LINE, |i| {
-            color::MAP_ROUTES[i % color::MAP_ROUTES.len()]
+        .find(|p| p.quest == Quest::Main)
+        .map_or(&[], |p| p.steps.as_slice());
+    let from = main
+        .first()
+        .and_then(|&s| place(s))
+        .and_then(Vec2::try_normalize)
+        .unwrap_or(Vec2::NEG_Y);
+    let mut routes: Vec<(f32, NoteId)> = vault
+        .paths
+        .iter()
+        .filter(|p| p.quest != Quest::Main)
+        .map(|p| {
+            let middle: Vec2 = p
+                .steps
+                .iter()
+                .filter(|s| !main.contains(s))
+                .filter_map(|&s| place(s))
+                .sum();
+            // The turn from the main quest's start, anticlockwise, in 0..TAU.
+            let turn = from.angle_to(middle).rem_euclid(std::f32::consts::TAU);
+            (if middle == Vec2::ZERO { 0.0 } else { turn }, p.note)
         })
+        .collect();
+    routes.sort_by(|a, b| a.0.total_cmp(&b.0));
+    routes.into_iter().map(|(_, r)| r).collect()
 }
 
 /// A primary-button press on the graph.
@@ -436,14 +468,14 @@ fn icon_share(shape: Shape) -> f32 {
     }
 }
 
-/// (Re)builds the nodes, lines and route bullets from the vault, at startup and after a note
+/// (Re)builds the nodes and lines from the vault, at startup and after a note
 /// (or the map) is edited.
 fn spawn_nodes(
     mut commands: Commands,
     vault: Res<Vault>,
     mut state: ResMut<GraphState>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    old: Query<Entity, Or<(With<GraphNode>, With<RouteBullet>)>>,
+    old: Query<Entity, With<GraphNode>>,
     mut built: Local<Option<u64>>,
 ) {
     let vault = vault.get_untracked();
@@ -588,31 +620,20 @@ fn spawn_nodes(
         .lines
         .iter()
         .filter_map(|(a, b, uses)| {
-            // The route whose bullet sits on this line, and the note on its near side.
+            // The route that leaves the main quest by this line.
             let start = starts
                 .iter()
                 .find(|&&(_, from, to)| (from, to) == (*a, *b) || (from, to) == (*b, *a))
-                .and_then(|&(route, from, _)| Some((route, entity_of(from)?)));
+                .map(|&(route, ..)| route);
             Some(lines::Line {
                 a: entity_of(*a)?,
                 b: entity_of(*b)?,
                 uses: uses.clone(),
                 start,
+                tie: false,
             })
         })
         .collect();
-    // Notes no route takes, tied to a note near them.
-    let connected = drawn.lines.iter().flat_map(|(a, b, _)| [*a, *b]).collect();
-    for (note, to) in routes::ties(&vault, &place, &layout.notes, &connected) {
-        if let (Some(a), Some(b)) = (entity_of(note), entity_of(to)) {
-            state.lines.push(lines::Line {
-                a,
-                b,
-                uses: Vec::new(),
-                start: None,
-            });
-        }
-    }
     state.colors = vault
         .paths
         .iter()
@@ -642,90 +663,53 @@ fn spawn_nodes(
             }
         }
     }
-    // A bullet where each route but the main quest begins.
-    let bullet = state.circle.clone();
-    for &(route, a, b) in &drawn.starts {
-        let (Some(ea), Some(eb)) = (entity_of(a), entity_of(b)) else {
-            continue;
-        };
-        let tint = state.colors.get(&route).copied().unwrap_or(color::MAP_LINE);
-        let paint = state
-            .paint
-            .routes
-            .entry(route)
-            .or_insert_with(|| materials.add(tint))
-            .clone();
-        commands
-            .spawn((
-                RouteBullet {
-                    route,
-                    on: (ea, eb),
-                },
-                Transform::from_xyz(0.0, 0.0, 0.5),
-                Visibility::Hidden,
-                RenderLayers::layer(LAYER),
-            ))
-            .with_children(|disc| {
-                disc.spawn((
-                    Mesh2d(bullet.clone()),
-                    MeshMaterial2d(paint),
-                    Transform::from_scale(Vec3::splat(BULLET_RADIUS)),
-                    RenderLayers::layer(LAYER),
-                ));
-                disc.spawn((
-                    GraphText { size: BULLET_ICON },
-                    Text2d::new(vault.notes[route].icon.to_string()),
-                    font("lucide", BULLET_ICON, FontWeight::NORMAL),
-                    LineHeight::RelativeToFont(1.0),
-                    TextColor(color::BACKGROUND),
-                    Transform::from_xyz(0.0, 0.0, 0.01),
-                    RenderLayers::layer(LAYER),
-                ));
+    // Where each route begins: its first page off the main quest, filled with its colour.
+    let main_steps: Vec<NoteId> = vault
+        .paths
+        .iter()
+        .filter(|p| p.quest == bevsidian_core::vault::Quest::Main)
+        .flat_map(|p| p.steps.iter().copied())
+        .collect();
+    state.stations.clear();
+    for path in vault
+        .paths
+        .iter()
+        .filter(|p| p.quest != bevsidian_core::vault::Quest::Main)
+    {
+        if let Some(&first) = path.steps.iter().find(|s| !main_steps.contains(s)) {
+            state.stations.entry(first).or_default().push(path.note);
+        }
+    }
+    // Notes no route takes, tied to a note near them and part of its route (the tie and the
+    // note wear its colour, and show with it).
+    let connected = drawn.lines.iter().flat_map(|(a, b, _)| [*a, *b]).collect();
+    state.tied.clear();
+    for (note, to) in routes::ties(&vault, &place, &layout.notes, &connected) {
+        let route = state.note_routes.get(&to).and_then(|r| r.first()).copied();
+        if let Some(route) = route {
+            state.note_routes.insert(note, vec![route]);
+            state.tied.entry(route).or_default().push(note);
+        }
+        if let (Some(a), Some(b)) = (entity_of(note), entity_of(to)) {
+            state.lines.push(lines::Line {
+                a,
+                b,
+                uses: route
+                    .map(|route| routes::Use {
+                        route,
+                        kind: bevsidian_core::vault::StepKind::Core,
+                        forward: true,
+                    })
+                    .into_iter()
+                    .collect(),
+                start: None,
+                tie: true,
             });
+        }
     }
     state.edges = edges;
     if first {
         state.framing = true;
-    }
-}
-
-/// A route bullet's radius and icon size (world units), and its least radius on screen
-/// (pixels).
-const BULLET_RADIUS: f32 = 30.0;
-const BULLET_ICON: f32 = 32.0;
-const BULLET_PX: f32 = 13.0;
-
-/// Places the route bullets on their lines, and shows those of the routes shown.
-fn place_bullets(
-    state: Res<GraphState>,
-    nodes: Query<(&Transform, &GraphNode), Without<RouteBullet>>,
-    mut bullets: Query<(&RouteBullet, &mut Transform, &mut Visibility)>,
-    camera: Query<&Projection, With<GraphCamera>>,
-) {
-    let scale = camera.single().map_or(1.0, ortho_scale);
-    let size = Vec3::splat((scale * BULLET_PX / BULLET_RADIUS).max(1.0));
-    for (bullet, mut transform, mut visibility) in &mut bullets {
-        let ends = (nodes.get(bullet.on.0), nodes.get(bullet.on.1));
-        let shows = state.active.contains(&bullet.route) || state.whole;
-        let (Ok((ta, na)), Ok((tb, nb)), true) = (ends.0, ends.1, shows) else {
-            visibility.set_if_neq(Visibility::Hidden);
-            continue;
-        };
-        if na.hidden || nb.hidden {
-            visibility.set_if_neq(Visibility::Hidden);
-            continue;
-        }
-        let at = ta
-            .translation
-            .truncate()
-            .lerp(tb.translation.truncate(), 0.5);
-        transform.translation.x = at.x;
-        transform.translation.y = at.y;
-        // Zoomed out, a bullet keeps a size on screen, like the notes.
-        if transform.scale != size {
-            transform.scale = size;
-        }
-        visibility.set_if_neq(Visibility::Inherited);
     }
 }
 
@@ -1088,16 +1072,24 @@ fn style_nodes(
             .note_routes
             .get(&node.note)
             .map_or(&[][..], Vec::as_slice);
-        let route = routes
-            .iter()
-            .find(|&&r| Some(r) == state.followed)
-            .or_else(|| routes.iter().find(|r| state.active.contains(r)))
-            .and_then(|r| paint.routes.get(r))
-            .or_else(|| {
-                (state.whole || state.editing)
-                    .then(|| routes.first().and_then(|r| paint.routes_dim.get(r)))
-                    .flatten()
-            });
+        let colour_of = |routes: &[NoteId]| {
+            routes
+                .iter()
+                .find(|&&r| Some(r) == state.followed)
+                .or_else(|| routes.iter().find(|r| state.active.contains(r)))
+                .and_then(|r| paint.routes.get(r))
+                .or_else(|| {
+                    (state.whole || state.editing)
+                        .then(|| routes.first().and_then(|r| paint.routes_dim.get(r)))
+                        .flatten()
+                })
+        };
+        let route = colour_of(routes);
+        // Where a route begins, the note is filled with its colour.
+        let station = state
+            .stations
+            .get(&node.note)
+            .and_then(|routes| colour_of(routes));
         let ring = if is_current || selected {
             &paint.ring_current
         } else if focused || node.rank == 0 {
@@ -1112,8 +1104,15 @@ fn style_nodes(
         let bold = route.is_some() || is_current || selected;
         let fill = if is_current {
             &paint.fill_current
+        } else if let Some(station) = station {
+            station
         } else {
             &paint.fill
+        };
+        let icon = if station.is_some() && !is_current {
+            color::BACKGROUND
+        } else {
+            icon
         };
         let set = |material: &mut MeshMaterial2d<ColorMaterial>, wanted: &Handle<ColorMaterial>| {
             if material.0 != *wanted {
@@ -1151,6 +1150,79 @@ fn style_nodes(
             } else if let Ok(mut material) = fills.get_mut(child) {
                 set(&mut material, fill);
             }
+        }
+    }
+}
+
+/// Hides a name that would overlap one shown before it, so names never run into each other
+/// (zoomed out, they are drawn larger than their room), nor over another note. Names go in
+/// order: the note being read and the hovered or chosen one, the followed route's steps in
+/// order (these always show), the notes of the routes shown, then the rest: the hub, areas,
+/// lessons and crates.
+fn declutter_labels(
+    nav: Res<Nav>,
+    state: Res<GraphState>,
+    nodes: Query<(Entity, &GraphNode, &Children, &GlobalTransform)>,
+    mut labels: Query<
+        (
+            &GlobalTransform,
+            &bevy::text::TextLayoutInfo,
+            &mut Visibility,
+        ),
+        With<GraphLabel>,
+    >,
+) {
+    if nav.view.get_untracked() != View::Graph {
+        return;
+    }
+    let current = nav.current.get_untracked();
+    let first = |e: Entity| Some(e) == state.hovered || Some(e) == state.selected;
+    let mut order: Vec<_> = nodes
+        .iter()
+        .filter(|(_, node, ..)| !node.hidden)
+        .filter_map(|(entity, node, children, _)| {
+            let label = children.iter().find(|&c| labels.contains(c))?;
+            let rank = (
+                node.note != current && !first(entity),
+                node.step.unwrap_or(usize::MAX),
+                !node.forced,
+                node.rank,
+            );
+            Some((rank, label))
+        })
+        .collect();
+    order.sort_by_key(|&(rank, _)| rank);
+    // The notes' shapes, as room already taken.
+    let shapes: Vec<Rect> = nodes
+        .iter()
+        .filter(|(_, node, ..)| !node.hidden)
+        .map(|(_, node, _, at)| {
+            let (scale, _, centre) = at.to_scale_rotation_translation();
+            // The square inside the shape: its corners are not taken.
+            Rect::from_center_half_size(
+                centre.truncate(),
+                Vec2::splat(node.radius * scale.x * 0.75),
+            )
+        })
+        .collect();
+    let mut kept: Vec<Rect> = Vec::with_capacity(order.len());
+    for (rank, label) in order {
+        let Ok((at, layout, mut visibility)) = labels.get_mut(label) else {
+            continue;
+        };
+        if *visibility == Visibility::Hidden {
+            continue;
+        }
+        let (scale, _, centre) = at.to_scale_rotation_translation();
+        let size = layout.size * scale.truncate();
+        let room = Rect::from_center_size(centre.truncate(), size);
+        let always = !rank.0 || rank.1 != usize::MAX;
+        let crowded = kept.iter().any(|other| !other.intersect(room).is_empty())
+            || (!always && shapes.iter().any(|shape| !shape.intersect(room).is_empty()));
+        if crowded && !always {
+            *visibility = Visibility::Hidden;
+        } else {
+            kept.push(room);
         }
     }
 }

@@ -3,11 +3,11 @@
 //!
 //! A route's core steps are joined by a solid line with an arrow halfway along each segment,
 //! pointing in reading order; side quests (optional steps) are dashed and secrets (extra
-//! steps) dotted. Every route has its own colour (the main quest's is grey) and a bullet
-//! where it begins (see `RouteBullet`), as metro maps tell their lines apart. Lines keep
-//! their width on screen at any zoom; the followed route is thicker, with a faint wider line
-//! under it as its glow. Routes that share a line draw it once. A note no route takes is
-//! tied to a note near it by a thin grey line. A hovered note shows its links as thin dashes.
+//! steps) dotted. Every route has its own colour (the main quest's is grey), from its first
+//! page on: the line it leaves the main quest by stays grey. Lines keep their width on screen
+//! at any zoom; the followed route is thicker, with a faint wider line under it as its glow.
+//! Routes that share a line draw it once. A note no route takes is tied to a note near it by
+//! a thin line in that note's route colour. A hovered note shows its links as thin dashes.
 
 use bevy::prelude::*;
 
@@ -28,9 +28,11 @@ pub struct Line {
     pub b: Entity,
     /// The routes that take it; none for a tie (a note no route takes, to a note near it).
     pub uses: Vec<Use>,
-    /// The route whose bullet sits in the middle of the line, and the note on its near side:
-    /// the line is the route's colour only past the bullet.
-    pub start: Option<(NoteId, Entity)>,
+    /// The route that leaves the main quest by this line: it is grey, as the main quest, up
+    /// to the route's first page.
+    pub start: Option<NoteId>,
+    /// A tie: a note no route takes, to a note near it (thin, with no reading order).
+    pub tie: bool,
 }
 
 /// The mesh holding every line as quads.
@@ -59,7 +61,7 @@ const GAP_PX: f32 = 4.0;
 /// Depths, back to front: the followed route's glow, lines, a hovered note's lines, the
 /// followed route, a hovered note's links.
 /// How far a route not shown fades toward the sky with the whole map.
-pub(crate) const WHOLE_DIM: f32 = 0.45;
+pub(crate) const WHOLE_DIM: f32 = 0.2;
 const Z_GLOW: f32 = 0.0;
 const Z_LINE: f32 = 0.01;
 const Z_HOVERED: f32 = 0.02;
@@ -149,13 +151,13 @@ pub(crate) struct Look {
     kind: StepKind,
     route: NoteId,
     tint: Color,
-    /// The tint up to a route's bullet (grey, as the main quest it leaves).
+    /// The tint of the line a route leaves the main quest by (grey, as the main quest).
     lead: Color,
     /// It is the followed route's.
     followed: bool,
     /// Its reading order runs from the line's `a` to its `b`.
     forward: bool,
-    /// It is a tie: thin and grey, with no reading order.
+    /// It is a tie: thin, with no reading order.
     tie: bool,
 }
 
@@ -202,7 +204,7 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             lead: color::MAP_LINE,
             followed: true,
             forward: u.forward,
-            tie: false,
+            tie: line.tie,
         });
     }
     let main = |u: &Use| colour(u) == color::MAP_LINE;
@@ -216,7 +218,7 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             lead: color::MAP_LINE,
             followed: false,
             forward: u.forward,
-            tie: false,
+            tie: line.tie,
         });
     }
     if state.whole || state.editing {
@@ -232,7 +234,7 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             },
             followed: false,
             forward: u.forward,
-            tie: false,
+            tie: line.tie,
         });
     }
     None
@@ -292,17 +294,11 @@ pub(crate) fn draw_lines(
             continue;
         };
         let ends = if look.forward { (from, to) } else { (to, from) };
-        // A route's first line: grey up to its bullet, its colour past it.
-        let lead = line
-            .start
-            .filter(|&(route, _)| route == look.route && look.tint != look.lead)
-            .map(|(_, near)| {
-                let middle = a.lerp(b, 0.5);
-                let near_end = if near == line.a { from } else { to };
-                (near_end, middle)
-            });
+        // The line a route leaves the main quest by is grey, as the main quest: the route's
+        // colour begins at its first page.
+        let leaves = line.start == Some(look.route);
         let hovered = focus.is_some_and(|f| f == line.a || f == line.b);
-        let mut tint = look.tint;
+        let mut tint = if leaves { look.lead } else { look.tint };
         if hovered && !look.followed && tint == color::MAP_LINE_FAINT {
             tint = color::MUTED_FOREGROUND;
         }
@@ -325,20 +321,6 @@ pub(crate) fn draw_lines(
         } else {
             (SIDE_PX, if hovered { Z_HOVERED } else { Z_LINE })
         };
-        if let Some((near_end, middle)) = lead {
-            let far_end = if near_end == from { to } else { from };
-            stroke(
-                &mut out,
-                (near_end, middle),
-                look.kind,
-                (width, px),
-                z,
-                look.lead,
-            );
-            stroke(&mut out, (middle, far_end), look.kind, (width, px), z, tint);
-            // The bullet marks where it goes; no arrow under it.
-            continue;
-        }
         stroke(&mut out, ends, look.kind, (width, px), z, tint);
         if look.kind == StepKind::Core && !look.tie && ends.0.distance(ends.1) > ARROW_ROOM_PX * px
         {

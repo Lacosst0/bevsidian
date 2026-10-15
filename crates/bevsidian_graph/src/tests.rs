@@ -34,6 +34,15 @@ fn real_vault() -> VaultData {
     VaultData::from_sources(notes.iter().map(|(p, s)| (p.as_str(), s.as_str())))
 }
 
+fn main_steps(vault: &VaultData) -> Vec<NoteId> {
+    vault
+        .paths
+        .iter()
+        .find(|p| p.quest == Quest::Main)
+        .map(|p| p.steps.clone())
+        .unwrap_or_default()
+}
+
 #[test]
 fn every_note_of_the_course_is_on_the_map() {
     let vault = real_vault();
@@ -130,11 +139,13 @@ fn every_route_is_a_quest_on_the_map() {
             vault.notes[*b].name
         );
     }
-    // Every route but the main quest has a bullet where it begins.
+    // Every route but the main quest leaves it, by a line or at one of its stops.
+    let stops = &main_steps(&vault);
     for path in vault.paths.iter().filter(|p| p.quest != Quest::Main) {
         assert!(
-            drawn.starts.iter().any(|(route, ..)| *route == path.note),
-            "{} has no bullet",
+            drawn.starts.iter().any(|(route, ..)| *route == path.note)
+                || stops.contains(&path.steps[0]),
+            "{} does not leave the main quest",
             vault.notes[path.note].name
         );
     }
@@ -311,4 +322,30 @@ fn every_note_has_a_line() {
     assert_eq!(tie("bevy_ecs_ldtk"), "Tilemap crates");
     assert_eq!(tie("bevy_kira_audio"), "Audio crates");
     assert_eq!(tie("bevy_steamworks"), "Netcode crates");
+}
+
+#[test]
+fn related_routes_sit_side_by_side_in_neighbouring_colours() {
+    let vault = real_vault();
+    let wheel = route_wheel(&vault);
+    let at = |name: &str| {
+        let id = vault.find(name).unwrap();
+        wheel.iter().position(|&r| r == id).unwrap()
+    };
+    for (a, b) in [
+        ("Building UI", "Learn BSN"),
+        ("A 2D game", "A 3D game"),
+        ("A 3D game", "Make it look good"),
+        ("Controls", "Collisions"),
+    ] {
+        assert_eq!(at(a).abs_diff(at(b)), 1, "{a} and {b}");
+    }
+    // Every route its own colour.
+    let colours: Vec<_> = wheel
+        .iter()
+        .map(|&r| route_color(&vault, r).to_srgba().to_hex())
+        .collect();
+    for (i, c) in colours.iter().enumerate() {
+        assert!(!colours[..i].contains(c), "{c} twice");
+    }
 }

@@ -29,8 +29,9 @@ pub struct Use {
 /// A line's two notes (lower id first), and the routes that take it.
 pub type LineEnds = (NoteId, NoteId, Vec<Use>);
 
-/// Every route's lines, and where each route but the main quest begins (the line its bullet
-/// sits on: from the main quest to its first step, or its first two steps).
+/// Every route's lines, and the line each route but the main quest leaves it by (the route,
+/// the stop of the main quest, the route's first step): drawn grey, as the main quest, up
+/// to the route's first page.
 pub struct RouteLines {
     pub lines: Vec<LineEnds>,
     pub starts: Vec<(NoteId, NoteId, NoteId)>,
@@ -103,12 +104,10 @@ pub fn lines(vault: &VaultData, place: &dyn Fn(NoteId) -> Option<Vec2>, hub: Not
         if let Some(start) = start {
             add(start, first, path.note, StepKind::Core);
         }
-        if path.quest != Quest::Main {
-            match (start, cores.get(1)) {
-                (Some(start), _) => starts.push((path.note, start, first)),
-                (None, Some(&second)) => starts.push((path.note, first, second)),
-                (None, None) => {}
-            }
+        if path.quest != Quest::Main
+            && let Some(start) = start
+        {
+            starts.push((path.note, start, first));
         }
         for pair in cores.windows(2) {
             add(pair[0], pair[1], path.note, StepKind::Core);
@@ -240,8 +239,13 @@ pub(crate) fn choose_routes(
         .iter()
         .filter(|_| !whole)
         .chain(followed.iter())
-        .filter_map(|&p| data.path(p))
-        .flat_map(|p| p.steps.iter().copied())
+        .flat_map(|&p| {
+            // Its steps, and the notes tied to them.
+            let steps = data.path(p).map(|p| p.steps.clone()).unwrap_or_default();
+            steps
+                .into_iter()
+                .chain(state.tied.get(&p).cloned().unwrap_or_default())
+        })
         .collect();
     let steps = followed
         .and_then(|p| data.path(p))
@@ -320,8 +324,7 @@ mod tests {
         // A side quest hangs from the route's core step nearest it.
         assert_eq!(line("B", "C"), Some(vec![(main, StepKind::Optional, true)]));
         assert_eq!(line("A", "C"), None);
-        // The side route starts at B, the main stop nearest its first step; its bullet sits
-        // on that line.
+        // The side route starts at B, the main stop nearest its first step.
         assert_eq!(line("B", "D"), Some(vec![(side, StepKind::Core, true)]));
         assert_eq!(line("D", "C"), Some(vec![(side, StepKind::Extra, true)]));
         assert_eq!(line("Hub", "D"), None);

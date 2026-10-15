@@ -35,7 +35,7 @@ Every note is a filled shape with its icon inside and its name above: dim until 
 # ── The capital and the main quest, spiralling out of it ───────
 Bevy                          @      0,      0   octagon large
 Start                         @      0,   -180
-Hello Bevy                    @    -130,   -215   diamond
+Hello Bevy                    @   -130,   -215   diamond
 Entities and components       @   -210,   -120
 Systems                       @   -270,      0
 Queries                       @   -260,    150
@@ -50,7 +50,7 @@ Game feel                     @    450,   -500
 Project setup                 @   -260,   -330
 App and plugins               @   -110,   -435
 
-# ── Tooling (south) ────────────────────────────────────────────────
+# ── Tooling (south) ─────────────────────────────────────────────
 Tooling                       @     30,   -840
 Debugging                     @   -120,   -975
 Gizmos                        @   -315,   -940
@@ -65,168 +65,168 @@ Web build                     @    -90,  -1530   star
 Mobile builds                 @    135,  -1635
 bevy_pkv                      @   -315,  -1590
 
-# ── Assets and audio (south-east) ──────────────────────────────────
-Assets                        @    420,   -825
-Asset crates                  @    480,  -1035   pentagon
-bevy_asset_loader             @      400,  -1170
-bevy_common_assets            @      620,  -1250
-Audio                         @    675,   -940
-Audio crates                  @    840,  -1065   pentagon
-bevy_kira_audio               @   1005,  -1035
-bevy_seedling                 @    945,  -1200
-bevy_fmod                     @    765,  -1215
+# ── Assets and audio (south-south-east) ─────────────────────────
+Assets                        @    405,   -835
+Asset crates                  @    460,  -1045   pentagon
+bevy_asset_loader             @    375,  -1180
+bevy_common_assets            @    595,  -1265
+Audio                         @    655,   -955
+Audio crates                  @    820,  -1080   pentagon
+bevy_kira_audio               @    990,  -1045
+bevy_seedling                 @    920,  -1220
+bevy_fmod                     @    740,  -1230
 
-# ── Rendering (east) ───────────────────────────────────────────────
-Transforms                    @    735,    -30
-Cameras                       @    900,   -165
-Windows                       @    915,   -315
-Camera crates                 @   1065,   -250   pentagon
-bevy_pancam                   @   1215,   -225
-bevy_panorbit_camera          @   1185,   -345
-Rendering                     @    660,   -285
-Colors and math               @    780,   -480
-Custom materials              @    975,   -525
-Post-processing               @   1155,   -615   star
-bevy_hanabi                   @   1110,   -795
-3D effect crates              @   1335,   -525   pentagon
-bevy_mod_outline              @   1485,   -480
-bevy_water                    @   1425,   -660
-bevy_rich_text3d              @   1530,   -330
+# ── Rendering (north-east) ──────────────────────────────────────
+Transforms                    @    285,    680
+Cameras                       @    465,    785
+Windows                       @    615,    750
+Camera crates                 @    605,    910   pentagon
+bevy_pancam                   @    635,   1060
+bevy_panorbit_camera          @    745,    975
+Rendering                     @    495,    520
+Colors and math               @    720,    565
+Custom materials              @    830,    730
+Post-processing               @    980,    870   star
+bevy_hanabi                   @   1130,    765
+3D effect crates              @    955,   1070   pentagon
+bevy_mod_outline              @    965,   1225
+bevy_water                    @   1115,   1105
+bevy_rich_text3d              @    840,   1320
 
-# ── 3D (far east) ──────────────────────────────────────────────────
-3D                            @   1080,    -60
-Meshes and materials          @   1245,     30
-Lighting                      @   1410,    -45
-Models and glTF               @   1500,    130
-3D animation                  @   1665,    250
-3D authoring crates           @   1590,    420   pentagon
-bevy_skein                    @   1740,    450
-bevy_trenchbroom              @   1635,    570
-Environment                   @   1725,      0   star
+# ── 3D (north) ──────────────────────────────────────────────────
+3D                            @    320,   1035
+Meshes and materials          @    270,   1215
+Lighting                      @    385,   1355
+Models and glTF               @    235,   1485
+3D animation                  @    160,   1675
+3D authoring crates           @    -25,   1645   pentagon
+bevy_skein                    @    -15,   1795
+bevy_trenchbroom              @   -170,   1740
+Environment                   @    415,   1675   star
 
-# ── Networking (north-east) ────────────────────────────────────────
-Networking                    @    960,    540
-bevy_replicon                 @   1155,    645   star
-Netcode crates                @   1170,    450   pentagon
-lightyear                     @   1340,    420
-bevy_ggrs                     @   1290,    315
-bevy_matchbox                 @   1125,    315
-bevy_steamworks               @   1365,    540
-bevy_renet                    @   1350,    705
-bevy_http_client              @    1290,    830
+# ── Networking (east-south-east) ────────────────────────────────
+Networking                    @    990,   -480
+bevy_replicon                 @   1190,   -580   star
+Netcode crates                @   1035,   -705   pentagon
+lightyear                     @   1110,   -860
+bevy_ggrs                     @    990,   -890
+bevy_matchbox                 @    900,   -745
+bevy_steamworks               @   1220,   -815
+bevy_renet                    @   1350,   -710
+bevy_http_client              @   1415,   -585
 
-# ── UI (north-east) ────────────────────────────────────────────────
-UI                            @    660,    660
-UI layout                     @    750,    825
-Text and images               @    915,    750
-Buttons and widgets           @    975,    930   star
-Theming                       @   1140,    885
-bevy_radioactive              @    675,   1125
-bevy_egui                     @    870,   1110
-UI crates                     @   1125,   1080   pentagon
-bevy_hui                      @   1275,   1035
-bevy_lunex                    @   1245,   1200
+# ── UI (east) ───────────────────────────────────────────────────
+UI                            @    920,   -160
+UI layout                     @   1105,   -140
+Text and images               @   1140,   -315
+Buttons and widgets           @   1320,   -260   star
+Theming                       @   1380,   -420
+bevy_radioactive              @   1310,     95
+bevy_egui                     @   1410,    -70
+UI crates                     @   1530,   -300   pentagon
+bevy_hui                      @   1580,   -445
+bevy_lunex                    @   1700,   -325
 
-# ── BSN (north-north-east) ─────────────────────────────────────────
-BSN                           @    285,    675
-Scenes and BSN                @    390,    825
-BSN syntax                    @    285,    975
-Templates and assets          @    465,   1050
-Composing scenes              @    315,   1125
-Scene components              @    135,   1200
-Spawning scenes               @    315,   1305   star
+# ── BSN (east-north-east) ───────────────────────────────────────
+BSN                           @    715,    155
+Scenes and BSN                @    900,    155
+BSN syntax                    @    960,    325
+Templates and assets          @   1125,    220
+Composing scenes              @   1100,    385
+Scene components              @   1060,    580
+Spawning scenes               @   1250,    490   star
 
-# ── ECS (north) ────────────────────────────────────────────────────
-ECS                           @    -45,    660
-System params                 @   -190,    740
-Schedules and sets            @     30,    810
-States                        @    -45,    945
-Messages                      @     50,   1070
-Change detection              @    -60,   1190
-Relationships and hierarchy   @     45,   1320
-Component lifecycle           @   -170,   1350
-Reflection                    @   -195,   1490
-Advanced queries              @    -30,   1470   star
-Error handling                @    110,   1590
-Testing                       @    -45,   1650
+# ── ECS (west) ──────────────────────────────────────────────────
+ECS                           @   -660,    -55
+System params                 @   -735,   -200
+Schedules and sets            @   -810,     20
+States                        @   -945,    -55
+Messages                      @  -1070,     35
+Change detection              @  -1190,    -75
+Relationships and hierarchy   @  -1320,     30
+Component lifecycle           @  -1350,   -185
+Reflection                    @  -1485,   -215
+Advanced queries              @  -1470,    -50   star
+Error handling                @  -1590,     90
+Testing                       @  -1650,    -65
 
-# ── Gameplay (north-west) ──────────────────────────────────────────
-Gameplay                      @   -420,    750
-Game AI                       @   -315,    920
-Pathfinding                   @   -285,   1095   star
-Randomness                    @   -615,    915
-bevy_rand                     @   -885,    915
-Procedural generation         @   -790,   1065   star
-Inventory and items           @   -510,   1110
-Dialogue                      @   -540,   1290
-Custom assets                 @   -720,   1350
-Saving and loading            @   -420,   1425   star
-Accessibility and localization @   -320,   1605
+# ── Gameplay (west-north-west) ──────────────────────────────────
+Gameplay                      @   -790,    345
+Game AI                       @   -810,    540
+Pathfinding                   @   -890,    700   star
+Randomness                    @  -1045,    355
+bevy_rand                     @  -1260,    195
+Procedural generation         @  -1275,    370   star
+Inventory and items           @  -1080,    575
+Dialogue                      @  -1210,    700
+Custom assets                 @  -1390,    640
+Saving and loading            @  -1195,    880   star
+Accessibility and localization @  -1225,   1085
 
-# ── 2D (west-north-west) ───────────────────────────────────────────
-2D                            @   -570,    465
-bevy_prototype_lyon           @   -570,    645
-bevy_vector_shapes            @   -705,    720
-Texture atlases               @   -720,    585
-Sprite animation              @   -885,    525
-Text 2D                       @   -790,    360
-Animation crates              @  -1035,    390   pentagon
-bevy_tweening                 @  -1185,    345
-bevy_spritesheet_animation    @  -1155,    465
-Tilemaps                      @   -960,    750   star
-2D shapes and meshes          @  -1095,    585
-Tilemap crates                @  -1150,    765   pentagon
-bevy_ecs_tilemap              @  -1290,    675
-bevy_ecs_ldtk                 @  -1305,    795
-2D lighting crates            @  -1110,    945   pentagon
-bevy_light_2d                 @  -1260,    990
-bevy_firefly                  @  -1170,   1095
+# ── 2D (north-north-west) ───────────────────────────────────────
+2D                            @   -250,    690
+bevy_prototype_lyon           @   -160,    845
+bevy_vector_shapes            @   -240,    980
+Texture atlases               @   -320,    870
+Sprite animation              @   -490,    905
+Text 2D                       @   -495,    715
+Animation crates              @   -690,    865   pentagon
+bevy_tweening                 @   -840,    900
+bevy_spritesheet_animation    @   -755,    990
+Tilemaps                      @   -440,   1135   star
+2D shapes and meshes          @   -630,   1075
+Tilemap crates                @   -595,   1245   pentagon
+bevy_ecs_tilemap              @    -820,   1180
+bevy_ecs_ldtk                 @   -715,   1350
+2D lighting crates            @   -470,   1380   pentagon
+bevy_light_2d                 @   -575,   1495
+bevy_firefly                  @   -445,   1540
 
-# ── Input (west) ───────────────────────────────────────────────────
-Keyboard and mouse            @   -675,    -60
-Input                         @   -855,   -150
-Input mapping                 @  -1035,    -45
-Gamepad and touch             @  -1200,   -150   star
-Picking                       @  -1170,   -330
-Input crates                  @  -1230,     45   pentagon
-bevy_enhanced_input           @  -1395,     90
-leafwing-input-manager        @  -1350,    -45
+# ── Input (west-south-west) ─────────────────────────────────────
+Keyboard and mouse            @   -590,   -335
+Input                         @   -715,   -490
+Input mapping                 @   -925,   -465
+Gamepad and touch             @  -1030,   -630   star
+Picking                       @    -1010,   -870
+Input crates                  @  -1140,   -465   pentagon
+bevy_enhanced_input           @  -1310,   -495
+leafwing-input-manager        @  -1210,   -595
 
-# ── Physics (south-west) ───────────────────────────────────────────
-Physics                       @   -645,   -480
-Avian                         @   -825,   -615   star
-bevy_transform_interpolation  @  -1005,   -525
-bevy_rapier                   @   -810,   -795
+# ── Physics (south-west) ────────────────────────────────────────
+Physics                       @   -465,   -655
+Avian                         @   -595,   -840   star
+bevy_transform_interpolation  @    -780,   -760
+bevy_rapier                   @   -525,  -1005
 
 
 # ── Landmarks ───────────────────────────────────────────────────
 landmark: telescope           @    130,   -620   size 40
 landmark: sparkle             @    -90,   -580   size 28
-landmark: satellite           @    585,  -1380   size 40
+landmark: satellite           @    555,  -1390   size 40
 landmark: moon-star           @    420,  -1695   size 56
-landmark: sparkle             @   -675,  -1125   size 32
-landmark: sparkle             @    525,  -1605   size 24
-landmark: sparkles            @   1425,    900   size 40
-landmark: sparkle             @  -1425,   -750   size 30
-landmark: orbit               @    675,    150   size 40
-landmark: music               @   1065,  -1365   size 40
-landmark: sparkles            @   1320,   -795   size 44
-landmark: shapes              @   1500,    -45   size 56
-landmark: sun                 @   1785,    195   size 48
-landmark: sparkle             @   1275,    190   size 26
-landmark: satellite           @   1005,    360   size 44
-landmark: sparkle             @   -615,   -250   size 26
-landmark: gamepad-2           @  -1395,   -210   size 40
-landmark: atom                @   -630,   -720   size 40
-landmark: sparkle             @   -975,   -720   size 30
-landmark: moon-star           @   -705,    795   size 44
-landmark: sparkle             @   -180,   1065   size 26
-landmark: tree-pine           @   -645,   1470   size 40
-landmark: sparkle             @   -375,   1545   size 28
-landmark: dices               @  -1005,   1065   size 40
-landmark: hammer              @    525,   1395   size 40
-landmark: crown               @    195,   1680   size 36
-landmark: sparkles            @   1290,   1290   size 40
-landmark: sparkle             @  -1410,    525   size 30
+landmark: sparkle             @   -295,  -1280   size 32
+landmark: sparkle             @    490,  -1615   size 24
+landmark: sparkles            @   -350,   1650   size 40
+landmark: sparkle             @   -990,  -1270   size 30
+landmark: orbit               @    510,   -465   size 40
+landmark: music               @   1035,  -1385   size 40
+landmark: sparkles            @    100,  -1540   size 44
+landmark: shapes              @    825,  -1250   size 56
+landmark: sun                 @   1185,  -1345   size 48
+landmark: sparkle             @    890,   -935   size 26
+landmark: satellite           @    870,   -615   size 44
+landmark: sparkle             @   -455,   -480   size 26
+landmark: gamepad-2           @    230,  -1390   size 40
+landmark: atom                @   -375,   -880   size 40
+landmark: sparkle             @   -590,  -1060   size 30
+landmark: moon-star           @   -200,   1045   size 44
+landmark: sparkle             @    390,   1005   size 26
+landmark: tree-pine           @    195,   1595   size 40
+landmark: sparkle             @    465,   1520   size 28
+landmark: dices               @  -1445,    240   size 40
+landmark: hammer              @  -1225,    845   size 40
+landmark: crown               @  -1585,    595   size 36
+landmark: sparkles            @   -760,   1660   size 40
+landmark: sparkle             @  -1440,   -435   size 30
 
 ```
