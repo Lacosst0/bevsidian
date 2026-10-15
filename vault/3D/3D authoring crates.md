@@ -5,19 +5,19 @@ tags: [3d]
 ---
 # 3D authoring crates
 
-Make 3D levels in an editor instead of code. The two crates differ by editor.
+Build 3D levels in an editor instead of code. Pick by the editor you like.
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
-|:--|:--|:--|:--|
-| [[bevy_trenchbroom]] | Quake-style levels from TrenchBroom: brushes become meshes and colliders | #0.19 | you like building rooms from brushes |
-| [[bevy_skein]] | Blender: attach Bevy components to objects, export glTF | #0.20 (pin it) | your artists work in Blender |
+| | [[bevy_skein]] | [[bevy_trenchbroom]] |
+|:--|:--|:--|
+| Bevy | #0.20 (pin it) | #0.19 |
+| Editor | Blender | TrenchBroom |
+| You build with | any mesh, then tag it with components | brushes, Quake-style |
+| You get | glTF with your components inside | meshes and colliders from brushes |
 
-## Which one?
-
-- Blender is your tool: [[bevy_skein]]. Components are set in Blender and inserted when the scene spawns.
-- You build levels like a Quake map: [[bevy_trenchbroom]].
-- Plain models with no custom data: no crate, see [[Models and glTF]].
+> [!TIP]
+> - Your artists live in Blender: [[bevy_skein]].
+> - You think in rooms and corridors: [[bevy_trenchbroom]].
+> - Plain models with no custom data need no crate: [[Models and glTF]].
 
 ## Next
 

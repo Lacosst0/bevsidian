@@ -5,19 +5,19 @@ tags: [assets]
 ---
 # Asset crates
 
-Two crates that make assets less manual. They solve different halves of the problem and are often used together.
+Two crates that take the busywork out of assets. They handle different halves and are often used together.
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
-|:--|:--|:--|:--|
-| [[bevy_asset_loader]] | declare assets in a struct and load them during a loading state | #0.20 | you have many assets and a loading screen |
-| [[bevy_common_assets]] | load RON, JSON, TOML, YAML and more as assets | #0.20 | game data lives in files designers edit |
+| | [[bevy_asset_loader]] | [[bevy_common_assets]] |
+|:--|:--|:--|
+| Bevy | #0.20 | #0.20 |
+| Does | loads a struct of assets during a loading state | reads RON, JSON, TOML, YAML… as assets |
+| Saves you | tracking handles and "is it loaded yet?" | writing an asset loader per format |
+| Shines with | many images and sounds, a loading screen | items, levels, settings in data files |
 
-## Which one?
-
-- A loading screen with lots of images and sounds: [[bevy_asset_loader]].
-- Items, levels or settings in data files: [[bevy_common_assets]].
-- Both: `bevy_asset_loader` can load the data files that `bevy_common_assets` understands.
+> [!TIP]
+> - A loading screen: [[bevy_asset_loader]].
+> - Game data designers can edit: [[bevy_common_assets]].
+> - Both: `bevy_asset_loader` happily loads the files `bevy_common_assets` understands.
 
 ## Next
 

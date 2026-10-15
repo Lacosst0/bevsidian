@@ -3,51 +3,37 @@ icon: house
 ---
 # Welcome to Bevsidian
 
-**Bevsidian** collects Bevy's documentation into one *linked* vault: the book, the examples, the API docs and community guides as **notes** you can browse like an Obsidian vault. #bevy
+**Bevsidian** gathers Bevy's documentation into one linked vault: the book, the examples, the API docs and the best community guides, as short **notes** you can read in order or wander through. #bevy
 
 > [!TIP]
-> Drag across paragraphs to select text and press `Ctrl+C` (or `Cmd+C`) to copy it.
-> Double-click selects a word; triple-click selects a whole block.
+> New to Bevy? Open [[Your first game]] and press **Next** at the bottom of each note. You'll have a small game in about an hour.
 
-## Start here
+## Find your way
 
-Everything about making a game with Bevy 0.20 lives around one hub: **[[Bevy]]**. Open the map (`Ctrl+G`) to see it: Bevy in the middle, the main quest drawn around it as a bird and a route for every kind of game.
+- [[Bevy]] is the hub: every area and every route.
+- `Ctrl+G` opens the **map**: the main quest is drawn as Bevy's bird, and a coloured route branches off it for each kind of game.
+- `Ctrl+O` jumps to any note by name; the search box also finds `#tags`.
+- The link button by a note's title shows what links here (**backlinks**) and where it links to.
 
-1. [[Bevy]]: the map of all areas.
-2. [[Your first game]]: the fastest path to something playable.
-3. [[ECS]]: the heart of Bevy.
-4. [[BSN]]: Bevy 0.20's scene notation.
-5. [[Bevsidian]]: how this app itself is built (optional).
+## What's on a page
 
-Or pick a route: [[A 2D game]], [[A 3D game]], [[Building UI]], [[Multiplayer]], [[Understanding ECS]], [[Ship it]] and more on [[Bevy]]. On the map, the main quest is white and every other route has its colour: solid lines are the route, dashed ones where you choose your path, dotted ones optional.
+- **Runnable code**: blocks with a play button run real Bevy systems right here. Step through them one system at a time, or play the little games.
+- **Make it yours**: the brush, box and speaker buttons above a game let you draw a sprite, build a voxel model and make sound effects. Every example then uses them.
+- **API links**: `` [`Commands`] `` opens docs.rs, like [`Commands`] or [`Commands::spawn`].
+- **Wiki links**: `[[ECS]]`, `[[Rendering#Cameras|cameras]]`, and `#tags` like #bevy.
 
-## How links work
+## Shortcuts
 
-- `[[Note name]]` links to another note, for example [[ECS]] or [[Rendering#Cameras|cameras]].
-- A `#tag` such as #bevy groups notes; click one to filter the file list.
-- `` [`Commands`] `` links to Bevy's API docs on docs.rs, like rustdoc: [`Commands`], [`Commands::spawn`], [`bsn!`].
-- The link button next to a note's title lists its **backlinks** and outgoing links, and the **Graph** view shows how notes connect.
-
-## Keyboard shortcuts
-
-| Shortcut | Action |
+| Keys | Does |
 |:--|:--|
-| `Ctrl+O` | Quick switcher |
-| `Ctrl+G` | Toggle graph view |
-| `Alt+←` / `Alt+→` | Back / forward |
-| `Ctrl+A` | Select all text in the note |
-| `Esc` | Clear selection or close dialogs |
+| `Ctrl+O` | quick switcher |
+| `Ctrl+G` | map |
+| `Ctrl+F` | find in note |
+| `Alt+←` / `Alt+→` | back / forward |
+| `Esc` | clear selection, close dialogs |
 
-## Roadmap
-
-- [x] Markdown rendering with links and tags
-- [x] Text selection and copy
-- [x] Graph view
-- [x] A hand-drawn map with routes for every kind of game
-- [x] Interactive Bevy tutorials, area by area
-- [x] Reading paths with optional and extra steps
-- [ ] More examples
+Drag across text to select it, double-click for a word, triple-click for a block, `Ctrl+C` to copy.
 
 ---
 
-Bevy is free and open source; see the official site at [bevy.org](https://bevy.org).
+Bevy is free and open source: [bevy.org](https://bevy.org).

@@ -5,21 +5,20 @@ tags: [audio]
 ---
 # Audio crates
 
-When Bevy's built-in [[Audio]] is not enough. Three crates, from friendly to professional.
+For when Bevy's built-in [[Audio]] isn't enough. From friendly to professional:
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
+| | [[bevy_kira_audio]] | [[bevy_seedling]] | [[bevy_fmod]] |
 |:--|:--|:--|:--|
-| [[bevy_kira_audio]] | channels, tweens and effects on the Kira engine | #0.20 | you want buses, fades, loops with intros |
-| [[bevy_seedling]] | an audio graph with effects | #0.19 | you want to wire effects like a mixer |
-| [[bevy_fmod]] | FMOD: events and adaptive music designed in FMOD Studio | #0.19 | a sound designer owns the audio |
+| Bevy | #0.20 | #0.19 | #0.19 |
+| Model | channels with tweens | an audio graph of nodes | FMOD Studio events |
+| Good at | fades, loops with intros, buses | effects wired like a mixer | adaptive music, a sound designer's workflow |
+| Cost | free | free | FMOD licence for commercial games |
 
-## Which one?
-
-- Music and effect volumes only: the built-in audio is enough.
-- Fades, channels, reverb on #0.20: [[bevy_kira_audio]].
-- A node graph of effects: [[bevy_seedling]].
-- A professional pipeline with a sound designer: [[bevy_fmod]] (a commercial licence may apply).
+> [!TIP]
+> - Music plus effects with volume sliders: built-in audio is plenty.
+> - Fades, channels and reverb: [[bevy_kira_audio]].
+> - A node graph of effects: [[bevy_seedling]].
+> - A sound designer owns the audio: [[bevy_fmod]].
 
 ## Next
 

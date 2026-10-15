@@ -5,20 +5,19 @@ tags: [3d]
 ---
 # 3D effect crates
 
-Three unrelated crates for things Bevy does not do on its own. Pick by the effect you want, not against each other.
+Three crates for effects Bevy doesn't do by itself. Pick by effect; they don't compete.
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
+| | [[bevy_mod_outline]] | [[bevy_water]] | [[bevy_rich_text3d]] |
 |:--|:--|:--|:--|
-| [[bevy_mod_outline]] | outlines around meshes (selection glow, borders) | #0.19 | a unit or item should be highlighted |
-| [[bevy_water]] | an animated water material with waves and floating objects | #0.19 | you need an ocean or lake |
-| [[bevy_rich_text3d]] | text as a mesh in 2D or 3D, with markup and per-letter effects | #0.20 | text lives in the world, or you want animated letters |
+| Bevy | #0.19 | #0.19 | #0.20 |
+| Effect | outlines around meshes | animated waves | text as a mesh |
+| Typical use | selection, hover, toon borders | oceans and lakes, floating things | signs, damage numbers, animated letters |
 
-## Which one?
-
-- Highlight selection: [[bevy_mod_outline]].
-- Water: [[bevy_water]]; check its Bevy version first.
-- Text in the world: [[bevy_rich_text3d]]. For HUD text use normal UI text ([[Text and images]]).
+> [!TIP]
+> - Highlight what the player picked: [[bevy_mod_outline]].
+> - An ocean: [[bevy_water]].
+> - Text in the world: [[bevy_rich_text3d]]. For HUD text, plain UI is enough ([[Text and images]]).
+> - Particles live in 2D's list: [[bevy_hanabi]] works in 3D too.
 
 ## Next
 

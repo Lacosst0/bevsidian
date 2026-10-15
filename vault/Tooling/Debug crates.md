@@ -5,18 +5,18 @@ tags: [tooling]
 ---
 # Debug crates
 
-Two crates that show you what the app is doing. They answer different questions and are used together.
+Two crates that show what your app is doing. They answer different questions, so most projects use both.
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
-|:--|:--|:--|:--|
-| [[bevy-inspector-egui]] | a live inspector: every entity and resource, editable | #0.19 | you want to see and change the world while it runs |
-| [[bevy_mod_debugdump]] | draws the schedule as a graph | #0.19 | you wonder why one system ran before another |
+| | [[bevy-inspector-egui]] | [[bevy_mod_debugdump]] |
+|:--|:--|:--|
+| Bevy | #0.19 | #0.19 |
+| Answers | "what's in my world right now?" | "in what order do my systems run?" |
+| Shows | every entity, component and resource, editable live | the schedule as a graph |
+| Output | a window inside the game | a `.dot` file to render |
 
-## Which one?
-
-- "What is in my world right now?" [[bevy-inspector-egui]]. Bevy also has its own remote inspection ([[Diagnostics and logging#Dev tools|Dev tools]]).
-- "In what order do my systems run?" [[bevy_mod_debugdump]].
+> [!TIP]
+> - Poke at values while the game runs: [[bevy-inspector-egui]], or Bevy's own remote tools ([[Diagnostics and logging#Dev tools|Dev tools]]).
+> - A system ran too early: [[bevy_mod_debugdump]].
 
 ## Next
 

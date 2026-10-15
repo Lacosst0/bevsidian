@@ -103,8 +103,18 @@ pub(crate) fn draw_games(
             .collect();
         let world = &mut runtime.bypass_change_detection().world;
         let swaps = swaps(world, &yours);
-        let mut sprites = world.query::<(Entity, &Sprite, &Transform, Option<&Anchor>)>();
-        for (entity, sprite, transform, anchor) in sprites.iter(world) {
+        let mut sprites = world.query::<(
+            Entity,
+            &Sprite,
+            &Transform,
+            Option<&Anchor>,
+            Option<&Visibility>,
+        )>();
+        for (entity, sprite, transform, anchor, visibility) in sprites.iter(world) {
+            // A hidden sprite is not drawn (its node goes, as for a despawned one).
+            if visibility == Some(&Visibility::Hidden) {
+                continue;
+            }
             let mut size =
                 sprite_size(sprite, &images, &layouts) * transform.scale.truncate().abs();
             let swap = swaps

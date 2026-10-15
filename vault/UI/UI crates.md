@@ -5,22 +5,20 @@ tags: [ui]
 ---
 # UI crates
 
-Ways to build UI beyond hand-written Bevy UI nodes. They sit at very different levels, so compare by what you want to write.
+Ways to build UI beyond hand-written Bevy UI nodes. They work at very different levels, so compare by what you want to write.
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
-|:--|:--|:--|:--|
-| [[bevy_hui]] | pseudo-HTML templates, reloaded while the game runs | #0.20 | you want to write UI like web pages |
-| [[bevy_lunex]] | a layout engine, with world-space UI in 2D and 3D | #0.20 (git) | you need in-world screens or any-aspect layouts |
-| [[bevy_egui]] | immediate-mode UI for tools | #0.20 | debug panels and editors, not the game's own UI |
-| [[bevy_radioactive]] | reactive BSN scenes: signals, `watch`, `view!` | #0.20 (git) | UI that changes with game data |
+| | [[bevy_radioactive]] | [[bevy_hui]] | [[bevy_lunex]] | [[bevy_egui]] |
+|:--|:--|:--|:--|:--|
+| Bevy | #0.20 (git) | #0.20 | #0.20 (git) | #0.20 |
+| You write | BSN scenes with signals | HTML-like templates | layouts in code | immediate-mode Rust |
+| Updates | reactive: changes follow your data | hot reload of templates | each frame | each frame |
+| Best for | game UI that follows game data | designers who like markup | in-world screens, any aspect ratio | debug panels and editors |
 
-## Which one?
-
-- Game UI described in files: [[bevy_hui]].
-- UI that lives in the 3D world: [[bevy_lunex]].
-- Tools and inspectors: [[bevy_egui]].
-- UI that reacts to data in plain Bevy UI: [[bevy_radioactive]].
+> [!TIP]
+> - Game UI that reacts to data, staying in plain Bevy UI: [[bevy_radioactive]].
+> - UI described in files: [[bevy_hui]].
+> - UI living in the 3D world: [[bevy_lunex]].
+> - Tools and inspectors, not the game's UI: [[bevy_egui]].
 
 ## Next
 

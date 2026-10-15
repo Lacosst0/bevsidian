@@ -4,19 +4,17 @@ tags: [start]
 ---
 # Hello Bevy
 
-Make a window, put something in it, and see how the pieces fit. About ten minutes. #start
+A window, a box, and the three ideas everything else builds on. Ten minutes. #start
 
 ## Install
 
-You need Rust (get it from [rustup.rs](https://rustup.rs)). Bevy needs a recent stable compiler: **1.97.1 or newer**, so run `rustup update`.
-
-On Linux you also need a few system libraries. On Ubuntu:
+Get Rust from [rustup.rs](https://rustup.rs), then `rustup update`: Bevy wants **1.97.1 or newer**. Linux also needs a few system libraries (Windows and macOS need nothing):
 
 ```sh
 sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0 libwayland-dev libxkbcommon-dev
 ```
 
-Windows and macOS need nothing extra. More distros: [[Project setup]].
+Fedora and others: [[Project setup#Linux libraries]].
 
 ## A new project
 
@@ -26,7 +24,7 @@ cd my_game
 cargo add bevy
 ```
 
-The first build compiles all of Bevy and takes a few minutes. After that it is fast; [[Project setup]] makes it faster still.
+The first build compiles all of Bevy and takes a few minutes. Later ones take seconds, and [[Project setup]] makes them faster still.
 
 ## The smallest app
 
@@ -38,15 +36,11 @@ fn main() {
 }
 ```
 
-`cargo run` opens an empty window. Three ideas are already here:
-
-- [`App`] holds your game: its data, its systems, its plugins.
-- [`DefaultPlugins`] adds what almost every game needs: a window, rendering, input, audio, assets.
-- `.run()` starts the loop and does not return until the window closes.
+`cargo run` opens an empty window. [`App`] holds your game, [`DefaultPlugins`] brings the window, renderer, input, audio and assets, and `.run()` loops until the window closes.
 
 ## Your first system
 
-A *system* is a plain function. Register it in a *schedule* to say when it runs.
+A **system** is a plain function. You add it to a **schedule** to say when it runs.
 
 ```rust
 use bevy::prelude::*;
@@ -77,17 +71,17 @@ fn spin(time: Res<Time>, mut spinners: Query<&mut Transform, With<Spinner>>) {
 }
 ```
 
-- [`Startup`] runs once, [`Update`] runs every frame.
-- `Commands` creates things. `Camera2d` is the eye; without a camera nothing is drawn.
-- `Query<&mut Transform, With<Spinner>>` means "give me the position of every entity that has `Spinner`".
-- `Res<Time>` is global data. `delta_secs()` is the time since the last frame, so the box turns at the same speed on every computer.
+- [`Startup`] runs once; [`Update`] runs every frame.
+- `Commands` creates things. `Camera2d` is the eye: no camera, nothing drawn.
+- `Query<&mut Transform, With<Spinner>>` reads "the position of everything that has `Spinner`".
+- `Res<Time>` is shared data. `delta_secs()` is the time since the last frame, so the box turns at the same speed on every machine.
 
 > [!TIP]
-> Change the colour, or spin faster with `time.delta_secs() * 3.0`, then run it again. Breaking things is how you learn.
+> Change the colour or spin faster (`time.delta_secs() * 3.0`) and run it again. Poking at it is the fastest way to learn.
 
 ## Watch it happen
 
-The same idea with an entity you can see. Press play: `regenerate` runs every frame and raises the health; step through it with the arrows.
+The same idea, but you can see inside. Press play: `regenerate` runs every frame and raises the health. The arrows step one system at a time.
 
 ```rust example=ecs fps=6
 use bevy::prelude::*;
@@ -111,6 +105,4 @@ fn regenerate(time: Res<Time>, mut query: Query<&mut Health, With<Player>>) {
 
 ## Next
 
-1. [[Project setup]]: faster builds and the right features.
-2. [[App and plugins]]: how an app is put together.
-3. [[Entities and components]]: the data model, properly.
+[[Project setup]] for faster builds, then [[Entities and components]].

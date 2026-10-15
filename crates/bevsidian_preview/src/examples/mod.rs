@@ -15,6 +15,7 @@ mod dodge;
 mod dragging;
 mod ecs;
 mod events;
+mod feel;
 mod hierarchy;
 mod messages;
 mod movement;
@@ -36,7 +37,7 @@ use crate::example::Example;
 
 /// Every example's name.
 #[cfg(test)]
-pub const NAMES: [&str; 23] = [
+pub const NAMES: [&str; 24] = [
     "ai",
     "animation",
     "bouncing",
@@ -48,6 +49,7 @@ pub const NAMES: [&str; 23] = [
     "dragging",
     "ecs",
     "events",
+    "feel",
     "hierarchy",
     "messages",
     "movement",
@@ -76,6 +78,7 @@ pub fn find(name: &str) -> Option<&'static Example> {
         "dragging" => &dragging::EXAMPLE,
         "ecs" => &ecs::EXAMPLE,
         "events" => &events::EXAMPLE,
+        "feel" => &feel::EXAMPLE,
         "hierarchy" => &hierarchy::EXAMPLE,
         "messages" => &messages::EXAMPLE,
         "movement" => &movement::EXAMPLE,

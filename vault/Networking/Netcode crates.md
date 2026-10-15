@@ -5,21 +5,19 @@ tags: [networking]
 ---
 # Netcode crates
 
-Four crates for different kinds of multiplayer. The right one depends on the game, so this is a guide by game type. (For the basics see [[bevy_replicon]] and [[bevy_renet]].)
+The right crate depends on the kind of game more than anything, so here they are by game type. The basics are in [[bevy_replicon]] and [[bevy_renet]].
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
-|:--|:--|:--|:--|
-| [[bevy_ggrs]] | rollback networking for peer-to-peer games | #0.19 | fighting games and other tightly synchronised duels |
-| [[bevy_matchbox]] | WebRTC peer connections with a signalling server | #0.19 | peers must connect from the browser; the usual partner of GGRS |
-| [[bevy_steamworks]] | achievements, lobbies, matchmaking, cloud saves | #0.19 | the game ships on Steam |
-| [[lightyear]] | server-authoritative framework with prediction and interpolation | #0.19 | a fast action game with a dedicated server |
+| | [[bevy_ggrs]] | [[bevy_matchbox]] | [[lightyear]] | [[bevy_steamworks]] |
+|:--|:--|:--|:--|:--|
+| Bevy | #0.19 | #0.19 | #0.19 | #0.19 |
+| Does | rollback for peer-to-peer | WebRTC connections | server, prediction, interpolation | Steam lobbies, achievements, saves |
+| Players | 2–4 | any | many | any |
+| Best for | fighting games, tight duels | browser games; GGRS's transport | fast action with a server | games on Steam |
 
-## Which one?
-
-- Two to four players, deterministic, lowest latency: [[bevy_ggrs]] with [[bevy_matchbox]] for the connections.
-- Many players with a server in charge and prediction: [[lightyear]]. If you cannot wait, [[bevy_replicon]] works with #0.20.
-- Steam features around any of these: [[bevy_steamworks]].
+> [!TIP]
+> - A fighting game or a duel: [[bevy_ggrs]] over [[bevy_matchbox]].
+> - Many players and a server in charge: [[lightyear]], or [[bevy_replicon]] if you need #0.20 now.
+> - On Steam: add [[bevy_steamworks]] to any of these.
 
 ## Next
 

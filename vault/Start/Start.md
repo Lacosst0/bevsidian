@@ -4,16 +4,13 @@ tags: [start]
 ---
 # Start
 
-Install Bevy, open a window, and make your first game. #start
+Install Bevy, open a window, ship a tiny game. #start
 
-| Note | You learn |
+| Note | You get |
 |:--|:--|
-| [[Hello Bevy]] | a window with something in it |
-| [[Project setup]] | `Cargo.toml`, features and faster builds |
-| [[Project setup#Project structure\|Project structure]] | how to split a game into plugins and files |
-| [[App and plugins]] | what `App` does, and what a plugin is |
-| [[Make a game]] | build Dodge, step by step |
+| [[Hello Bevy]] | a window with something moving in it |
+| [[Project setup]] | a `Cargo.toml` that builds fast, and a layout that scales |
+| [[App and plugins]] | what `App` is and how plugins fit in |
+| [[Make a game]] | Dodge, built one idea at a time |
 
-## Next
-
-Follow [[Your first game]], or go straight to [[ECS]].
+Follow [[Your first game]] for the whole path, or jump to [[ECS]] if you already know the basics.

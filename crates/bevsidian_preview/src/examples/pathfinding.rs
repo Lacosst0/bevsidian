@@ -187,9 +187,10 @@ mod tests {
             .iter()
             .enumerate()
             .flat_map(|(row, line)| {
-                line.chars().enumerate().filter_map(move |(column, tile)| {
-                    (tile == '#').then(|| IVec2::new(column as i32, (MAP.len() - 1 - row) as i32))
-                })
+                line.chars()
+                    .enumerate()
+                    .filter(|&(_, tile)| tile == '#')
+                    .map(move |(column, _)| IVec2::new(column as i32, (MAP.len() - 1 - row) as i32))
             })
             .collect();
         let grid = Grid {

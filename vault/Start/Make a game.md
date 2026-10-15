@@ -6,10 +6,10 @@ crates: rand="0.10"
 ---
 # Make a game
 
-Time to put it together. We will build **Dodge**: a ship slides left and right, rocks fall, you have three lives. Each step adds one idea from earlier notes, and the preview above each block plays the game *so far*. #start
+Time to put it all together. **Dodge**: a ship slides along the bottom, rocks fall, you have three lives. Each step adds one idea, and the preview above each block plays the game *so far*. #start
 
 > [!TIP]
-> Click inside a preview to move the ship. When the last life goes, click again to restart.
+> Click in a preview to steer. Out of lives? Click again to restart. The brush, box and speaker buttons swap in your own ship, rocks and hit sound.
 
 ## The plan
 
@@ -23,7 +23,7 @@ Time to put it together. We will build **Dodge**: a ship slides left and right, 
 
 ## 1. The ship
 
-Everything is an entity. The ship has a `Player` marker, a `TargetX` (where it is sliding to) and a `Sprite`. The lives are three little squares in the corner.
+The ship is an entity with a `Player` marker, a `TargetX` (where it's heading) and a `Sprite`. The lives are three squares in the corner.
 
 ```rust example=dodge
 use bevy::prelude::*;
@@ -60,11 +60,11 @@ fn spawn_player(mut commands: Commands) {
 }
 ```
 
-A plain `Sprite::from_color` is a coloured rectangle, which is all this game needs ([[Sprites]]).
+`Sprite::from_color` is a plain rectangle: all this game needs ([[Sprites]]).
 
 ## 2. Steering
 
-A click should set the ship's `TargetX`; a system slides the ship towards it. Two small functions, one job each. The observer only *records* the wish; the system *acts* on it every frame, at a speed that does not depend on the frame rate (`time.delta_secs()`, see [[Time and timers]]).
+A click sets `TargetX`; a system slides the ship toward it. The observer only *records* the wish, the system *acts* on it every frame, at a speed that doesn't depend on the frame rate ([[Time and timers]]).
 
 ```rust example=dodge
 fn set_target(click: On<PointerClick>, mut player: Single<&mut TargetX, With<Player>>) {
@@ -87,11 +87,11 @@ fn add_steering(app: &mut App) {
 }
 ```
 
-`clamp(-step, step)` is the trick: it moves the ship the whole way when it is close, so it stops *on* the target instead of jittering around it.
+`clamp(-step, step)` is the trick: close to the target it moves exactly the rest of the way, so the ship stops *on* it instead of jittering.
 
 ## 3. Rocks
 
-A `Timer` that repeats every 0.6 seconds spawns a rock at a random x at the top. Another system moves every rock down, and removes the ones that left the bottom ([[Commands]]).
+A repeating `Timer` drops a rock every 0.6 s at a random x. Another system moves rocks down and despawns the ones that fall off ([[Commands]]).
 
 ```rust example=dodge
 #[derive(Component)]
@@ -137,11 +137,11 @@ fn add_rocks(app: &mut App) {
 }
 ```
 
-Without the despawn the rocks would fall forever and the game would slow down. Every rock that leaves the screen is a point.
+Without the despawn, rocks would fall forever and slowly eat the frame rate. Each rock that falls off is a point.
 
 ## 4. Hits and lives
 
-Two boxes overlap when the distance between their centres is less than half of their sizes added together, on **both** axes. A hit removes the rock and a life, and plays a sound ([[Audio]]); the pips on screen show the lives left.
+Two boxes overlap when their centres are closer than half their sizes added together, on **both** axes. A hit removes the rock and a life and plays a sound ([[Audio]]).
 
 ```rust example=dodge
 #[derive(Resource)]
@@ -193,14 +193,14 @@ fn add_hits(app: &mut App) {
 }
 ```
 
-Let a few rocks hit the ship in the preview and watch the lives go dark. The preview has no files to load: it plays your own hit sound instead (make it with the speaker button on [[Audio]]; the ship and the rocks can be yours too, with the brush and box buttons). Nothing stops yet: the next step does that.
+Let a few rocks hit and watch the lives go dark. The preview has no files to load, so it plays the hit sound you made (speaker button). Nothing stops yet; that's next.
 
 > [!NOTE]
-> This is hand-written box overlap, perfect for a game this small. For anything with more shapes, bounce or gravity use a physics engine: [[Physics]].
+> Hand-written box overlap is perfect for a game this small. For bounce, gravity or odd shapes, see [[Physics]].
 
 ## 5. Game over, and again
 
-When `Lives` hits zero, the game should stop: no new rocks, no movement. The cleanest way is a **run condition** on the systems that make the game move. Then a click restarts it.
+At zero lives the game should freeze. A **run condition** on the systems that move things does it in one place; a click restarts.
 
 ```rust example=dodge
 fn alive(lives: Res<Lives>) -> bool {
@@ -241,11 +241,11 @@ fn main() {
 }
 ```
 
-`run_if(alive)` puts one rule in one place. Add a pause screen, a menu, or a win condition later by changing that condition ([[States]] are the next step up).
+To add a pause or a title screen later, change that one condition, or move up to [[States]].
 
 ## Where to go from here
 
-You now have every piece of a real game: input, movement, spawning, a timer, collisions, a score and lives, game over and restart. To grow it:
+That's every piece of a real game: input, movement, spawning, timers, collisions, lives, game over. To grow it:
 
 | Add | Learn |
 |:--|:--|
@@ -258,5 +258,5 @@ You now have every piece of a real game: input, movement, spawning, a timer, col
 | keyboard or gamepad | [[Input#Keyboard and mouse\|Keyboard and mouse]], [[Input mapping]] |
 | ship it | [[Web build]], [[Release builds]] |
 
-> [!IMPORTANT]
-> The score exists but is not shown, because text deserves its own note. When you add it, `Score` will already be updating correctly.
+> [!NOTE]
+> `Score` already counts; it just isn't on screen yet. [[Text 2D]] shows it in five lines.

@@ -287,7 +287,7 @@ mod tests {
         assert_eq!(pick.options.len(), 2);
         let (code, added) = pick.compose(0);
         assert_eq!(code, "fn main() {\n}\n\n");
-        assert!(added.is_empty());
+        assert_eq!(added, Vec::<std::ops::Range<usize>>::new());
     }
 
     #[test]

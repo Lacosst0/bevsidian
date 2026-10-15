@@ -5,18 +5,17 @@ tags: [rendering]
 ---
 # Camera crates
 
-Ready-made camera controls. Bevy ships its own pan and orbit controllers, so you probably do not need either crate.
+Ready-made camera controls. Bevy 0.20 ships its own pan and orbit controllers, so you may need neither.
 
-> [!NOTE]
-| Crate | For | Bevy | Pick it when |
+| | [[bevy_pancam]] | [[bevy_panorbit_camera]] | built in |
 |:--|:--|:--|:--|
-| [[bevy_pancam]] | pan and zoom for 2D: drag, scroll to zoom at the cursor, WASD | #0.19 | you are on Bevy 0.19 or need its extras |
-| [[bevy_panorbit_camera]] | orbit for 3D: drag to rotate, scroll to zoom, pan | #0.19 | you are on an older Bevy |
+| Bevy | #0.19 | #0.19 | #0.20 |
+| For | 2D: drag, zoom at the cursor, WASD | 3D: orbit, zoom, pan | both: `PanCamera`, `PanOrbitCamera` |
+| Extras | zoom limits, bounds | smoothing, touch, limits | the basics, well |
 
-## Which one?
-
-- Most projects: use the built-in `PanCamera` and `PanOrbitCamera` controllers, see [[Cameras]].
-- Older Bevy: [[bevy_pancam]] for 2D maps and strategy games, [[bevy_panorbit_camera]] for model viewers and editors.
+> [!TIP]
+> - New project: the built-in controllers ([[Cameras]]).
+> - Older Bevy, or you need their extras: [[bevy_pancam]] for maps and strategy, [[bevy_panorbit_camera]] for model viewers.
 
 ## Next
 
