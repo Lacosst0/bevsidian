@@ -1,6 +1,6 @@
 //! Editing the map in the app (the pencil under the zoom buttons): every note shows, a drag
 //! moves a note or a map object, a click chooses one for the edit bar (its shape and size,
-//! or deleting an object), and landmarks, labels and nebulae can be added. Every change is
+//! or deleting an object), and landmarks and labels can be added. Every change is
 //! written into the map note's ```` ```map ```` block (only the line that changed) and saved
 //! like any edit of a note: the app hears [`MapEdited`] and stores the note.
 
@@ -86,14 +86,6 @@ pub(crate) fn edit_map(
         if state.selected.is_some() {
             *pending = None;
         }
-    }
-    // A nebula being dragged redraws the sky as it goes.
-    if let Some(dragged) = state.dragging
-        && things
-            .get(dragged)
-            .is_ok_and(|(_, t, _)| matches!(t.object, MapObject::Nebula { .. }))
-    {
-        state.sky_dirty = true;
     }
     let dropped = state.dropped.take();
     let request = state.edit_request.take();

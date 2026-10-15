@@ -6,7 +6,7 @@ map: true
 
 Where everything sits on the map (`Ctrl+G`). The main quest, [[Your first game]], traces Bevy's bird logo with [[Bevy]] as its eye. Each area sits just outside the bird, beside the stop its route leaves from, so no line has to cross the map.
 
-Edit the map with the pencil under the zoom buttons: drag notes and objects, change a note's shape, add landmarks, labels and nebulae. Changes are saved here, in the block below, which you can also edit by hand.
+Edit the map with the pencil under the zoom buttons: drag notes and objects, change a note's shape, add landmarks and labels. Changes are saved here, in the block below, which you can also edit by hand.
 
 ## How to write it
 
@@ -15,7 +15,6 @@ One line per thing on the map. Coordinates are `x, y`: `x` to the right, `y` up,
 - **A note**: its name, `@`, where it sits, then optionally a shape (`circle`, `diamond`, `hexagon`, `square`, `pentagon`, `star`) and `small` or `large`. Without a shape, the hub is a star, an area's index note a hexagon, a crate a square and any other note a circle.
 - **`label:`** a name written in the sky, with an optional caption after `|`, and `size N`.
 - **`landmark:`** a [Lucide](https://lucide.dev/icons) icon drawn faintly in the sky, with `size N`.
-- **`nebula:`** a soft cloud of light, `r N` across, fading to its edge (older maps say `land:`).
 
 Lines starting with `#` are comments. A note left out of the map is put beside the note it grows from.
 
@@ -198,7 +197,7 @@ bevy_steamworks               @    830,  -1435
 bevy_renet                    @    960,  -1330
 bevy_http_client              @   1030,  -1205
 
-# ── The sky: region names, the bird's glow, landmarks ─────────
+# ── The sky: region names and landmarks ───────────────────────
 label: ECS | how Bevy thinks         @   1875,   -650   size 30
 label: Tooling | debug and ship      @   1600,    520   size 30
 label: UI | menus and HUDs           @    675,   1250   size 30
@@ -211,12 +210,6 @@ label: 3D | meshes and light         @  -1420,  -2375   size 30
 label: 2D | sprites and tiles        @   -425,  -2785   size 30
 label: Input | every control         @    375,  -2035   size 30
 label: Networking | play together    @   1075,  -1515   size 30
-nebula:                       @    -60,   -580   r 640
-nebula:                       @    -20,    -60   r 350
-nebula:                       @    -20,  -1060   r 340
-nebula:                       @   -540,   -660   r 290
-nebula:                       @   -460,   -340   r 250
-nebula:                       @    220,   -900   r 230
 landmark: satellite           @   -880,    640   size 40
 landmark: moon-star           @   1210,    935   size 56
 landmark: sparkle             @   1105,    955   size 24

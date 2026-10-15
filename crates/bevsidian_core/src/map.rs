@@ -7,10 +7,9 @@
 //! ```text
 //! # A note: its name, where it sits, and optionally its shape and size.
 //! Hello Bevy            @     0, -420   diamond large
-//! # Objects: a region's name (with a caption), a landmark (a Lucide icon) and a nebula.
+//! # Objects: a region's name (with a caption) and a landmark (a Lucide icon).
 //! label: Pixel Plains | 2D   @ -1500,  420   size 30
 //! landmark: tree-pine        @ -1320,  640   size 48
-//! nebula:                    @ -1500,  300   r 700
 //! ```
 //!
 //! Lines starting with `#` are comments. The graph edits the map in place (see [`set_place`],
@@ -101,31 +100,25 @@ pub enum MapObject {
     },
     /// A Lucide icon drawn as map art: trees, mountains, a castle.
     Landmark { icon: String, at: Vec2, size: f32 },
-    /// A cloud of nebula, `radius` across, fading out to its edge (`land:` in older maps).
-    Nebula { at: Vec2, radius: f32 },
 }
 
 impl MapObject {
     pub fn at(&self) -> Vec2 {
         match self {
-            MapObject::Label { at, .. }
-            | MapObject::Landmark { at, .. }
-            | MapObject::Nebula { at, .. } => *at,
+            MapObject::Label { at, .. } | MapObject::Landmark { at, .. } => *at,
         }
     }
 
-    /// Its size: a label's or landmark's `size`, a nebula's radius.
+    /// Its `size`.
     pub fn size(&self) -> f32 {
         match self {
             MapObject::Label { size, .. } | MapObject::Landmark { size, .. } => *size,
-            MapObject::Nebula { radius, .. } => *radius,
         }
     }
 
     pub fn size_mut(&mut self) -> &mut f32 {
         match self {
             MapObject::Label { size, .. } | MapObject::Landmark { size, .. } => size,
-            MapObject::Nebula { radius, .. } => radius,
         }
     }
 
@@ -134,22 +127,18 @@ impl MapObject {
         match self {
             MapObject::Label { .. } => LABEL_SIZE,
             MapObject::Landmark { .. } => LANDMARK_SIZE,
-            MapObject::Nebula { .. } => NEBULA_RADIUS,
         }
     }
 
     pub fn set_at(&mut self, to: Vec2) {
         match self {
-            MapObject::Label { at, .. }
-            | MapObject::Landmark { at, .. }
-            | MapObject::Nebula { at, .. } => *at = to,
+            MapObject::Label { at, .. } | MapObject::Landmark { at, .. } => *at = to,
         }
     }
 }
 
 pub const LABEL_SIZE: f32 = 30.0;
 pub const LANDMARK_SIZE: f32 = 48.0;
-pub const NEBULA_RADIUS: f32 = 400.0;
 
 /// The parsed map of the vault.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -249,11 +238,9 @@ fn parse_line(line: &str) -> Option<Entry> {
             size: number("size").unwrap_or(LANDMARK_SIZE),
         }));
     }
+    // Nebulae (`nebula:`, `land:` in older maps) are no longer drawn: their lines are skipped.
     if object("nebula").is_some() || object("land").is_some() {
-        return Some(Entry::Object(MapObject::Nebula {
-            at,
-            radius: number("r").unwrap_or(NEBULA_RADIUS),
-        }));
+        return None;
     }
     if left.is_empty() {
         return None;
@@ -322,12 +309,6 @@ pub fn object_line(object: &MapObject) -> String {
             }
             line
         }
-        MapObject::Nebula { at, radius } => format!(
-            "{:<30}@ {}   r {}",
-            "nebula:",
-            coords(*at),
-            radius.round() as i32
-        ),
     }
 }
 
@@ -397,7 +378,7 @@ pub fn remove_object(source: &str, index: usize) -> String {
 mod tests {
     use super::*;
 
-    const SOURCE: &str = "---\nmap: true\n---\n# Map\n\nText.\n\n```map\n# The hub\nBevy @ 0, 0 star large\nHello Bevy        @ 10, -420\nlabel: Pixel Plains | 2D @ -1500, 420 size 40\nlandmark: tree-pine @ 3, 4\nland: @ -1500, 300 r 700\nnot a line\n```\n\nAfter.\n";
+    const SOURCE: &str = "---\nmap: true\n---\n# Map\n\nText.\n\n```map\n# The hub\nBevy @ 0, 0 star large\nHello Bevy        @ 10, -420\nlabel: Pixel Plains | 2D @ -1500, 420 size 40\nlandmark: tree-pine @ 3, 4\nlandmark: moon @ -1500, 300 size 70\nland: @ 1, 1 r 700\nnot a line\n```\n\nAfter.\n";
 
     #[test]
     fn places_and_objects_are_read() {
@@ -434,9 +415,10 @@ mod tests {
                     at: Vec2::new(3.0, 4.0),
                     size: LANDMARK_SIZE
                 },
-                MapObject::Nebula {
+                MapObject::Landmark {
+                    icon: "moon".into(),
                     at: Vec2::new(-1500.0, 300.0),
-                    radius: 700.0
+                    size: 70.0
                 },
             ]
         );
@@ -482,11 +464,11 @@ mod tests {
         };
         let with_flag = add_object(&added, &flag);
         assert_eq!(WorldMap::parse(0, &with_flag).objects[3], flag);
-        let mut land = WorldMap::parse(0, &with_flag).objects[2].clone();
-        land.set_at(Vec2::new(9.0, 9.0));
-        let moved_land = set_object(&with_flag, 2, &land);
-        assert_eq!(WorldMap::parse(0, &moved_land).objects[2], land);
-        let removed = remove_object(&moved_land, 0);
+        let mut moon = WorldMap::parse(0, &with_flag).objects[2].clone();
+        moon.set_at(Vec2::new(9.0, 9.0));
+        let moved_moon = set_object(&with_flag, 2, &moon);
+        assert_eq!(WorldMap::parse(0, &moved_moon).objects[2], moon);
+        let removed = remove_object(&moved_moon, 0);
         let objects = WorldMap::parse(0, &removed).objects;
         assert_eq!(objects.len(), 3);
         assert!(matches!(objects[0], MapObject::Landmark { .. }));
@@ -497,13 +479,14 @@ mod tests {
         let source = "# Empty";
         let added = add_object(
             source,
-            &MapObject::Nebula {
+            &MapObject::Landmark {
+                icon: "moon".into(),
                 at: Vec2::ZERO,
-                radius: 10.0,
+                size: 10.0,
             },
         );
         assert_eq!(WorldMap::parse(0, &added).objects.len(), 1);
         assert!(added.starts_with("# Empty\n\n```map\n"));
-        assert!(added.contains("nebula:"), "written with its current name");
+        assert!(added.contains("landmark: moon"));
     }
 }

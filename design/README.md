@@ -23,7 +23,7 @@ theme (Geist, neutral greys, white primary buttons) with one orange accent for l
 
 Where the app and a mockup differ, the app follows real data and behaviour: the graph is a
 hand-made star map (see `vault/Map.md`: notes as stars with an outline per kind, constellation
-lines per route, background stars, a celestial grid, landmarks and optional labels and nebulae,
+lines per route, background stars, a celestial grid, landmarks and optional labels,
 with the map tokens `MAP_*` in `color.rs`) with a quest log, a checklist and an edit bar instead
 of the mockup's filter card and tag nodes; the switcher lists notes only; and settings keep
 steppers for text size and scroll speed (any value in range) with a segmented frame-rate limit.

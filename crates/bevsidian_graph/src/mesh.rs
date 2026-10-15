@@ -64,51 +64,6 @@ impl Shapes {
         }
     }
 
-    /// A disc of white that fades out from its centre: `fade(r)` is the alpha at `r` (from 0
-    /// in the middle to 1 at the edge). The material's colour tints it and sets its strength.
-    pub fn fade(
-        &mut self,
-        center: Vec2,
-        radius: f32,
-        (rings, sides): (u32, u32),
-        z: f32,
-        fade: impl Fn(f32) -> f32,
-    ) {
-        let base = self.positions.len() as u32;
-        self.positions.push([center.x, center.y, z]);
-        self.colors.push([1.0, 1.0, 1.0, fade(0.0)]);
-        for ring in 1..=rings {
-            let r = ring as f32 / rings as f32;
-            for side in 0..sides {
-                let direction =
-                    Vec2::from_angle(side as f32 * std::f32::consts::TAU / sides as f32);
-                let p = center + direction * radius * r;
-                self.positions.push([p.x, p.y, z]);
-                self.colors.push([1.0, 1.0, 1.0, fade(r)]);
-            }
-        }
-        let ring_start = |ring: u32| base + 1 + (ring - 1) * sides;
-        for side in 0..sides {
-            let next = (side + 1) % sides;
-            self.indices
-                .extend([base, base + 1 + side, base + 1 + next]);
-        }
-        for ring in 1..rings {
-            let (inner, outer) = (ring_start(ring), ring_start(ring + 1));
-            for side in 0..sides {
-                let next = (side + 1) % sides;
-                self.indices.extend([
-                    inner + side,
-                    outer + side,
-                    outer + next,
-                    inner + side,
-                    outer + next,
-                    inner + next,
-                ]);
-            }
-        }
-    }
-
     /// Replaces the mesh behind `handle` with these shapes.
     pub fn upload(self, meshes: &mut Assets<Mesh>, handle: &Handle<Mesh>) {
         if let Some(mut mesh) = meshes.get_mut(handle) {

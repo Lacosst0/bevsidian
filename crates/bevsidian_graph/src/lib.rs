@@ -87,7 +87,6 @@ pub fn plugin(app: &mut App) {
                 style_nodes,
                 declutter_labels,
                 fit_plates,
-                world::show_handles,
                 world::scale_objects,
                 world::parallax,
                 world::draw_sky,
@@ -215,7 +214,7 @@ pub struct GraphState {
     dropped: Option<Entity>,
     /// A change asked for in the edit bar.
     edit_request: Option<edit::EditRequest>,
-    /// The map or a nebula moved: redraw the sky.
+    /// The map changed: redraw the sky.
     sky_dirty: bool,
     /// How far the background stars reach from the capital.
     field_reach: f32,
@@ -229,7 +228,7 @@ pub struct GraphState {
 /// is dark inside, a read one filled grey, the one being read filled orange.
 #[derive(Default)]
 struct NodePaint {
-    /// The inside of a nebula's handle, and of a note's shape.
+    /// The inside of a note's shape.
     fill: Handle<ColorMaterial>,
     fill_current: Handle<ColorMaterial>,
     fill_read: Handle<ColorMaterial>,
@@ -355,7 +354,7 @@ fn setup(
     mut state: ResMut<GraphState>,
 ) {
     // Opaque meshes let depth decide what covers what (the sky under the lines, the lines
-    // under the notes and their names); the nebulae are see-through, over the sky.
+    // under the notes and their names).
     let opaque = |materials: &mut Assets<ColorMaterial>| {
         MeshMaterial2d(materials.add(ColorMaterial {
             alpha_mode: bevy::sprite_render::AlphaMode2d::Opaque,
@@ -380,13 +379,6 @@ fn setup(
         world::Starfield,
         Mesh2d(meshes.add(mesh::empty())),
         opaque(&mut materials),
-        Transform::default(),
-        RenderLayers::layer(LAYER),
-    ));
-    commands.spawn((
-        world::Nebulae,
-        Mesh2d(meshes.add(mesh::empty())),
-        MeshMaterial2d(materials.add(ColorMaterial::from_color(color::MAP_NEBULA))),
         Transform::default(),
         RenderLayers::layer(LAYER),
     ));

@@ -309,10 +309,6 @@ pub fn edit_bar() -> impl Scene {
         at: Vec2::ZERO,
         size: bevsidian_core::map::LABEL_SIZE,
     };
-    let nebula = MapObject::Nebula {
-        at: Vec2::ZERO,
-        radius: bevsidian_core::map::NEBULA_RADIUS,
-    };
     let shadow = shadow::popover();
     bsn! {
         Node {
@@ -355,10 +351,6 @@ pub fn edit_bar() -> impl Scene {
                     @{icon_text_button(Variant::Ghost, Size::Sm, "type", "Label")}
                     Tooltip::new("Add a label")
                     on(request(EditRequest::Add(region)))
-                    --
-                    @{icon_text_button(Variant::Ghost, Size::Sm, "cloud", "Nebula")}
-                    Tooltip::new("Add a nebula")
-                    on(request(EditRequest::Add(nebula)))
                     --
                     @{vertical_separator()} Node { margin: UiRect::horizontal(px(4)), height: px(20) }
                     --
@@ -483,7 +475,6 @@ pub(crate) fn show_legend(
         (_, Some(t)) => match &t.object {
             MapObject::Label { text, .. } => format!("Label: {text}"),
             MapObject::Landmark { icon, .. } => format!("Landmark: {icon}"),
-            MapObject::Nebula { .. } => "Nebula".to_owned(),
         },
         _ => String::new(),
     };

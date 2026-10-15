@@ -1,7 +1,6 @@
 //! The sky the stars sit in: a faint celestial grid around the capital (circles and spokes,
 //! as on a star chart), a field of background stars that drifts slower than the map when it
-//! pans (parallax), soft nebulae where the map puts them, and its labels and
-//! landmarks. Everything comes from the map's objects ([`MapObject`]) and is rebuilt when the
+//! pans (parallax), and the map's labels and landmarks. Everything comes from the map's objects ([`MapObject`]) and is rebuilt when the
 //! map changes.
 
 use bevy::{camera::visibility::RenderLayers, prelude::*, text::FontWeight};
@@ -26,7 +25,6 @@ impl MapThing {
                 (text.chars().count() as f32 * size * 0.5).max(40.0)
             }
             MapObject::Landmark { size, .. } => size * 0.6,
-            MapObject::Nebula { .. } => HANDLE + 6.0,
         }
     }
 }
@@ -39,16 +37,6 @@ pub(crate) struct Grid;
 #[derive(Component)]
 pub(crate) struct Starfield;
 
-/// The mesh of the nebulae (see-through).
-#[derive(Component)]
-pub(crate) struct Nebulae;
-
-/// The handle in the middle of a nebula, shown while editing.
-#[derive(Component)]
-pub(crate) struct NebulaHandle;
-
-/// Radius of a nebula's handle.
-pub(crate) const HANDLE: f32 = 12.0;
 /// The celestial grid: a circle every this far from the capital, a spoke every this angle,
 /// lines this wide (world units).
 const GRID_STEP: f32 = 700.0;
@@ -165,34 +153,14 @@ pub(crate) fn spawn_world(
                     ));
                 });
             }
-            MapObject::Nebula { .. } => {
-                let circle = state.circle.clone();
-                let (ring, fill) = (state.paint.ring_hovered.clone(), state.paint.fill.clone());
-                entity.insert(Visibility::Hidden).with_children(|handle| {
-                    handle.spawn((
-                        NebulaHandle,
-                        Mesh2d(circle.clone()),
-                        MeshMaterial2d(ring),
-                        Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::splat(HANDLE)),
-                        RenderLayers::layer(LAYER),
-                    ));
-                    handle.spawn((
-                        Mesh2d(circle),
-                        MeshMaterial2d(fill),
-                        Transform::from_xyz(0.0, 0.0, 0.01).with_scale(Vec3::splat(HANDLE - 3.0)),
-                        RenderLayers::layer(LAYER),
-                    ));
-                });
-            }
         }
     }
 }
 
-/// Depths, back to front: the background stars, the grid, the nebulae, then labels and
-/// landmarks (all under the lines and the notes).
+/// Depths, back to front: the background stars, the grid, then labels and landmarks (all
+/// under the lines and the notes).
 const Z_FIELD: f32 = -7.0;
 const Z_GRID: f32 = -6.0;
-const Z_NEBULAE: f32 = -5.0;
 const Z_OBJECTS: f32 = -1.0;
 
 /// Smallest a label is drawn on screen (pixels): zoomed out, labels grow in the world to
@@ -215,7 +183,6 @@ pub(crate) fn scale_objects(
         let least = match thing.object {
             MapObject::Label { size, .. } => LABEL_PX / size,
             MapObject::Landmark { size, .. } => LANDMARK_PX / size,
-            MapObject::Nebula { .. } => continue,
         };
         let grow = Vec3::splat((scale * least).max(1.0));
         if transform.scale != grow {
@@ -224,52 +191,21 @@ pub(crate) fn scale_objects(
     }
 }
 
-/// Shows nebulae's handles only while editing.
-pub(crate) fn show_handles(
-    nav: Res<bevsidian_core::nav::Nav>,
-    mut things: Query<(&MapThing, &mut Visibility)>,
-) {
-    let editing = nav.map_edit.get_untracked();
-    for (thing, mut visibility) in &mut things {
-        if matches!(thing.object, MapObject::Nebula { .. }) {
-            visibility.set_if_neq(if editing {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            });
-        }
-    }
-}
-
-/// Redraws the sky when the map changes or a nebula is dragged: the grid, the background
-/// stars and the nebulae.
+/// Redraws the sky when the map changes: the grid and the background stars.
 pub(crate) fn draw_sky(
     mut state: ResMut<GraphState>,
-    things: Query<(&MapThing, &Transform)>,
     nodes: Query<&GraphNode>,
     grid_mesh: Query<&Mesh2d, With<Grid>>,
-    nebulae: Query<&Mesh2d, With<Nebulae>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     if !state.sky_dirty {
         return;
     }
-    let (Ok(grid_mesh), Ok(nebulae)) = (grid_mesh.single(), nebulae.single()) else {
+    let Ok(grid_mesh) = grid_mesh.single() else {
         return;
     };
     state.sky_dirty = false;
-    let clouds: Vec<(Vec2, f32)> = things
-        .iter()
-        .filter_map(|(thing, transform)| match thing.object {
-            MapObject::Nebula { radius, .. } => Some((transform.translation.truncate(), radius)),
-            _ => None,
-        })
-        .collect();
-    let reach = nodes
-        .iter()
-        .map(|n| n.home.length())
-        .chain(clouds.iter().map(|(at, r)| at.length() + r))
-        .fold(0.0, f32::max);
+    let reach = nodes.iter().map(|n| n.home.length()).fold(0.0, f32::max);
 
     // The grid: circles around the capital, and spokes from the first circle outwards.
     let mut grid = Shapes::default();
@@ -298,13 +234,6 @@ pub(crate) fn draw_sky(
     grid.upload(&mut meshes, &grid_mesh.0);
 
     state.field_reach = outer + FIELD_MARGIN;
-
-    // The nebulae: white in the middle, fading to nothing at the edge.
-    let mut clouds_mesh = Shapes::default();
-    for &(at, radius) in &clouds {
-        clouds_mesh.fade(at, radius, (8, 64), Z_NEBULAE, |r| (1.0 - r * r).powi(2));
-    }
-    clouds_mesh.upload(&mut meshes, &nebulae.0);
 }
 
 /// Rebuilds the background stars when the sky changes size or the zoom moves a step: they

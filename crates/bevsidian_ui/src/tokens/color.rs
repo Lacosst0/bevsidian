@@ -75,16 +75,13 @@ pub const WARNING_SOFT: Color = Color::srgba(0.984, 0.749, 0.141, 0.02);
 pub const FIND_MATCH: Color = Color::srgba(0.984, 0.749, 0.141, 0.09);
 pub const FIND_CURRENT: Color = Color::srgba(0.984, 0.573, 0.235, 0.3);
 
-// The graph's star map. The sky is `BACKGROUND`; these are opaque except the nebulae,
-// which lie over it.
+// The graph's star map. The sky is `BACKGROUND`; these are all opaque.
 
 /// `#121212`: the celestial grid (circles and spokes around the capital).
 pub const MAP_GRID: Color = Color::srgb(0.071, 0.071, 0.071);
 /// The faintest and brightest stars of the background field.
 pub const MAP_FIELD_FAINT: Color = Color::srgb(0.3, 0.3, 0.3);
 pub const MAP_FIELD_BRIGHT: Color = Color::srgb(0.85, 0.85, 0.85);
-/// A nebula's middle: white over the sky (CSS: white 8 %).
-pub const MAP_NEBULA: Color = Color::srgba(1.0, 1.0, 1.0, 0.009);
 /// Behind a note's name: the sky, opaque, so lines pass under the name.
 pub const MAP_PLATE: Color = BACKGROUND;
 /// `#3a3a3a`: the outline of a note's shape.
