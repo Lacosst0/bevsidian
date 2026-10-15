@@ -89,8 +89,8 @@ pub const MAP_NEBULA: Color = Color::srgba(1.0, 1.0, 1.0, 0.009);
 pub const MAP_PLATE: Color = BACKGROUND;
 /// `#3a3a3a`: the outline of a note's shape.
 pub const MAP_RING: Color = Color::srgb(0.227, 0.227, 0.227);
-/// `#e5e5e5`: the inside of a note's shape once it is read.
-pub const MAP_FILL_READ: Color = Color::srgb(0.898, 0.898, 0.898);
+/// `#525252`: the inside of a note's shape once it is read (unread ones are `CARD`).
+pub const MAP_FILL_READ: Color = Color::srgb(0.322, 0.322, 0.322);
 /// `#5a5a5a`: the outline of a note's shape once it is read.
 pub const MAP_RING_LIT: Color = Color::srgb(0.353, 0.353, 0.353);
 /// The colour of route `index` of `count` on the map: the routes take even steps along

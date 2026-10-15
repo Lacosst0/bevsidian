@@ -19,7 +19,7 @@ One line per thing on the map. Coordinates are `x, y`: `x` to the right, `y` up,
 
 Lines starting with `#` are comments. A note left out of the map is put beside the note it grows from.
 
-Every note is a filled shape with its icon inside and its name above: dark until you have read it, filled near white after.
+Every note is a filled shape with its icon inside and its name above: dark until you have read it, filled grey after.
 
 | Shape | Means |
 |:--|:--|

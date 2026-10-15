@@ -227,7 +227,7 @@ pub struct GraphState {
 }
 
 /// Materials of a note's shape and icon, per state: a note the reader has not opened yet
-/// is dark inside, a read one filled near white, the one being read filled orange.
+/// is dark inside, a read one filled grey, the one being read filled orange.
 #[derive(Default)]
 struct NodePaint {
     /// The inside of a nebula's handle, and of a note's shape.
@@ -1037,7 +1037,7 @@ fn neighbors(state: &GraphState, entity: Entity) -> Vec<Entity> {
 }
 
 /// Styles the notes: a note not read yet is dark inside (a grey icon), a read one is filled
-/// near white, the one being read orange, the first page of a route with its colour; a
+/// grey, the one being read orange, the first page of a route with its colour; a
 /// note on a route wears its colour on its outline; a hovered note lights up with its neighbours (the
 /// rest fade). Zoomed out, notes keep a size on screen and only the bigger places keep their
 /// names.
@@ -1145,7 +1145,7 @@ fn style_nodes(
             &paint.ring
         };
         let bold = route.is_some() || is_current || selected;
-        // Read, a note is filled near white.
+        // Read, a note is filled grey.
         let read = node.rank != 0 && visited.contains(&node.note);
         let fill = if is_current {
             &paint.fill_current
@@ -1156,8 +1156,12 @@ fn style_nodes(
         } else {
             &paint.fill
         };
-        let icon = if (station.is_some() || read) && !is_current {
+        let icon = if is_current {
+            icon
+        } else if station.is_some() {
             color::BACKGROUND
+        } else if read {
+            color::FOREGROUND
         } else {
             icon
         };

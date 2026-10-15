@@ -131,7 +131,7 @@ pub fn legend() -> impl Scene {
             Children [ {pieces} ]
         })
     }
-    // A note: filled near white once read, dark before.
+    // A note: filled grey once read, dark before.
     let note = |fill: Color, ring: Color| -> Box<dyn Scene> {
         Box::new(bsn! {
             Node {
