@@ -43,6 +43,10 @@ pub struct Yours {
     pub made_voxels: bool,
     pub sprite: Handle<Image>,
     pub model: Handle<Image>,
+    /// A boulder of voxels: the rocks' picture until the reader builds a model.
+    pub rock: Handle<Image>,
+    /// A round, shaded ball: the balls' picture until the reader draws a sprite.
+    pub ball: Handle<Image>,
     /// One white cube with shaded sides, which the voxel example tints.
     pub cube: Handle<Image>,
     /// The sound of each [`Slot`], whether the reader changed them, and the sounds.
@@ -158,6 +162,53 @@ pub fn default_voxels() -> Vec<Cell> {
     cells
 }
 
+/// A light blue ball, lit from the top left.
+pub fn ball_pixels() -> Vec<Cell> {
+    let centre = Vec2::splat(7.5);
+    let light = Vec2::new(5.0, 5.0);
+    (0..SPRITE * SPRITE)
+        .map(|i| {
+            let at = Vec2::new((i % SPRITE) as f32, (i / SPRITE) as f32);
+            if at.distance(centre) > 7.3 {
+                0
+            } else if at.distance(light) < 2.0 {
+                8 // white highlight
+            } else if at.distance(centre + Vec2::splat(1.5)) > 5.6 {
+                2 // dark blue rim
+            } else {
+                13 // blue
+            }
+        })
+        .collect()
+}
+
+/// A grey boulder with a lighter top and a few brown specks, for the rocks of the games.
+pub fn rock_voxels() -> Vec<Cell> {
+    let mut cells = vec![0; VOXELS * VOXELS * VOXELS];
+    let centre = Vec3::new(3.5, 3.5, 2.6);
+    for z in 0..VOXELS {
+        for y in 0..VOXELS {
+            for x in 0..VOXELS {
+                let at = Vec3::new(x as f32, y as f32, z as f32);
+                // A squashed ball: wider than it is tall.
+                let d = (at - centre) * Vec3::new(1.0, 1.0, 1.35);
+                if d.length() > 3.6 {
+                    continue;
+                }
+                let speck = (x * 7 + y * 3 + z * 5) % 11 == 0;
+                cells[x + y * VOXELS + z * VOXELS * VOXELS] = if speck {
+                    5 // brown
+                } else if z >= 4 {
+                    7 // light grey top
+                } else {
+                    6 // dark grey
+                };
+            }
+        }
+    }
+    cells
+}
+
 impl Default for Yours {
     fn default() -> Self {
         Self {
@@ -167,6 +218,8 @@ impl Default for Yours {
             made_voxels: false,
             sprite: Handle::default(),
             model: Handle::default(),
+            rock: Handle::default(),
+            ball: Handle::default(),
             cube: Handle::default(),
             sounds: Slot::ALL.iter().map(|s| s.default_sound()).collect(),
             made_sounds: false,
@@ -180,13 +233,18 @@ impl Default for Yours {
 /// sprite: the player-like ones show the sprite, the obstacles and enemies the model.
 pub const SPRITE_OF: [&str; 4] = ["Player", "Ship", "Agent", "Ball"];
 pub const MODEL_OF: [&str; 2] = ["Rock", "Guard"];
+/// Before the reader makes anything, the ships and players show the starting sprite and the
+/// rocks a boulder, so the games look like games from the start.
+pub const SPRITE_BEFORE: [&str; 3] = ["Player", "Ship", "Agent"];
+pub const MODEL_BEFORE: [&str; 1] = ["Rock"];
+pub const BALL_BEFORE: [&str; 1] = ["Ball"];
 
 /// What "Make it yours" a preview of the example offers, if any.
 pub fn studio_for(example: &str) -> Option<Studio> {
     match example {
-        "voxels" => Some(Studio::Voxels),
+        "voxels" | "scatter" => Some(Studio::Voxels),
         "sounds" => Some(Studio::Sounds),
-        "dodge" | "movement" | "ai" | "pathfinding" | "sprites" | "bouncing" => {
+        "dodge" | "movement" | "ai" | "pathfinding" | "sprites" | "bouncing" | "feel" => {
             Some(Studio::Sprite)
         }
         _ => None,
@@ -216,6 +274,8 @@ fn create_images(
     };
     yours.sprite = images.add(sprite_image(&yours.pixels));
     yours.model = images.add(model_image(&yours.voxels));
+    yours.rock = images.add(model_image(&rock_voxels()));
+    yours.ball = images.add(sprite_image(&ball_pixels()));
     yours.cube = images.add(cube_image());
 }
 

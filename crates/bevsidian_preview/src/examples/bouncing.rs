@@ -33,15 +33,11 @@ fn setup(app: &World) -> Setup {
         .get_resource::<Yours>()
         .map_or_else(Handle::default, |yours| yours.sound(Slot::Bounce));
     Box::new(move |world| {
-        world.init_resource::<Dropped>();
         world.insert_resource(Sounds {
             bounce: bounce.clone(),
         });
     })
 }
-
-#[derive(Resource, Default)]
-struct Dropped(usize);
 
 #[derive(Resource)]
 struct Sounds {
@@ -59,18 +55,18 @@ struct Ball {
 const GRAVITY: f32 = -400.0;
 const FLOOR: f32 = -SIZE.y / 2.0;
 
-fn ball(radius: f32, index: usize, at: Vec2, velocity: Vec2) -> impl Bundle {
+fn ball(radius: f32, at: Vec2, velocity: Vec2) -> impl Bundle {
     (
         Ball { radius },
         Velocity(velocity),
-        Sprite::from_color(colour(index), Vec2::splat(radius * 2.0)),
+        Sprite::from_color(colour(3), Vec2::splat(radius * 2.0)),
         Transform::from_translation(at.extend(1.0)),
     )
 }
 
 fn spawn_balls(mut commands: Commands) {
-    commands.spawn(ball(10.0, 0, Vec2::new(-60.0, 40.0), Vec2::new(30.0, 0.0)));
-    commands.spawn(ball(14.0, 3, Vec2::new(50.0, 60.0), Vec2::new(-20.0, 0.0)));
+    commands.spawn(ball(10.0, Vec2::new(-60.0, 40.0), Vec2::new(30.0, 0.0)));
+    commands.spawn(ball(14.0, Vec2::new(50.0, 60.0), Vec2::new(-20.0, 0.0)));
 }
 
 fn gravity(time: Res<Time>, mut balls: Query<(&mut Transform, &mut Velocity)>) {
@@ -110,18 +106,12 @@ fn bounce(
     }
 }
 
-fn drop_ball(
-    click: On<PointerClick>,
-    sky: Query<(), With<Sky>>,
-    mut dropped: ResMut<Dropped>,
-    mut commands: Commands,
-) {
+fn drop_ball(click: On<PointerClick>, sky: Query<(), With<Sky>>, mut commands: Commands) {
     if !sky.contains(click.entity) {
         return;
     }
     let Some(at) = click.hit.position else {
         return;
     };
-    dropped.0 += 1;
-    commands.spawn(ball(8.0, dropped.0 + 1, at.truncate(), Vec2::ZERO));
+    commands.spawn(ball(8.0, at.truncate(), Vec2::ZERO));
 }

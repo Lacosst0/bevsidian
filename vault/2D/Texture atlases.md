@@ -5,50 +5,38 @@ tags: [2d]
 ---
 # Texture atlases
 
-Many small pictures in one image. Faster to load and draw, and how animation frames and tilesets are stored. #2d
+Many small pictures in one image: faster to load and draw, and how animation frames and tilesets are stored. #2d
 
 ## A sprite sheet
 
-An image of equal-sized frames in a grid. Tell Bevy how it is cut up with a `TextureAtlasLayout`, then pick a frame by index:
+An image of equal-sized frames in a grid. A `TextureAtlasLayout` says how it's cut up; the sprite picks a frame by index. Here, a slime in four frames. Press **Next frame**:
 
-```rust
+```rust example=animation
 use bevy::prelude::*;
 
-fn setup(
+fn spawn_slime(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn(Camera2d);
-
-    let sheet = asset_server.load("hero_sheet.png");
-    // 24x24 pixel frames, 7 columns, 1 row.
-    let layout = layouts.add(TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None));
-
+    // 10 × 8 pixel frames: 4 columns, 1 row, no padding.
+    let layout = layouts.add(TextureAtlasLayout::from_grid(UVec2::new(10, 8), 4, 1, None, None));
     commands.spawn((
-        Sprite::from_atlas_image(sheet, TextureAtlas { layout, index: 3 }),
-        Transform::from_scale(Vec3::splat(6.0)),
+        Sprite::from_atlas_image(asset_server.load("slime.png"), TextureAtlas { layout, index: 0 }),
+        Transform::from_scale(Vec3::splat(8.0)),
     ));
 }
-```
-
-`from_grid(frame_size, columns, rows, padding, offset)`. Frame `0` is the top-left one, counting along the row.
-
-## Change the frame
-
-```rust
-use bevy::prelude::*;
 
 fn next_frame(mut sprites: Query<&mut Sprite>) {
     for mut sprite in &mut sprites {
         if let Some(atlas) = &mut sprite.texture_atlas {
-            atlas.index = (atlas.index + 1) % 7;
+            atlas.index = (atlas.index + 1) % 4;
         }
     }
 }
 ```
 
-That is all animation is. The next note puts a timer behind it: [[Sprite animation]].
+`from_grid(frame_size, columns, rows, padding, offset)`; frame `0` is top-left, counting along each row. Changing the index on a timer is all animation is: [[Sprite animation]].
 
 ## Why atlases?
 

@@ -30,6 +30,25 @@ pub fn spawn_sky(mut commands: Commands) {
         Sprite::from_color(BACKGROUND, SIZE),
         Transform::from_xyz(0.0, 0.0, -10.0),
     ));
+    // A few faint stars, always in the same places. They are sky too, so clicks on them
+    // land on the sky.
+    let mut state: u32 = 0x9E37_79B9;
+    let mut next = move || {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        (state % 10_000) as f32 / 10_000.0
+    };
+    for _ in 0..36 {
+        let at = (Vec2::new(next(), next()) - 0.5) * SIZE;
+        let size = if next() < 0.2 { 2.0 } else { 1.0 };
+        let glow = 0.15 + next() * 0.25;
+        commands.spawn((
+            Sky,
+            Sprite::from_color(Color::srgba(0.85, 0.88, 1.0, glow), Vec2::splat(size)),
+            Transform::from_translation(at.extend(-9.0)),
+        ));
+    }
 }
 
 /// Pastel colours to pick from, by number.

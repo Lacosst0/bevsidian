@@ -179,7 +179,7 @@ use bevy::prelude::*;
 fn spawn_cave(mut commands: Commands, walls: &[bool], width: usize) {
     for (i, wall) in walls.iter().enumerate() {
         let (x, y) = ((i % width) as f32, (i / width) as f32);
-        let color = if *wall { Color::srgb(0.3, 0.32, 0.42) } else { Color::srgb(0.1, 0.1, 0.15) };
+        let color = if *wall { Color::srgb(0.42, 0.36, 0.5) } else { Color::srgb(0.17, 0.16, 0.23) };
         commands.spawn((
             Sprite::from_color(color, Vec2::splat(8.0)),
             Transform::from_xyz(x * 8.0, y * 8.0, 0.0),

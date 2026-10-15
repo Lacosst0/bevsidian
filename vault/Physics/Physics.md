@@ -90,9 +90,6 @@ Each landing plays a sound as loud as the landing is hard ([[Audio]]). The balls
 #[derive(Component)]
 struct Sky;
 
-#[derive(Resource, Default)]
-struct Dropped(usize);
-
 fn drop_ball(click: On<PointerClick>, sky: Query<(), With<Sky>>, mut commands: Commands) {
     if !sky.contains(click.entity) {
         return;

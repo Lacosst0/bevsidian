@@ -22,6 +22,7 @@ mod movement;
 mod pathfinding;
 mod queries;
 mod resources;
+mod scatter;
 pub mod scenes;
 mod sounds;
 mod sprites;
@@ -37,7 +38,7 @@ use crate::example::Example;
 
 /// Every example's name.
 #[cfg(test)]
-pub const NAMES: [&str; 24] = [
+pub const NAMES: [&str; 25] = [
     "ai",
     "animation",
     "bouncing",
@@ -56,6 +57,7 @@ pub const NAMES: [&str; 24] = [
     "pathfinding",
     "queries",
     "resources",
+    "scatter",
     "sounds",
     "sprites",
     "states",
@@ -85,6 +87,7 @@ pub fn find(name: &str) -> Option<&'static Example> {
         "pathfinding" => &pathfinding::EXAMPLE,
         "queries" => &queries::EXAMPLE,
         "resources" => &resources::EXAMPLE,
+        "scatter" => &scatter::EXAMPLE,
         "sounds" => &sounds::EXAMPLE,
         "sprites" => &sprites::EXAMPLE,
         "states" => &states::EXAMPLE,

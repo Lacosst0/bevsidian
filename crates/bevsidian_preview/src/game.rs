@@ -207,7 +207,7 @@ pub(crate) fn draw_games(
 }
 
 /// The components whose sprites show the reader's pictures, with the picture: their sprite,
-/// then their model, each once made.
+/// then their model (before the reader makes them, the starting ship, a boulder and a ball).
 fn swaps(
     world: &World,
     yours: &Yours,
@@ -224,12 +224,22 @@ fn swaps(
             .map(|(id, _)| id)
             .collect()
     };
-    let mut out = Vec::new();
-    if yours.made_sprite {
-        out.push((named(&yours::SPRITE_OF), yours.sprite.clone()));
-    }
-    if yours.made_voxels {
-        out.push((named(&yours::MODEL_OF), yours.model.clone()));
+    let sprite_of: &[&str] = if yours.made_sprite {
+        &yours::SPRITE_OF
+    } else {
+        &yours::SPRITE_BEFORE
+    };
+    let (model_of, model): (&[&str], _) = if yours.made_voxels {
+        (&yours::MODEL_OF, yours.model.clone())
+    } else {
+        (&yours::MODEL_BEFORE, yours.rock.clone())
+    };
+    let mut out = vec![
+        (named(sprite_of), yours.sprite.clone()),
+        (named(model_of), model),
+    ];
+    if !yours.made_sprite {
+        out.push((named(&yours::BALL_BEFORE), yours.ball.clone()));
     }
     out
 }

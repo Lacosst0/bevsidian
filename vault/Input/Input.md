@@ -135,7 +135,7 @@ struct Sky;
 fn spawn_ship(mut commands: Commands) {
     commands.spawn((
         Ship,
-        Sprite::from_color(Color::srgb(0.35, 0.75, 0.9), Vec2::new(28.0, 12.0)),
+        Sprite::from_color(Color::srgb(0.35, 0.75, 0.9), Vec2::new(12.0, 28.0)),
         Transform::from_xyz(-100.0, 0.0, 1.0),
     ));
     commands.spawn((
@@ -180,7 +180,9 @@ fn turn(mut ships: Query<(&mut Transform, &Target)>) {
     for (mut transform, target) in &mut ships {
         let to_target = target.0 - transform.translation.truncate();
         if to_target.length() > 1.0 {
-            transform.rotation = Quat::from_rotation_z(to_target.to_angle());
+            // The nose points up (+y): turn a quarter less than the direction.
+            let angle = to_target.to_angle() - std::f32::consts::FRAC_PI_2;
+            transform.rotation = Quat::from_rotation_z(angle);
         }
     }
 }

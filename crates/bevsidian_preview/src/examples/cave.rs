@@ -27,7 +27,10 @@ pub static EXAMPLE: Example = Example {
 
 fn setup(_: &World) -> Setup {
     Box::new(|world| {
-        world.insert_resource(Cave::empty());
+        // Noise from the first frame (`draw` runs before the block's `random_fill`).
+        let mut cave = Cave::empty();
+        cave.fill();
+        world.insert_resource(cave);
     })
 }
 
@@ -35,6 +38,8 @@ const WIDTH: usize = 40;
 const HEIGHT: usize = 20;
 const TILE: f32 = 8.0;
 const STEPS: u32 = 5;
+const WALL: Color = Color::srgb(0.42, 0.36, 0.5);
+const FLOOR: Color = Color::srgb(0.17, 0.16, 0.23);
 
 #[derive(Resource)]
 struct Cave {
@@ -103,7 +108,7 @@ fn spawn_tiles(mut commands: Commands) {
         let (x, y) = ((i % WIDTH) as f32, (i / WIDTH) as f32);
         commands.spawn((
             Tile(i),
-            Sprite::from_color(Color::NONE, Vec2::splat(TILE)),
+            Sprite::from_color(FLOOR, Vec2::splat(TILE)),
             Transform::from_xyz(
                 (x + 0.5) * TILE - stage::SIZE.x / 2.0,
                 (y + 0.5) * TILE - stage::SIZE.y / 2.0,
@@ -127,10 +132,6 @@ fn smooth(time: Res<Time>, mut cave: ResMut<Cave>) {
 
 fn draw(cave: Res<Cave>, mut tiles: Query<(&Tile, &mut Sprite)>) {
     for (tile, mut sprite) in &mut tiles {
-        sprite.color = if cave.walls[tile.0] {
-            Color::srgb(0.30, 0.32, 0.42)
-        } else {
-            Color::srgb(0.11, 0.12, 0.17)
-        };
+        sprite.color = if cave.walls[tile.0] { WALL } else { FLOOR };
     }
 }

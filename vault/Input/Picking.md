@@ -30,11 +30,17 @@ struct Top(f32);
 #[derive(Component)]
 struct Card;
 
+const COLOURS: [Color; 3] = [
+    Color::srgb(0.95, 0.45, 0.4),
+    Color::srgb(0.55, 0.85, 0.45),
+    Color::srgb(0.6, 0.5, 0.95),
+];
+
 fn spawn_cards(mut commands: Commands) {
     for i in 0..3 {
         commands.spawn((
             Card,
-            Sprite::from_color(Color::srgb(0.95, 0.45, 0.4), Vec2::new(50.0, 70.0)),
+            Sprite::from_color(COLOURS[i], Vec2::new(50.0, 70.0)),
             Transform::from_xyz(-70.0 + 70.0 * i as f32, 0.0, i as f32),
         ));
     }

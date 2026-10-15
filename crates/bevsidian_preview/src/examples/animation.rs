@@ -1,9 +1,10 @@
 //! `Sprite animation.md`: a slime on a four-frame sprite sheet, and a timer that flips frames.
+//! `Texture atlases.md` steps through the frames with a button.
 
 use bevy::prelude::*;
 
 use super::stage::{self, Sky, sheet, spawn_sky};
-use crate::example::{Example, Setup, observer, startup, update};
+use crate::example::{Action, Example, Setup, observer, startup, update};
 
 pub static EXAMPLE: Example = Example {
     setup,
@@ -14,7 +15,11 @@ pub static EXAMPLE: Example = Example {
         observer!(change_speed),
     ],
     tick: None,
-    actions: &[],
+    actions: &[Action {
+        name: "next_frame",
+        label: "Next frame",
+        run: next_frame,
+    }],
     also: &[],
     view: stage::view(),
 };
@@ -80,6 +85,16 @@ fn animate(
             } else {
                 atlas.index + 1
             };
+        }
+    }
+}
+
+/// `Texture atlases.md`'s button: shows the next frame of the sheet.
+fn next_frame(world: &mut World) {
+    let mut sprites = world.query::<&mut Sprite>();
+    for mut sprite in sprites.iter_mut(world) {
+        if let Some(atlas) = &mut sprite.texture_atlas {
+            atlas.index = (atlas.index + 1) % 4;
         }
     }
 }
