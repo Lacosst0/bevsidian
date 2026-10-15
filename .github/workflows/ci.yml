@@ -29,7 +29,13 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo clippy --workspace --all-targets -- -D warnings 2>&1 | tee clippy.log || {
+            { grep -E -A3 "^(error|warning)" clippy.log | head -30; tail -n 5 clippy.log; } | sed 's/^/::error::/'
+            exit 1
+          }
       - name: Test
         shell: bash
         run: |
