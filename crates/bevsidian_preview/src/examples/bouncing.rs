@@ -1,9 +1,16 @@
 //! `Physics.md`: balls with gravity that bounce, and a click that drops another.
 
-use bevy::prelude::*;
+use bevy::{
+    audio::{AudioSource, Volume},
+    prelude::*,
+};
 
 use super::stage::{self, SIZE, Sky, colour, spawn_sky};
-use crate::example::{Example, Setup, observer, startup, update};
+use crate::{
+    example::{Example, Setup, observer, startup, update},
+    sound::Slot,
+    yours::Yours,
+};
 
 pub static EXAMPLE: Example = Example {
     setup,
@@ -20,14 +27,26 @@ pub static EXAMPLE: Example = Example {
     view: stage::view(),
 };
 
-fn setup(_: &World) -> Setup {
-    Box::new(|world| {
+fn setup(app: &World) -> Setup {
+    // The reader's bounce sound ("Make it yours").
+    let bounce = app
+        .get_resource::<Yours>()
+        .map_or_else(Handle::default, |yours| yours.sound(Slot::Bounce));
+    Box::new(move |world| {
         world.init_resource::<Dropped>();
+        world.insert_resource(Sounds {
+            bounce: bounce.clone(),
+        });
     })
 }
 
 #[derive(Resource, Default)]
 struct Dropped(usize);
+
+#[derive(Resource)]
+struct Sounds {
+    bounce: Handle<AudioSource>,
+}
 
 #[derive(Component, Default)]
 struct Velocity(Vec2);
@@ -62,11 +81,24 @@ fn gravity(time: Res<Time>, mut balls: Query<(&mut Transform, &mut Velocity)>) {
     }
 }
 
-fn bounce(mut balls: Query<(&mut Transform, &mut Velocity, &Ball)>) {
+fn bounce(
+    mut balls: Query<(&mut Transform, &mut Velocity, &Ball)>,
+    sounds: Res<Sounds>,
+    mut commands: Commands,
+) {
     for (mut transform, mut velocity, ball) in &mut balls {
         // Floor: flip the speed and lose a little energy.
         if transform.translation.y - ball.radius < FLOOR && velocity.0.y < 0.0 {
             transform.translation.y = FLOOR + ball.radius;
+            // The harder it lands, the louder; the last little hops are silent.
+            let speed = -velocity.0.y;
+            if speed > 60.0 {
+                let loudness = Volume::Linear((speed / 400.0).min(1.0));
+                commands.spawn((
+                    AudioPlayer::new(sounds.bounce.clone()),
+                    PlaybackSettings::DESPAWN.with_volume(loudness),
+                ));
+            }
             velocity.0.y = -velocity.0.y * 0.8;
         }
         // Walls: flip sideways.

@@ -1,7 +1,9 @@
-//! "Make it yours": a pixel sprite and a voxel model the reader makes. They are kept as
-//! images in the app's world and drawn in the examples: the player-like sprites (the Dodge
-//! player, the ship, the agent) as the reader's sprite, rocks and guards as their model. The
-//! examples' code is unchanged; only the game view swaps the pictures.
+//! "Make it yours": a pixel sprite, a voxel model and sound effects the reader makes. They
+//! are kept as assets in the app's world and turn up in the examples: the player-like sprites
+//! (the Dodge player, the ship, the agent, the balls) as the reader's sprite, rocks and guards
+//! as their model; the examples' code is unchanged, the game view swaps the pictures. Sounds
+//! are the examples' own `Sounds` resources, handed the reader's: an example plays one with an
+//! `AudioPlayer` as any game would, and [`play_sounds`] plays it in the app.
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -10,7 +12,13 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
-use bevsidian_core::nav::Studio;
+use bevy::audio::{AudioPlayer, AudioSource, PlaybackMode, PlaybackSettings};
+
+use crate::{
+    runtime::PreviewRuntime,
+    sound::{self, Sfx, Slot},
+};
+use bevsidian_core::nav::{Nav, Studio};
 use bevsidian_ui::color::PIXEL_PALETTE;
 
 /// The sprite is `SPRITE` × `SPRITE` pixels; the model `VOXELS` cells on each side.
@@ -37,6 +45,10 @@ pub struct Yours {
     pub model: Handle<Image>,
     /// One white cube with shaded sides, which the voxel example tints.
     pub cube: Handle<Image>,
+    /// The sound of each [`Slot`], whether the reader changed them, and the sounds.
+    pub sounds: Vec<Sfx>,
+    pub made_sounds: bool,
+    pub audio: Vec<Handle<AudioSource>>,
     /// Bumped whenever the model changes (previews that build from it start again).
     pub revision: u64,
 }
@@ -49,6 +61,16 @@ impl Yours {
     pub fn set_voxel(&mut self, x: usize, y: usize, z: usize, cell: Cell) {
         self.voxels[x + y * VOXELS + z * VOXELS * VOXELS] = cell;
         self.made_voxels = true;
+    }
+
+    /// The sound the examples play for `slot`.
+    pub fn sound(&self, slot: Slot) -> Handle<AudioSource> {
+        self.audio.get(slot.index()).cloned().unwrap_or_default()
+    }
+
+    pub fn set_sound(&mut self, slot: Slot, sfx: Sfx) {
+        self.sounds[slot.index()] = sfx.clamped();
+        self.made_sounds = true;
     }
 
     pub fn set_pixel(&mut self, index: usize, cell: Cell) {
@@ -146,6 +168,9 @@ impl Default for Yours {
             sprite: Handle::default(),
             model: Handle::default(),
             cube: Handle::default(),
+            sounds: Slot::ALL.iter().map(|s| s.default_sound()).collect(),
+            made_sounds: false,
+            audio: Vec::new(),
             revision: 0,
         }
     }
@@ -153,14 +178,17 @@ impl Default for Yours {
 
 /// The examples whose pictures become the reader's, by the name of a component on the
 /// sprite: the player-like ones show the sprite, the obstacles and enemies the model.
-pub const SPRITE_OF: [&str; 3] = ["Player", "Ship", "Agent"];
+pub const SPRITE_OF: [&str; 4] = ["Player", "Ship", "Agent", "Ball"];
 pub const MODEL_OF: [&str; 2] = ["Rock", "Guard"];
 
 /// What "Make it yours" a preview of the example offers, if any.
 pub fn studio_for(example: &str) -> Option<Studio> {
     match example {
         "voxels" => Some(Studio::Voxels),
-        "dodge" | "movement" | "ai" | "pathfinding" | "sprites" => Some(Studio::Sprite),
+        "sounds" => Some(Studio::Sounds),
+        "dodge" | "movement" | "ai" | "pathfinding" | "sprites" | "bouncing" => {
+            Some(Studio::Sprite)
+        }
         _ => None,
     }
 }
@@ -168,16 +196,96 @@ pub fn studio_for(example: &str) -> Option<Studio> {
 pub(crate) fn plugin(app: &mut App) {
     app.init_resource::<Yours>()
         .add_systems(PreStartup, create_images)
-        .add_systems(PostUpdate, redraw);
+        .add_systems(PostUpdate, (redraw, remake_sounds));
 }
 
-fn create_images(mut yours: ResMut<Yours>, images: Option<ResMut<Assets<Image>>>) {
+fn create_images(
+    mut yours: ResMut<Yours>,
+    images: Option<ResMut<Assets<Image>>>,
+    audio: Option<ResMut<Assets<AudioSource>>>,
+) {
+    if let Some(mut audio) = audio {
+        yours.audio = yours
+            .sounds
+            .iter()
+            .map(|sfx| audio.add(sound::audio(sfx)))
+            .collect();
+    }
     let Some(mut images) = images else {
         return;
     };
     yours.sprite = images.add(sprite_image(&yours.pixels));
     yours.model = images.add(model_image(&yours.voxels));
     yours.cube = images.add(cube_image());
+}
+
+/// Remakes the sounds that changed.
+fn remake_sounds(
+    yours: Res<Yours>,
+    audio: Option<ResMut<Assets<AudioSource>>>,
+    mut last: Local<Vec<Sfx>>,
+) {
+    let Some(mut audio) = audio else {
+        return;
+    };
+    if *last == yours.sounds {
+        return;
+    }
+    for (index, sfx) in yours.sounds.iter().enumerate() {
+        if last.get(index) != Some(sfx)
+            && let Some(handle) = yours.audio.get(index)
+            && let Some(mut source) = audio.get_mut(handle)
+        {
+            *source = sound::audio(sfx);
+        }
+    }
+    last.clone_from(&yours.sounds);
+}
+
+/// A sound an example played, playing in the app.
+#[derive(Component)]
+pub struct PreviewSound;
+
+/// Most sounds playing at once: a pile of bouncing balls stays pleasant.
+const MOST_SOUNDS: usize = 6;
+
+/// Plays in the app the sounds the examples' worlds start: each `AudioPlayer` an example
+/// spawns is taken out of its world and spawned here, where Bevy's audio plays it (unless the
+/// reader turned sound off).
+pub fn play_sounds(
+    mut previews: Query<&mut PreviewRuntime>,
+    playing: Query<(), With<PreviewSound>>,
+    nav: Res<Nav>,
+    mut commands: Commands,
+) {
+    let mut count = playing.iter().count();
+    let on = nav.sound.get_untracked();
+    for mut runtime in &mut previews {
+        let world = &mut runtime.bypass_change_detection().world;
+        let mut players = world.query::<(Entity, &AudioPlayer, Option<&PlaybackSettings>)>();
+        let started: Vec<(Entity, Handle<AudioSource>, PlaybackSettings)> = players
+            .iter(world)
+            .map(|(entity, player, settings)| {
+                (
+                    entity,
+                    player.0.clone(),
+                    settings.copied().unwrap_or_default(),
+                )
+            })
+            .collect();
+        for (entity, handle, mut settings) in started {
+            world.despawn(entity);
+            if !on || count >= MOST_SOUNDS {
+                continue;
+            }
+            // Played once, the entity goes when it ends.
+            if matches!(settings.mode, PlaybackMode::Once | PlaybackMode::Remove) {
+                settings.mode = PlaybackMode::Despawn;
+            }
+            commands.spawn((PreviewSound, AudioPlayer(handle), settings));
+            count += 1;
+        }
+    }
 }
 
 /// Redraws the images when the sprite or model changes.

@@ -1,11 +1,14 @@
 //! Remembers the settings (text size, scroll speed, frame rate), the map's chosen routes, the
-//! notes visited and the reader's own sprite and voxel model ("Make it yours") between
+//! notes visited and the reader's own sprite, voxel model and sounds ("Make it yours") between
 //! visits: on the web in `localStorage`, natively in a file per setting in the user's data
 //! folder. Also the storage behind saved note edits on the web.
 
 use bevy::prelude::*;
 
-use bevsidian_preview::yours::{self, SPRITE, VOXELS, Yours};
+use bevsidian_preview::{
+    sound::{Sfx, Slot},
+    yours::{self, SPRITE, VOXELS, Yours},
+};
 
 use bevsidian_core::{
     Vault,
@@ -28,6 +31,8 @@ const WHOLE_MAP_KEY: &str = "bevsidian.wholeMap";
 const VISITED_KEY: &str = "bevsidian.visited";
 const SPRITE_KEY: &str = "bevsidian.sprite";
 const VOXELS_KEY: &str = "bevsidian.voxels";
+const SOUNDS_KEY: &str = "bevsidian.sounds";
+const SOUND_KEY: &str = "bevsidian.sound";
 
 /// The reader's sprite and model, if they made them (an empty value: they started over).
 fn load_yours(mut yours: ResMut<Yours>) {
@@ -40,9 +45,17 @@ fn load_yours(mut yours: ResMut<Yours>) {
         yours.voxels = voxels;
         yours.made_voxels = true;
     }
+    // One sound per line, in slot order.
+    if let Some(text) = read(SOUNDS_KEY) {
+        let sounds: Option<Vec<Sfx>> = text.lines().map(Sfx::decode).collect();
+        if let Some(sounds) = sounds.filter(|s| s.len() == Slot::ALL.len()) {
+            yours.sounds = sounds;
+            yours.made_sounds = true;
+        }
+    }
 }
 
-fn save_yours(yours: Res<Yours>, mut last: Local<Option<(String, String)>>) {
+fn save_yours(yours: Res<Yours>, mut last: Local<Option<(String, String, String)>>) {
     if !yours.is_changed() {
         return;
     }
@@ -53,9 +66,20 @@ fn save_yours(yours: Res<Yours>, mut last: Local<Option<(String, String)>>) {
             String::new()
         }
     };
+    let sounds = if yours.made_sounds {
+        yours
+            .sounds
+            .iter()
+            .map(Sfx::encode)
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        String::new()
+    };
     let current = (
         stored(yours.made_sprite, &yours.pixels),
         stored(yours.made_voxels, &yours.voxels),
+        sounds,
     );
     if last.as_ref() == Some(&current) {
         return;
@@ -64,6 +88,7 @@ fn save_yours(yours: Res<Yours>, mut last: Local<Option<(String, String)>>) {
     if last.is_some() {
         write(SPRITE_KEY, &current.0);
         write(VOXELS_KEY, &current.1);
+        write(SOUNDS_KEY, &current.2);
     }
     *last = Some(current);
 }
@@ -135,19 +160,23 @@ fn load(nav: Res<Nav>) {
     if read(VSYNC_KEY).as_deref() == Some("0") {
         nav.vsync.set(false);
     }
+    if read(SOUND_KEY).as_deref() == Some("0") {
+        nav.sound.set(false);
+    }
     let fps_requested = crate::perf::requested();
     if fps_requested || read(SHOW_FPS_KEY).as_deref() == Some("1") {
         nav.show_fps.set(true);
     }
 }
 
-fn save(nav: Res<Nav>, mut last: Local<Option<(u32, u32, bool, u32, bool)>>) {
+fn save(nav: Res<Nav>, mut last: Local<Option<(u32, u32, bool, u32, bool, bool)>>) {
     let current = (
         nav.text_size.get_untracked(),
         nav.scroll_speed.get_untracked(),
         nav.show_fps.get_untracked(),
         nav.max_fps.get_untracked(),
         nav.vsync.get_untracked(),
+        nav.sound.get_untracked(),
     );
     if *last == Some(current) {
         return;
@@ -159,6 +188,7 @@ fn save(nav: Res<Nav>, mut last: Local<Option<(u32, u32, bool, u32, bool)>>) {
         write(SHOW_FPS_KEY, if current.2 { "1" } else { "0" });
         write(MAX_FPS_KEY, &current.3.to_string());
         write(VSYNC_KEY, if current.4 { "1" } else { "0" });
+        write(SOUND_KEY, if current.5 { "1" } else { "0" });
     }
     *last = Some(current);
 }

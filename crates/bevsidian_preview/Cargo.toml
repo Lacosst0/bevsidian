@@ -23,6 +23,8 @@ bevy = { workspace = true, features = [
     "bevy_state",
     "bevy_curve",
     "bevy_log",
+    "bevy_audio",
+    "wav",
     # Bevy's system stepping, used to run a preview one system at a time.
     "bevy_debug_stepping",
 ] }

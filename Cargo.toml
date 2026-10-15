@@ -78,6 +78,10 @@ bevy = { workspace = true, features = [
     "bevy_picking",
     "ui_picking",
     "bevy_scene",
+    # Sound: the reader's own sound effects, made in code ("Make it yours"), played by the
+    # examples.
+    "bevy_audio",
+    "wav",
 ] }
 bevy_radioactive.workspace = true
 bevy_ui_textselect.workspace = true

@@ -11,7 +11,7 @@ Bevy has **no physics engine built in**. For simple games you write a few system
 Many games need only gravity, a floor and rectangles that overlap. That is a few lines, and you control every detail. Balls with gravity and bounce; click the stage to drop another:
 
 ```rust example=bouncing
-use bevy::prelude::*;
+use bevy::{audio::Volume, prelude::*};
 
 #[derive(Component, Default)]
 struct Velocity(Vec2);
@@ -24,6 +24,11 @@ struct Ball {
 const GRAVITY: f32 = -400.0;
 const FLOOR: f32 = -80.0;
 const HALF_WIDTH: f32 = 160.0;
+
+#[derive(Resource)]
+struct Sounds {
+    bounce: Handle<AudioSource>,
+}
 
 fn ball(radius: f32, at: Vec2, velocity: Vec2) -> impl Bundle {
     (
@@ -47,11 +52,24 @@ fn gravity(time: Res<Time>, mut balls: Query<(&mut Transform, &mut Velocity)>) {
     }
 }
 
-fn bounce(mut balls: Query<(&mut Transform, &mut Velocity, &Ball)>) {
+fn bounce(
+    mut balls: Query<(&mut Transform, &mut Velocity, &Ball)>,
+    sounds: Res<Sounds>,
+    mut commands: Commands,
+) {
     for (mut transform, mut velocity, ball) in &mut balls {
         // Floor: flip the speed and lose a little energy.
         if transform.translation.y - ball.radius < FLOOR && velocity.0.y < 0.0 {
             transform.translation.y = FLOOR + ball.radius;
+            // The harder it lands, the louder; the last little hops are silent.
+            let speed = -velocity.0.y;
+            if speed > 60.0 {
+                let loudness = Volume::Linear((speed / 400.0).min(1.0));
+                commands.spawn((
+                    AudioPlayer::new(sounds.bounce.clone()),
+                    PlaybackSettings::DESPAWN.with_volume(loudness),
+                ));
+            }
             velocity.0.y = -velocity.0.y * 0.8;
         }
         // Walls: flip sideways.
@@ -65,6 +83,8 @@ fn bounce(mut balls: Query<(&mut Transform, &mut Velocity, &Ball)>) {
 ```
 
 Step through it: `gravity` first adds to `velocity.y`, *then* moves. That order (accelerate, then move) is the heart of every physics engine. The factor `0.8` is "restitution": 1.0 would never lose energy.
+
+Each landing plays a sound as loud as the landing is hard ([[Audio]]). The balls and the sound can be your own: the brush button above draws the ball, the speaker button on [[Audio]] makes the sound.
 
 ```rust example=bouncing
 #[derive(Component)]

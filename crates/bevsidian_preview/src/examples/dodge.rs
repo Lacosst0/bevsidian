@@ -3,10 +3,14 @@
 //! The note uses `rand::random_range`; the preview has a tiny generator of its own, so it
 //! needs no crates and plays the same every time.
 
-use bevy::prelude::*;
+use bevy::{audio::AudioSource, prelude::*};
 
 use super::stage::{self, SIZE, Sky, colour, spawn_sky};
-use crate::example::{Example, Setup, observer, startup, update};
+use crate::{
+    example::{Example, Setup, observer, startup, update},
+    sound::Slot,
+    yours::Yours,
+};
 
 pub static EXAMPLE: Example = Example {
     setup,
@@ -27,8 +31,13 @@ pub static EXAMPLE: Example = Example {
     view: stage::view(),
 };
 
-fn setup(_: &World) -> Setup {
-    Box::new(|world| {
+fn setup(app: &World) -> Setup {
+    // The reader's hit sound ("Make it yours").
+    let hit = app
+        .get_resource::<Yours>()
+        .map_or_else(Handle::default, |yours| yours.sound(Slot::Hit));
+    Box::new(move |world| {
+        world.insert_resource(Sounds { hit: hit.clone() });
         world.insert_resource(Lives(3));
         world.insert_resource(Score(0));
         world.insert_resource(Spawner(Timer::from_seconds(0.6, TimerMode::Repeating)));
@@ -42,6 +51,11 @@ const ROCK: f32 = 14.0;
 
 #[derive(Resource)]
 struct Lives(u32);
+
+#[derive(Resource)]
+struct Sounds {
+    hit: Handle<AudioSource>,
+}
 
 #[derive(Resource)]
 struct Score(u32);
@@ -160,6 +174,7 @@ fn hit_player(
     player: Single<&Transform, With<Player>>,
     rocks: Query<(Entity, &Transform), With<Rock>>,
     mut lives: ResMut<Lives>,
+    sounds: Res<Sounds>,
     mut commands: Commands,
 ) {
     for (rock, transform) in &rocks {
@@ -167,6 +182,10 @@ fn hit_player(
         if apart.x < PLAYER.x.midpoint(ROCK) && apart.y < PLAYER.y.midpoint(ROCK) {
             commands.entity(rock).despawn();
             lives.0 = lives.0.saturating_sub(1);
+            commands.spawn((
+                AudioPlayer::new(sounds.hit.clone()),
+                PlaybackSettings::DESPAWN,
+            ));
         }
     }
 }

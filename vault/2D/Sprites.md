@@ -68,13 +68,23 @@ fn breathe(time: Res<Time>, mut squares: Query<&mut Transform, With<Breathing>>)
 
 ## Click to place
 
-Pointer events (see [[Picking]]) tell you where something was clicked. The preview forwards your clicks to the stage; this observer adds a square at the click:
+Pointer events (see [[Picking]]) tell you where something was clicked. The preview forwards your clicks to the stage; this observer adds a square at the click, with a pop ([[Audio]]; make your own pop with the speaker button on [[Audio]]'s sound example):
 
 ```rust example=sprites
 #[derive(Component)]
 struct Sky;
 
-fn place_square(click: On<PointerClick>, sky: Query<(), With<Sky>>, mut commands: Commands) {
+#[derive(Resource)]
+struct Sounds {
+    pop: Handle<AudioSource>,
+}
+
+fn place_square(
+    click: On<PointerClick>,
+    sky: Query<(), With<Sky>>,
+    sounds: Res<Sounds>,
+    mut commands: Commands,
+) {
     // Only clicks on the background, not on other squares.
     if !sky.contains(click.entity) {
         return;
@@ -82,6 +92,7 @@ fn place_square(click: On<PointerClick>, sky: Query<(), With<Sky>>, mut commands
     let Some(at) = click.hit.position else {
         return;
     };
+    commands.spawn((AudioPlayer::new(sounds.pop.clone()), PlaybackSettings::DESPAWN));
     commands.spawn((
         Sprite::from_color(Color::srgb(0.6, 0.5, 0.95), Vec2::splat(24.0)),
         Transform::from_translation(at.truncate().extend(3.0)),

@@ -53,5 +53,6 @@ pub fn plugin(app: &mut App) {
         surface::plugin,
         components::input::plugin,
         components::tooltip::plugin,
+        components::slider::plugin,
     ));
 }

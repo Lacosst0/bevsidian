@@ -141,16 +141,26 @@ Without the despawn the rocks would fall forever and the game would slow down. E
 
 ## 4. Hits and lives
 
-Two boxes overlap when the distance between their centres is less than half of their sizes added together, on **both** axes. A hit removes the rock and a life; the pips on screen show the lives left.
+Two boxes overlap when the distance between their centres is less than half of their sizes added together, on **both** axes. A hit removes the rock and a life, and plays a sound ([[Audio]]); the pips on screen show the lives left.
 
 ```rust example=dodge
 #[derive(Resource)]
 struct Lives(u32);
 
+#[derive(Resource)]
+struct Sounds {
+    hit: Handle<AudioSource>,
+}
+
+fn load_sounds(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(Sounds { hit: asset_server.load("sounds/hit.ogg") });
+}
+
 fn hit_player(
     player: Single<&Transform, With<Player>>,
     rocks: Query<(Entity, &Transform), With<Rock>>,
     mut lives: ResMut<Lives>,
+    sounds: Res<Sounds>,
     mut commands: Commands,
 ) {
     for (rock, transform) in &rocks {
@@ -158,6 +168,7 @@ fn hit_player(
         if apart.x < (PLAYER.x + ROCK) / 2.0 && apart.y < (PLAYER.y + ROCK) / 2.0 {
             commands.entity(rock).despawn();
             lives.0 = lives.0.saturating_sub(1);         // never below zero
+            commands.spawn((AudioPlayer::new(sounds.hit.clone()), PlaybackSettings::DESPAWN));
         }
     }
 }
@@ -176,13 +187,13 @@ fn add_hits(app: &mut App) {
     app.insert_resource(Lives(3))
         .insert_resource(Spawner(Timer::from_seconds(0.6, TimerMode::Repeating)))
         .insert_resource(Score(0))
-        .add_systems(Startup, spawn_player)
+        .add_systems(Startup, (spawn_player, load_sounds))
         .add_systems(Update, (slide, spawn_rocks, fall, hit_player, show_lives))
         .add_observer(set_target);
 }
 ```
 
-Let a few rocks hit the ship in the preview and watch the lives go dark. Nothing stops yet: the next step does that.
+Let a few rocks hit the ship in the preview and watch the lives go dark. The preview has no files to load: it plays your own hit sound instead (make it with the speaker button on [[Audio]]; the ship and the rocks can be yours too, with the brush and box buttons). Nothing stops yet: the next step does that.
 
 > [!NOTE]
 > This is hand-written box overlap, perfect for a game this small. For anything with more shapes, bounce or gravity use a physics engine: [[Physics]].
@@ -218,7 +229,7 @@ fn main() {
         .insert_resource(Lives(3))
         .insert_resource(Score(0))
         .insert_resource(Spawner(Timer::from_seconds(0.6, TimerMode::Repeating)))
-        .add_systems(Startup, (|mut commands: Commands| { commands.spawn(Camera2d); }, spawn_player))
+        .add_systems(Startup, (|mut commands: Commands| { commands.spawn(Camera2d); }, spawn_player, load_sounds))
         .add_systems(
             Update,
             (slide, spawn_rocks, fall, hit_player).run_if(alive),   // frozen when dead

@@ -46,6 +46,8 @@ pub enum Studio {
     Sprite,
     /// An 8 × 8 × 8 voxel model.
     Voxels,
+    /// Sound effects: what a hit, a bounce, a pop and a coin sound like.
+    Sounds,
 }
 
 /// Reactive navigation state, shared by the UI (through `view!` signals) and systems.
@@ -80,6 +82,8 @@ pub struct Nav {
     pub map_edit: Signal<bool>,
     /// "Make it yours" is open, on its pixel sprite or voxel model.
     pub studio: Signal<Option<Studio>>,
+    /// The examples play sounds.
+    pub sound: Signal<bool>,
     /// Notes the reader has opened, in the order first opened (the map lights their stars).
     pub visited: Signal<Vec<NoteId>>,
     /// Find in the note (`Ctrl+F`): open, what to find, which match is current and how
@@ -168,6 +172,7 @@ impl Nav {
             map_setup: signal(|| false),
             map_edit: signal(|| false),
             studio: signal(|| None),
+            sound: signal(|| true),
             visited: signal(Vec::new),
             find: signal(|| false),
             find_query: signal(String::new),

@@ -16,6 +16,7 @@ pub mod example;
 mod examples;
 mod game;
 mod runtime;
+pub mod sound;
 pub mod yours;
 
 use bevy::{prelude::*, ui_widgets::Activate};
@@ -37,6 +38,7 @@ pub fn plugin(app: &mut App) {
             (
                 rebuild_previews,
                 play_previews,
+                yours::play_sounds,
                 (show_controls, cards::show_cards, game::draw_games),
             )
                 .chain(),
@@ -241,7 +243,7 @@ fn controls(playback: Playback, actions: &[&Action], studio: Option<Studio>) -> 
     }
 }
 
-/// Opens "Make it yours" on the sprite or the model this example draws.
+/// Opens "Make it yours" on the sprite, the model or the sounds this example uses.
 fn studio_button(studio: Studio) -> impl Scene + use<> {
     let (icon, tip) = match studio {
         Studio::Sprite => (
@@ -252,6 +254,7 @@ fn studio_button(studio: Studio) -> impl Scene + use<> {
             "box",
             "Build your own voxel model: it appears in the examples",
         ),
+        Studio::Sounds => ("volume-2", "Make your own sounds: the examples play them"),
     };
     bsn! {
         @{button(Variant::Ghost, Size::IconXs)}
@@ -379,6 +382,46 @@ mod tests {
         let example = examples::find("ecs").unwrap();
         let setup = (example.setup)(&World::new());
         PreviewRuntime::new(example, setup, code, None)
+    }
+
+    #[test]
+    fn a_sound_an_example_plays_plays_in_the_app() {
+        use bevy::audio::{AudioPlayer, AudioSource, PlaybackSettings};
+        let mut app = App::new();
+        app.insert_resource(bevsidian_core::nav::Nav::new(0))
+            .add_systems(Update, yours::play_sounds);
+        let example = examples::find("sounds").unwrap();
+        let setup = (example.setup)(app.world());
+        let mut preview = PreviewRuntime::new(example, setup, "spawn_pads play", None);
+        preview.world.spawn((
+            AudioPlayer::<AudioSource>(Handle::default()),
+            PlaybackSettings::DESPAWN,
+        ));
+        let host = app.world_mut().spawn(preview).id();
+        app.update();
+        let mut sounds = app.world_mut().query::<&yours::PreviewSound>();
+        assert_eq!(sounds.iter(app.world()).count(), 1, "plays in the app");
+        let runtime = app.world_mut().get_mut::<PreviewRuntime>(host).unwrap();
+        let world = &mut runtime.into_inner().world;
+        let mut left = world.query::<&AudioPlayer<AudioSource>>();
+        assert_eq!(
+            left.iter(world).count(),
+            0,
+            "and leaves the example's world"
+        );
+
+        // With sound off, it is dropped.
+        app.world()
+            .resource::<bevsidian_core::nav::Nav>()
+            .sound
+            .set(false);
+        let mut runtime = app.world_mut().get_mut::<PreviewRuntime>(host).unwrap();
+        runtime
+            .world
+            .spawn(AudioPlayer::<AudioSource>(Handle::default()));
+        app.update();
+        let mut sounds = app.world_mut().query::<&yours::PreviewSound>();
+        assert_eq!(sounds.iter(app.world()).count(), 1, "no new sound");
     }
 
     #[test]

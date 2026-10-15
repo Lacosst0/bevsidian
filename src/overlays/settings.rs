@@ -72,6 +72,8 @@ fn panel(nav: Nav) -> impl Scene {
                 @{field("Text size", None, text_size)}
                 --
                 @{field("Scroll speed", None, scroll_speed)}
+                --
+                @{field("Sound in examples", None, switch(nav.sound.clone()))}
             ]
             --
             @{separator()}

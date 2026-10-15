@@ -1,9 +1,13 @@
 //! `Sprites.md`: coloured squares, the order they are drawn in, and clicks that add more.
 
-use bevy::prelude::*;
+use bevy::{audio::AudioSource, prelude::*};
 
 use super::stage::{self, Sky, spawn_sky};
-use crate::example::{Example, Setup, observer, startup, update};
+use crate::{
+    example::{Example, Setup, observer, startup, update},
+    sound::Slot,
+    yours::Yours,
+};
 
 pub static EXAMPLE: Example = Example {
     setup,
@@ -19,14 +23,24 @@ pub static EXAMPLE: Example = Example {
     view: stage::view(),
 };
 
-fn setup(_: &World) -> Setup {
-    Box::new(|world| {
+fn setup(app: &World) -> Setup {
+    // The reader's pop sound ("Make it yours").
+    let pop = app
+        .get_resource::<Yours>()
+        .map_or_else(Handle::default, |yours| yours.sound(Slot::Pop));
+    Box::new(move |world| {
         world.init_resource::<Placed>();
+        world.insert_resource(Sounds { pop: pop.clone() });
     })
 }
 
 #[derive(Resource, Default)]
 struct Placed(usize);
+
+#[derive(Resource)]
+struct Sounds {
+    pop: Handle<AudioSource>,
+}
 
 #[derive(Component)]
 struct Breathing;
@@ -59,6 +73,7 @@ fn place_square(
     click: On<PointerClick>,
     sky: Query<(), With<Sky>>,
     mut placed: ResMut<Placed>,
+    sounds: Res<Sounds>,
     mut commands: Commands,
 ) {
     if !sky.contains(click.entity) {
@@ -68,6 +83,10 @@ fn place_square(
         return;
     };
     placed.0 += 1;
+    commands.spawn((
+        AudioPlayer::new(sounds.pop.clone()),
+        PlaybackSettings::DESPAWN,
+    ));
     commands.spawn((
         Sprite::from_color(stage::colour(placed.0 + 2), Vec2::splat(24.0)),
         Transform::from_translation(at.truncate().extend(3.0 + placed.0 as f32 * 0.01)),

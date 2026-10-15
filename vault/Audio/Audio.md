@@ -64,6 +64,63 @@ fn play_hit(_: On<Hit>, sounds: Res<Sounds>, mut commands: Commands) {
 
 An [[Events and observers|observer]] on a game event keeps sound out of your gameplay code.
 
+## Make your own sounds
+
+Game sounds do not have to be recordings. The classic "blips" of old games are made from a few numbers: a **wave** (square, saw, sine or noise), a **pitch** that can **slide** up or down, a **length** and a **volume**. Press the **speaker** button above this preview to make your own, from ready-made ones (coin, jump, hit, laser…) or by surprise. They are saved, and the other examples play them: the hit in Dodge ([[Make a game]]), the bouncing balls in [[Physics]], the pop of a new square in [[Sprites]].
+
+Click a pad to play its sound:
+
+```rust example=sounds
+use bevy::prelude::*;
+
+#[derive(Resource)]
+struct Sounds {
+    hit: Handle<AudioSource>,
+    bounce: Handle<AudioSource>,
+    pop: Handle<AudioSource>,
+    coin: Handle<AudioSource>,
+}
+
+/// A pad to click, and the sound it plays.
+#[derive(Component)]
+struct Pad(Handle<AudioSource>);
+
+fn spawn_pads(mut commands: Commands, sounds: Res<Sounds>) {
+    let pads = [
+        (&sounds.hit, Color::srgb(0.95, 0.45, 0.4)),
+        (&sounds.bounce, Color::srgb(0.35, 0.75, 0.9)),
+        (&sounds.pop, Color::srgb(0.55, 0.85, 0.45)),
+        (&sounds.coin, Color::srgb(0.98, 0.75, 0.3)),
+    ];
+    for (i, (sound, color)) in pads.into_iter().enumerate() {
+        commands.spawn((
+            Pad(sound.clone()),
+            Sprite::from_color(color, Vec2::splat(56.0)),
+            Transform::from_xyz(-105.0 + i as f32 * 70.0, 0.0, 1.0),
+        ));
+    }
+}
+
+fn play(click: On<PointerClick>, mut pads: Query<(&Pad, &mut Transform)>, mut commands: Commands) {
+    let Ok((pad, mut transform)) = pads.get_mut(click.entity) else {
+        return;
+    };
+    // A new player each time: the same sound can overlap itself.
+    commands.spawn((AudioPlayer::new(pad.0.clone()), PlaybackSettings::DESPAWN));
+    transform.scale = Vec3::splat(0.8);
+}
+
+/// Pressed pads spring back to their size.
+fn spring_back(time: Res<Time>, mut pads: Query<&mut Transform, With<Pad>>) {
+    let t = (time.delta_secs() * 12.0).min(1.0);
+    for mut transform in &mut pads {
+        transform.scale = transform.scale.lerp(Vec3::ONE, t);
+    }
+}
+```
+
+Each click spawns a new player, so a sound can overlap itself; `PlaybackSettings::DESPAWN` cleans each one up when it ends.
+
 ## Control a playing sound
 
 While it plays, the entity has an [`AudioSink`]:
