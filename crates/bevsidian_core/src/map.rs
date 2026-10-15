@@ -29,19 +29,17 @@ pub enum Shape {
     Hexagon,
     Square,
     Star,
-    Octagon,
     Pentagon,
 }
 
 impl Shape {
     /// Every shape, in the order the editor offers them.
-    pub const ALL: [Shape; 7] = [
+    pub const ALL: [Shape; 6] = [
         Shape::Circle,
         Shape::Diamond,
         Shape::Hexagon,
         Shape::Square,
         Shape::Pentagon,
-        Shape::Octagon,
         Shape::Star,
     ];
 
@@ -53,7 +51,6 @@ impl Shape {
             Shape::Hexagon => "hexagon",
             Shape::Square => "square",
             Shape::Star => "star",
-            Shape::Octagon => "octagon",
             Shape::Pentagon => "pentagon",
         }
     }
@@ -400,7 +397,7 @@ pub fn remove_object(source: &str, index: usize) -> String {
 mod tests {
     use super::*;
 
-    const SOURCE: &str = "---\nmap: true\n---\n# Map\n\nText.\n\n```map\n# The hub\nBevy @ 0, 0 octagon large\nHello Bevy        @ 10, -420\nlabel: Pixel Plains | 2D @ -1500, 420 size 40\nlandmark: tree-pine @ 3, 4\nland: @ -1500, 300 r 700\nnot a line\n```\n\nAfter.\n";
+    const SOURCE: &str = "---\nmap: true\n---\n# Map\n\nText.\n\n```map\n# The hub\nBevy @ 0, 0 star large\nHello Bevy        @ 10, -420\nlabel: Pixel Plains | 2D @ -1500, 420 size 40\nlandmark: tree-pine @ 3, 4\nland: @ -1500, 300 r 700\nnot a line\n```\n\nAfter.\n";
 
     #[test]
     fn places_and_objects_are_read() {
@@ -412,7 +409,7 @@ mod tests {
                 Place {
                     name: "Bevy".into(),
                     at: Vec2::ZERO,
-                    shape: Some(Shape::Octagon),
+                    shape: Some(Shape::Star),
                     scale: Scale::Large
                 },
                 Place {
@@ -457,7 +454,7 @@ mod tests {
                 scale: Scale::Normal,
             },
         );
-        assert!(moved.contains("# The hub\nBevy @ 0, 0 octagon large\nHello Bevy"));
+        assert!(moved.contains("# The hub\nBevy @ 0, 0 star large\nHello Bevy"));
         assert!(moved.ends_with("```\n\nAfter.\n"));
         let map = WorldMap::parse(0, &moved);
         let place = map.place("Hello Bevy").unwrap();

@@ -4,7 +4,7 @@ tags: [input]
 ---
 # Gamepad and touch
 
-Controllers and fingers. For keyboard and mouse see [[Keyboard and mouse]]; for actions on top of any device see [[Input mapping]].
+Controllers and fingers. For keyboard and mouse see [[Input#Keyboard and mouse|Input]]; for actions on top of any device see [[Input mapping]].
 
 ## Gamepad
 

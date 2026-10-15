@@ -42,7 +42,7 @@ Default controls: left mouse rotates, right mouse pans, wheel zooms; touch and t
 ## Choosing
 
 - New project: the built-in controller.
-- First-person: neither. Read the mouse yourself ([[Keyboard and mouse]]) or use the built-in free camera.
+- First-person: neither. Read the mouse yourself ([[Input#Keyboard and mouse|Input]]) or use the built-in free camera.
 - 2D map panning: [[bevy_pancam]].
 
 ## Links

@@ -3,9 +3,8 @@
 //! Every note is a filled shape where the vault's map note puts it ([`bevsidian_core::map`]):
 //! Bevy, the largest, in the middle, the main quest drawn round it as a bird after Bevy's
 //! logo, and the sky behind them ([`world`]). The shape says what a note is (a hexagon for an area, a
-//! diamond for a milestone, a star for a route's goal, a square for a crate…; see
-//! [`shapes`]), the note's icon sits inside it and its name above; it is dim until the note
-//! is read. Routes are coloured lines with arrows in reading order, their first page filled
+//! diamond for a milestone, a square for a crate, a star for Bevy…; see [`shapes`]), the
+//! note's icon sits inside it and its name above; it is filled grey once the note is read. Routes are coloured lines with arrows in reading order, their first page filled
 //! with their colour ([`lines`], [`routes`]): the map shows the main quest, the routes the reader chose
 //! in its checklist and the route being followed; everything else shows with the whole map
 //! ([`show`]).
@@ -441,7 +440,7 @@ fn setup(
 /// The shape a note's rank gives it when the map names none.
 fn default_shape(rank: usize) -> Shape {
     match rank {
-        0 => Shape::Octagon,
+        0 => Shape::Star,
         1 => Shape::Hexagon,
         4 => Shape::Square,
         _ => Shape::Circle,
@@ -451,7 +450,7 @@ fn default_shape(rank: usize) -> Shape {
 /// A note's radius: by its shape and rank, then the map's size.
 fn node_radius(shape: Shape, rank: usize, scale: Scale) -> f32 {
     let base = match (shape, rank) {
-        (Shape::Octagon, _) => 40.0,
+        (Shape::Star, 0) => 44.0,
         (Shape::Hexagon, _) => 31.0,
         (Shape::Star, _) => 30.0,
         (Shape::Diamond | Shape::Pentagon, _) => 27.0,

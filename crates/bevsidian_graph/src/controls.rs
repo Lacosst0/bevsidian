@@ -187,7 +187,7 @@ pub fn legend() -> impl Scene {
             --
             @{row(shape("diamond"), "Milestone")}
             --
-            @{row(shape("star"), "Goal of a route")}
+            @{row(shape("star"), "Bevy, the hub")}
             --
             @{row(shape("pentagon"), "Crates compared")}
             --
@@ -276,8 +276,7 @@ pub fn edit_bar() -> impl Scene {
                 Some(Shape::Hexagon) => ("hexagon", "Hexagon: an area"),
                 Some(Shape::Square) => ("square", "Square: a crate"),
                 Some(Shape::Pentagon) => ("pentagon", "Pentagon: crates compared"),
-                Some(Shape::Octagon) => ("octagon", "Octagon: the hub"),
-                Some(Shape::Star) => ("star", "Star: a route's goal"),
+                Some(Shape::Star) => ("star", "Star: Bevy, the hub"),
             };
             Box::new(bsn! {
                 @{icon_button(Variant::Ghost, Size::IconSm, icon)}

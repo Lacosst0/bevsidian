@@ -13,7 +13,7 @@ The main quest: a bird drawn around Bevy, from a blank window to Dodge, a small 
 4. [[App and plugins]] (extra): what `App::new()` really builds.
 5. [[Entities and components]]: how things are described.
 6. [[Systems]]: how they change.
-7. [[Keyboard and mouse]] (optional): steer with keys and the mouse.
+7. [[Input]] (optional): steer with keys and the mouse.
 8. [[Queries]]: finding what to change.
 9. [[Sprites]]: pictures on screen.
 10. [[Commands]]: spawn and despawn.

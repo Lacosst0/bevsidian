@@ -1,4 +1,4 @@
-//! `Transforms.md` / `Keyboard and mouse.md`: a ship that flies to wherever you click.
+//! `Transforms.md` / `Input.md`: a ship that flies to wherever you click.
 
 use bevy::prelude::*;
 

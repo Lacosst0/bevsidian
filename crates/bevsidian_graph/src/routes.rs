@@ -2,10 +2,9 @@
 //!
 //! The main quest (`quest: main`) starts at the hub; every other route starts at the stop of
 //! the main quest nearest its first step (or at the hub), so lines branch off the main quest
-//! instead of all crossing the hub. A route's core steps are joined in order; each optional
-//! step hangs from the route's core step nearest it, so a spur is always short (on the main
-//! quest, a plain line like the rest of it). The map
-//! shows the main quest, the routes chosen in its checklist and the route being followed.
+//! instead of all crossing the hub. Every route reads in order, start to end: the main quest
+//! is one line through all its steps; elsewhere the core steps are joined in order and each
+//! optional step hangs from the core step before it. The map shows the main quest, the routes chosen in its checklist and the route being followed.
 //! A note no route takes (mostly crates) is tied to a note near it that it links with
 //! ([`ties`]), so nothing floats unconnected.
 
@@ -49,14 +48,6 @@ pub fn lines(vault: &VaultData, place: &dyn Fn(NoteId) -> Option<Vec2>, hub: Not
             .filter(|&a| a != to)
             .min_by(|&a, &b| at(a).distance(at(to)).total_cmp(&at(b).distance(at(to))))
     };
-    let mut anchors = vec![hub];
-    for path in vault.paths.iter().filter(|p| p.quest == Quest::Main) {
-        for (&step, &kind) in path.steps.iter().zip(&path.kinds) {
-            if kind == StepKind::Core && !anchors.contains(&step) {
-                anchors.push(step);
-            }
-        }
-    }
     // Every stop of the main quest, its side steps too.
     let stops: Vec<NoteId> = vault
         .paths
@@ -101,13 +92,15 @@ pub fn lines(vault: &VaultData, place: &dyn Fn(NoteId) -> Option<Vec2>, hub: Not
         } else if stops.contains(&first) {
             None
         } else {
-            nearest(first, &anchors)
+            nearest(first, &stops)
         };
+        // The steps the route's line runs through, in order: on the main quest every step
+        // (it is one line, start to end), elsewhere the core steps.
         let cores: Vec<NoteId> = path
             .steps
             .iter()
             .zip(&path.kinds)
-            .filter(|(_, k)| **k == StepKind::Core)
+            .filter(|(_, k)| path.quest == Quest::Main || **k == StepKind::Core)
             .map(|(&s, _)| s)
             .collect();
         if let Some(start) = start {
@@ -127,16 +120,12 @@ pub fn lines(vault: &VaultData, place: &dyn Fn(NoteId) -> Option<Vec2>, hub: Not
         for pair in cores.windows(2) {
             add(pair[0], pair[1], path.note, StepKind::Core);
         }
+        // An optional step hangs from the core step before it: the route reads in order.
+        let mut from = None;
         for (&step, &kind) in path.steps.iter().zip(&path.kinds) {
-            if kind != StepKind::Core
-                && let Some(from) = nearest(step, &cores)
-            {
-                // The main quest is one plain line, its side steps too.
-                let kind = if path.quest == Quest::Main {
-                    StepKind::Core
-                } else {
-                    kind
-                };
+            if cores.contains(&step) {
+                from = Some(step);
+            } else if let Some(from) = from {
                 add(from, step, path.note, kind);
             }
         }
@@ -320,7 +309,7 @@ mod tests {
             Some(match vault.notes[n].name.as_str() {
                 "A" => Vec2::new(100.0, 0.0),
                 "B" => Vec2::new(0.0, 100.0),
-                "C" => Vec2::new(20.0, 160.0),
+                "C" => Vec2::new(150.0, 120.0),
                 "D" => Vec2::new(0.0, 300.0),
                 _ => Vec2::ZERO,
             })
@@ -342,11 +331,11 @@ mod tests {
         let (main, side) = (id("Main"), id("Side"));
         assert_eq!(line("Hub", "A"), Some(vec![(main, StepKind::Core, true)]));
         assert_eq!(line("A", "B"), Some(vec![(main, StepKind::Core, true)]));
-        // A side step hangs from the route's core step nearest it; on the main quest, as a
-        // plain line.
+        // The main quest is one line through all its steps, in order.
         assert_eq!(line("B", "C"), Some(vec![(main, StepKind::Core, true)]));
         assert_eq!(line("A", "C"), None);
-        // The side route starts at B, the main stop nearest its first step.
+        // The side route starts at B, the main stop nearest its first step; its optional
+        // step hangs from the step before it.
         assert_eq!(line("B", "D"), Some(vec![(side, StepKind::Core, true)]));
         assert_eq!(line("D", "C"), Some(vec![(side, StepKind::Extra, true)]));
         assert_eq!(line("Hub", "D"), None);

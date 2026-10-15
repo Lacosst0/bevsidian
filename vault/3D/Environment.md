@@ -72,4 +72,4 @@ Not built in. Use [[bevy_water]], build a terrain mesh from noise ([[Meshes and 
 
 ## Next
 
-Time to move around: [[Keyboard and mouse]], or the [[A 3D game]] path.
+Time to move around: [[Input#Keyboard and mouse|Keyboard and mouse]], or the [[A 3D game]] path.

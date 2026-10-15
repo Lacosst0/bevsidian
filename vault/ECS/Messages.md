@@ -71,7 +71,7 @@ A system that must both read and modify the same message type uses `MessageMutat
 
 ## Built-in messages
 
-You use messages all the time: keyboard and mouse input ([[Keyboard and mouse]]), `AppExit`, window events, asset events. To quit:
+You use messages all the time: keyboard and mouse input ([[Input#Keyboard and mouse|Input]]), `AppExit`, window events, asset events. To quit:
 
 ```rust
 use bevy::prelude::*;

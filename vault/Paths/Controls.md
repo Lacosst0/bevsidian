@@ -8,9 +8,8 @@ feature: Gamepads, touch and remapping
 
 Every way a player can tell your game what to do.
 
-1. [[Keyboard and mouse]]
-2. [[Input]]: the area's index.
-3. [[Input mapping]]: actions instead of keys.
-4. [[Gamepad and touch]]
-5. [[Picking]] (optional): click and drag things in the world.
-6. [[Input crates]] (extra)
+1. [[Input]]: keys, the mouse, and the area's index.
+2. [[Input mapping]]: actions instead of keys.
+3. [[Gamepad and touch]]
+4. [[Picking]] (optional): click and drag things in the world.
+5. [[Input crates]] (extra)

@@ -244,7 +244,7 @@ You now have every piece of a real game: input, movement, spawning, a timer, col
 | harder over time | make the timer shorter as `Score` grows |
 | a title screen and pause | [[States]] |
 | screen shake when hit | [[Game feel]] |
-| keyboard or gamepad | [[Keyboard and mouse]], [[Input mapping]] |
+| keyboard or gamepad | [[Input#Keyboard and mouse\|Keyboard and mouse]], [[Input mapping]] |
 | ship it | [[Web build]], [[Release builds]] |
 
 > [!IMPORTANT]

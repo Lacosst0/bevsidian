@@ -12,7 +12,7 @@ Edit the map with the pencil under the zoom buttons: drag notes and objects, cha
 
 One line per thing on the map. Coordinates are `x, y`: `x` to the right, `y` up, from Bevy at `0, 0`.
 
-- **A note**: its name, `@`, where it sits, then optionally a shape (`circle`, `diamond`, `hexagon`, `square`, `pentagon`, `octagon`, `star`) and `small` or `large`. Without a shape, the hub is an octagon, an area's index note a hexagon, a crate a square and any other note a circle.
+- **A note**: its name, `@`, where it sits, then optionally a shape (`circle`, `diamond`, `hexagon`, `square`, `pentagon`, `star`) and `small` or `large`. Without a shape, the hub is a star, an area's index note a hexagon, a crate a square and any other note a circle.
 - **`label:`** a name written in the sky, with an optional caption after `|`, and `size N`.
 - **`landmark:`** a [Lucide](https://lucide.dev/icons) icon drawn faintly in the sky, with `size N`.
 - **`nebula:`** a soft cloud of light, `r N` across, fading to its edge (older maps say `land:`).
@@ -23,32 +23,32 @@ Every note is a filled shape with its icon inside and its name above: dark until
 
 | Shape | Means |
 |:--|:--|
-| octagon | the capital |
+| star | the capital, Bevy |
 | hexagon | an area's index |
 | circle | a lesson |
 | diamond | a milestone: you have built something |
-| star | the goal at the end of a route |
 | pentagon | crates compared: the best crates for a topic |
 | square | a crate: a library |
 
 ```map
 # ── The capital and the main quest, drawn as a bird ─────────────
-Bevy                          @      0,      0   octagon large
-Start                         @     65,   -100
-Hello Bevy                    @    170,    -20   diamond
-Entities and components       @     30,    115
-Systems                       @    -85,     65
-Queries                       @   -140,    170
-Sprites                       @   -280,    280
-Commands                      @   -240,     10
-Resources                     @   -370,    -75
-Time and timers               @   -495,   -115
-Events and observers          @   -385,   -205
-Run conditions                @   -205,   -250
-Make a game                   @    -45,   -195   star large
-Game feel                     @     65,   -290
-Project setup                 @   -160,   -370
-App and plugins               @    -55,   -335
+Bevy                          @      0,      0   star large
+Start                         @    100,   -155
+Hello Bevy                    @    -10,   -185   diamond
+Entities and components       @   -160,   -235
+Systems                       @   -255,   -110
+Input                         @   -340,    -35
+Queries                       @   -440,     35
+Sprites                       @   -285,    155
+Commands                      @   -155,    145
+Resources                     @    -65,    240
+Time and timers               @     65,    375
+Events and observers          @    110,    175
+Run conditions                @    265,     65
+Make a game                   @    440,    -30   large
+Game feel                     @    285,    -65
+Project setup                 @     55,   -300
+App and plugins               @    -90,   -335
 
 # ── Tooling (south) ─────────────────────────────────────────────
 Tooling                       @     30,   -840
@@ -61,7 +61,7 @@ Debug crates                  @   -315,  -1230   pentagon
 bevy-inspector-egui           @   -480,  -1185
 bevy_mod_debugdump            @   -450,  -1350
 Release builds                @     45,  -1380   diamond
-Web build                     @    -90,  -1530   star
+Web build                     @    -90,  -1530
 Mobile builds                 @    135,  -1635
 bevy_pkv                      @   -315,  -1590
 
@@ -86,7 +86,7 @@ bevy_panorbit_camera          @    745,    975
 Rendering                     @    495,    520
 Colors and math               @    720,    565
 Custom materials              @    830,    730
-Post-processing               @    980,    870   star
+Post-processing               @    980,    870
 bevy_hanabi                   @   1130,    765
 3D effect crates              @    955,   1070   pentagon
 bevy_mod_outline              @    965,   1225
@@ -102,11 +102,11 @@ Models and glTF               @    235,   1485
 3D authoring crates           @    -25,   1645   pentagon
 bevy_skein                    @    -15,   1795
 bevy_trenchbroom              @   -170,   1740
-Environment                   @    415,   1675   star
+Environment                   @    415,   1675
 
 # ── Networking (east-south-east) ────────────────────────────────
 Networking                    @    990,   -480
-bevy_replicon                 @   1190,   -580   star
+bevy_replicon                 @   1190,   -580
 Netcode crates                @   1035,   -705   pentagon
 lightyear                     @   1110,   -860
 bevy_ggrs                     @    990,   -890
@@ -119,7 +119,7 @@ bevy_http_client              @   1415,   -585
 UI                            @    920,   -160
 UI layout                     @   1105,   -140
 Text and images               @   1140,   -315
-Buttons and widgets           @   1320,   -260   star
+Buttons and widgets           @   1320,   -260
 Theming                       @   1380,   -420
 bevy_radioactive              @   1310,     95
 bevy_egui                     @   1410,    -70
@@ -134,7 +134,7 @@ BSN syntax                    @    960,    325
 Templates and assets          @   1125,    220
 Composing scenes              @   1100,    385
 Scene components              @   1060,    580
-Spawning scenes               @   1250,    490   star
+Spawning scenes               @   1250,    490
 
 # ── ECS (west) ──────────────────────────────────────────────────
 ECS                           @   -660,    -55
@@ -146,21 +146,21 @@ Change detection              @  -1190,    -75
 Relationships and hierarchy   @  -1320,     30
 Component lifecycle           @  -1350,   -185
 Reflection                    @  -1485,   -215
-Advanced queries              @  -1470,    -50   star
+Advanced queries              @  -1470,    -50
 Error handling                @  -1590,     90
 Testing                       @  -1650,    -65
 
 # ── Gameplay (west-north-west) ──────────────────────────────────
 Gameplay                      @   -790,    345
 Game AI                       @   -810,    540
-Pathfinding                   @   -890,    700   star
+Pathfinding                   @   -890,    700
 Randomness                    @  -1045,    355
 bevy_rand                     @  -1260,    195
-Procedural generation         @  -1275,    370   star
+Procedural generation         @  -1275,    370
 Inventory and items           @  -1080,    575
 Dialogue                      @  -1210,    700
 Custom assets                 @  -1390,    640
-Saving and loading            @  -1195,    880   star
+Saving and loading            @  -1195,    880
 Accessibility and localization @  -1225,   1085
 
 # ── 2D (north-north-west) ───────────────────────────────────────
@@ -173,7 +173,7 @@ Text 2D                       @   -495,    715
 Animation crates              @   -690,    865   pentagon
 bevy_tweening                 @   -840,    900
 bevy_spritesheet_animation    @   -755,    990
-Tilemaps                      @   -440,   1135   star
+Tilemaps                      @   -440,   1135
 2D shapes and meshes          @   -630,   1075
 Tilemap crates                @   -595,   1245   pentagon
 bevy_ecs_tilemap              @    -820,   1180
@@ -183,10 +183,8 @@ bevy_light_2d                 @   -575,   1495
 bevy_firefly                  @   -445,   1540
 
 # ── Input (west-south-west) ─────────────────────────────────────
-Keyboard and mouse            @   -475,   -300
-Input                         @   -715,   -490
 Input mapping                 @   -925,   -465
-Gamepad and touch             @  -1030,   -630   star
+Gamepad and touch             @  -1030,   -630
 Picking                       @    -1010,   -870
 Input crates                  @  -1140,   -465   pentagon
 bevy_enhanced_input           @  -1310,   -495
@@ -194,7 +192,7 @@ leafwing-input-manager        @  -1210,   -595
 
 # ── Physics (south-west) ────────────────────────────────────────
 Physics                       @   -465,   -655
-Avian                         @   -595,   -840   star
+Avian                         @   -595,   -840
 bevy_transform_interpolation  @    -780,   -760
 bevy_rapier                   @   -525,  -1005
 

@@ -97,4 +97,4 @@ fn float_up(
 
 ## Next
 
-You can draw, animate and write in 2D. Add control: [[Keyboard and mouse]]. Or jump into [[A 2D game]].
+You can draw, animate and write in 2D. Add control: [[Input#Keyboard and mouse|Keyboard and mouse]]. Or jump into [[A 2D game]].

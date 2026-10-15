@@ -17,7 +17,7 @@ Two crates for actions and rebinding. Both work with #0.20 from their git `main`
 
 - Many control schemes that switch (character, vehicle, menu): [[bevy_enhanced_input]].
 - A single action enum with rebinding and gamepad support: [[leafwing-input-manager]].
-- Few actions: skip both and use [[Keyboard and mouse]] directly.
+- Few actions: skip both and read the keyboard and mouse directly ([[Input#Keyboard and mouse|Input]]).
 
 ## Next
 

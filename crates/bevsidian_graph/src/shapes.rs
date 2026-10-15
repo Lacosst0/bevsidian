@@ -8,7 +8,7 @@ use bevsidian_core::map::Shape;
 /// The corners of a shape of radius 1, as drawn: polygons are a little larger than the
 /// circle so they look the same size.
 pub fn outline(shape: Shape) -> Vec<Vec2> {
-    use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, FRAC_PI_6, FRAC_PI_8, PI, TAU};
+    use std::f32::consts::{FRAC_PI_2, FRAC_PI_4, FRAC_PI_6, PI, TAU};
     let regular = |sides: usize, size: f32, turn: f32| -> Vec<Vec2> {
         (0..sides)
             .map(|i| Vec2::from_angle(turn + i as f32 * TAU / sides as f32) * size)
@@ -20,7 +20,6 @@ pub fn outline(shape: Shape) -> Vec<Vec2> {
         Shape::Square => regular(4, 1.2, FRAC_PI_4),
         Shape::Hexagon => regular(6, 1.1, FRAC_PI_6),
         Shape::Pentagon => regular(5, 1.12, FRAC_PI_2),
-        Shape::Octagon => regular(8, 1.06, FRAC_PI_8),
         Shape::Star => (0..10)
             .map(|i| {
                 let size = if i % 2 == 0 { 1.3 } else { 0.62 };
