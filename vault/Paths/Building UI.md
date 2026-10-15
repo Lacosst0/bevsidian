@@ -1,6 +1,7 @@
 ---
 icon: layout-template
 path: true
+color: yellow
 quest: feature
 feature: Menus and a HUD
 ---

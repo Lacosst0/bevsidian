@@ -1,6 +1,7 @@
 ---
 icon: volume-2
 path: true
+color: cyan
 quest: feature
 feature: Music and sound effects
 ---
@@ -8,6 +9,6 @@ feature: Music and sound effects
 
 Sound effects, music and the crates that mix them.
 
-1. [[Assets]]: load the sounds.
-2. [[Audio]]: play them.
+1. [[Audio]]: play sounds and music.
+2. [[Assets]]: load your own files.
 3. [[Audio crates]] (optional): mixing, effects and spatial sound.

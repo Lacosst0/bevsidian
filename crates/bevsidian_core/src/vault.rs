@@ -105,6 +105,9 @@ pub struct NotePath {
     /// What a game that takes it has, for the map's checklist (the `feature:` property, or
     /// the note's name).
     pub label: String,
+    /// The colour it is drawn in on the map (the `color:` property, a name from the map's
+    /// palette), if it names one.
+    pub color: Option<String>,
 }
 
 /// The kind of route a reading path is on the map.
@@ -300,6 +303,7 @@ impl VaultData {
                     kinds,
                     quest,
                     label: property("feature").unwrap_or_else(|| vault.notes[note].name.clone()),
+                    color: property("color"),
                 }
             })
             .collect();
@@ -487,6 +491,7 @@ mod tests {
                 kinds: vec![StepKind::Core; 2],
                 quest: Quest::Other,
                 label: "Tour".into(),
+                color: None,
             }]
         );
         assert!(v.path(tour).is_some());

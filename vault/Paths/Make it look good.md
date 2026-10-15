@@ -1,6 +1,7 @@
 ---
 icon: sparkles
 path: true
+color: fuchsia
 quest: feature
 feature: Polished visuals
 ---

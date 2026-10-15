@@ -1,6 +1,7 @@
 ---
 icon: bot
 path: true
+color: red
 quest: feature
 feature: Enemies that think
 ---
@@ -10,6 +11,5 @@ Guards that patrol, chase and find their way.
 
 1. [[Gameplay]]: the area's index.
 2. [[Game AI]]: a guard that patrols and chases.
-3. [[States]] (optional): a mode for each enemy.
-4. [[Pathfinding]]: get around walls.
-5. [[Randomness]] (optional): a little unpredictability.
+3. [[Pathfinding]]: get around walls.
+4. [[Randomness]] (optional): a little unpredictability.

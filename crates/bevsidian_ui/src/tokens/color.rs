@@ -93,31 +93,40 @@ pub const MAP_RING: Color = Color::srgb(0.227, 0.227, 0.227);
 pub const MAP_FILL_READ: Color = Color::srgb(0.322, 0.322, 0.322);
 /// `#5a5a5a`: the outline of a note's shape once it is read.
 pub const MAP_RING_LIT: Color = Color::srgb(0.353, 0.353, 0.353);
-/// The colour of route `index` of `count` on the map: the routes take even steps along
-/// [`MAP_ROUTES`] in the order they sit round the map, so neighbours have neighbouring hues
-/// that still tell apart.
+/// The colour of route `index` of `count` on the map, for a route that names none: the
+/// routes take steps along [`MAP_ROUTES`] in the order they sit round the map, every
+/// second colour first, so neighbours never get two shades of one hue.
 pub fn map_route(index: usize, count: usize) -> Color {
-    let last = MAP_ROUTES.len() - 1;
-    let step = (index * last + count.saturating_sub(1).max(1) / 2) / count.saturating_sub(1).max(1);
-    MAP_ROUTES[step.min(last)]
+    let n = MAP_ROUTES.len();
+    let spread = (index * n / count.max(1)) % n;
+    let step = (spread * 2 + spread * 2 / n) % n;
+    MAP_ROUTES[step].1
 }
-/// The route colours, round the colour wheel from yellow to rose (Tailwind's 400 shades:
-/// bright on the sky). No red, amber or orange: orange is the note being read.
-pub const MAP_ROUTES: [Color; 14] = [
-    Color::srgb(0.980, 0.800, 0.082), // yellow #facc15
-    Color::srgb(0.639, 0.902, 0.208), // lime #a3e635
-    Color::srgb(0.290, 0.871, 0.502), // green #4ade80
-    Color::srgb(0.204, 0.827, 0.600), // emerald #34d399
-    Color::srgb(0.176, 0.831, 0.749), // teal #2dd4bf
-    Color::srgb(0.133, 0.827, 0.933), // cyan #22d3ee
-    Color::srgb(0.220, 0.741, 0.973), // sky #38bdf8
-    Color::srgb(0.376, 0.647, 0.980), // blue #60a5fa
-    Color::srgb(0.506, 0.549, 0.973), // indigo #818cf8
-    Color::srgb(0.655, 0.545, 0.980), // violet #a78bfa
-    Color::srgb(0.753, 0.518, 0.988), // purple #c084fc
-    Color::srgb(0.910, 0.475, 0.976), // fuchsia #e879f9
-    Color::srgb(0.957, 0.447, 0.714), // pink #f472b6
-    Color::srgb(0.984, 0.443, 0.522), // rose #fb7185
+/// The route colour named `name` (a route's `color:` property), if there is one.
+pub fn map_route_named(name: &str) -> Option<Color> {
+    MAP_ROUTES
+        .iter()
+        .find(|(n, _)| n.eq_ignore_ascii_case(name.trim()))
+        .map(|&(_, c)| c)
+}
+/// The route colours, round the colour wheel (mostly Tailwind's 400 shades: bright on the
+/// sky), each a hue of its own so routes tell apart at a glance. No orange or amber: orange
+/// is the note being read.
+pub const MAP_ROUTES: [(&str, Color); 14] = [
+    ("yellow", Color::srgb(0.980, 0.800, 0.082)),  // #facc15
+    ("sand", Color::srgb(0.851, 0.737, 0.561)),    // #d9bc8f
+    ("lime", Color::srgb(0.639, 0.902, 0.208)),    // #a3e635
+    ("green", Color::srgb(0.290, 0.871, 0.502)),   // #4ade80
+    ("mint", Color::srgb(0.600, 0.965, 0.894)),    // #99f6e4
+    ("teal", Color::srgb(0.078, 0.722, 0.651)),    // #14b8a6
+    ("cyan", Color::srgb(0.133, 0.827, 0.933)),    // #22d3ee
+    ("blue", Color::srgb(0.231, 0.510, 0.965)),    // #3b82f6
+    ("indigo", Color::srgb(0.647, 0.706, 0.988)),  // #a5b4fc
+    ("purple", Color::srgb(0.753, 0.518, 0.988)),  // #c084fc
+    ("fuchsia", Color::srgb(0.910, 0.475, 0.976)), // #e879f9
+    ("pink", Color::srgb(0.976, 0.659, 0.831)),    // #f9a8d4
+    ("rose", Color::srgb(0.957, 0.247, 0.369)),    // #f43f5e
+    ("red", Color::srgb(0.937, 0.267, 0.267)),     // #ef4444
 ];
 /// `#e5e5e5`: the main quest's lines, and the lines leaving it.
 pub const MAP_LINE: Color = Color::srgb(0.898, 0.898, 0.898);

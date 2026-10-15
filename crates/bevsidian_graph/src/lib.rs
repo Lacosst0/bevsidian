@@ -274,11 +274,18 @@ impl GraphState {
     }
 }
 
-/// The colour of a route's lines: the main quest's are grey; the others go round a colour
-/// wheel ([`color::map_route`]) in the order they sit round the map, starting from the main
-/// quest's first step and turning anticlockwise, so routes side by side have neighbouring
-/// colours. Where a route sits is the middle of its steps off the main quest.
+/// The colour of a route's lines: the main quest's are white; another route takes the
+/// colour its `color:` property names, or else one picked by where it sits round the map
+/// ([`color::map_route`]), starting from the main quest's first step and turning
+/// anticlockwise. Where a route sits is the middle of its steps off the main quest.
 pub fn route_color(vault: &VaultData, route: NoteId) -> Color {
+    let path = vault.paths.iter().find(|p| p.note == route);
+    if let Some(named) = path
+        .and_then(|p| p.color.as_deref())
+        .and_then(color::map_route_named)
+    {
+        return named;
+    }
     let wheel = route_wheel(vault);
     wheel
         .iter()

@@ -1,6 +1,7 @@
 ---
 icon: cuboid
 path: true
+color: mint
 quest: feature
 feature: 3D worlds
 ---

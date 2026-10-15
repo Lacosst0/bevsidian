@@ -1,6 +1,7 @@
 ---
 icon: braces
 path: true
+color: purple
 quest: mastery
 feature: Write scenes in BSN
 ---

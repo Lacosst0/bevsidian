@@ -1,6 +1,7 @@
 ---
 icon: boxes
 path: true
+color: pink
 quest: mastery
 feature: Master the ECS
 ---

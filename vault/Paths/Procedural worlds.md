@@ -1,6 +1,7 @@
 ---
 icon: dices
 path: true
+color: blue
 quest: feature
 feature: Procedural levels
 ---

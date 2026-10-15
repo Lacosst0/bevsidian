@@ -1,6 +1,7 @@
 ---
 icon: atom
 path: true
+color: sand
 quest: feature
 feature: Physics and collisions
 ---

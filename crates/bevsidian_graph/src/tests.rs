@@ -325,7 +325,7 @@ fn every_note_has_a_line() {
 }
 
 #[test]
-fn related_routes_sit_side_by_side_in_neighbouring_colours() {
+fn related_routes_sit_side_by_side_in_colours_of_their_own() {
     let vault = real_vault();
     let wheel = route_wheel(&vault);
     let at = |name: &str| {
@@ -336,11 +336,15 @@ fn related_routes_sit_side_by_side_in_neighbouring_colours() {
         ("Building UI", "Learn BSN"),
         ("A 2D game", "A 3D game"),
         ("A 3D game", "Make it look good"),
-        ("Controls", "Collisions"),
     ] {
         assert_eq!(at(a).abs_diff(at(b)), 1, "{a} and {b}");
     }
-    // Every route its own colour.
+    // Every route its own colour, named from the palette.
+    for path in vault.paths.iter().filter(|p| p.quest != Quest::Main) {
+        let name = &vault.notes[path.note].name;
+        let named = path.color.as_deref().and_then(color::map_route_named);
+        assert!(named.is_some(), "{name} names no colour of the palette");
+    }
     let colours: Vec<_> = wheel
         .iter()
         .map(|&r| route_color(&vault, r).to_srgba().to_hex())

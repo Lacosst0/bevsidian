@@ -1,6 +1,7 @@
 ---
 icon: gamepad-2
 path: true
+color: indigo
 quest: feature
 feature: Gamepads, touch and remapping
 ---
