@@ -33,22 +33,22 @@ Every note is a filled shape with its icon inside and its name above: dark until
 ```map
 # ── The capital and the main quest, drawn as a bird ─────────────
 Bevy                          @      0,      0   star large
-Start                         @    100,   -155
-Hello Bevy                    @    -10,   -185   diamond
-Entities and components       @   -160,   -235
-Systems                       @   -255,   -110
-Input                         @   -340,    -35
-Queries                       @   -440,     35
-Sprites                       @   -285,    155
-Commands                      @   -155,    145
-Resources                     @    -65,    240
-Time and timers               @     65,    375
-Events and observers          @    110,    175
-Run conditions                @    265,     65
-Make a game                   @    440,    -30   large
-Game feel                     @    285,    -65
-Project setup                 @     55,   -300
-App and plugins               @    -90,   -335
+Start                         @        80,   -130
+Hello Bevy                    @    170,    -20   diamond
+Entities and components       @            40,    130
+Systems                       @    -85,     65
+Input                         @   -200,     60
+Queries                       @   -140,    170
+Sprites                       @   -280,    285
+Commands                      @   -285,    -25
+Resources                     @   -390,    -85
+Time and timers               @   -500,   -120
+Events and observers          @   -385,   -205
+Run conditions                @   -205,   -250
+Make a game                   @    -45,   -200   large
+Game feel                     @     65,   -235
+Project setup                 @      200,     95
+App and plugins               @      115,    225
 
 # ── Tooling (south) ─────────────────────────────────────────────
 Tooling                       @     30,   -840
