@@ -111,7 +111,7 @@ pub fn map_route_named(name: &str) -> Option<Color> {
 }
 /// The route colours, round the colour wheel: Tailwind shades bright enough for the sky,
 /// chosen so the closest two still tell apart at a glance (the smallest distance between any
-/// two, in OKLab, as large as it gets). No orange or amber: orange is the note being read.
+/// two, in `OKLab`, as large as it gets). No orange or amber: orange is the note being read.
 pub const MAP_ROUTES: [(&str, Color); 14] = [
     ("yellow", Color::srgb(0.980, 0.800, 0.082)),  // #facc15
     ("olive", Color::srgb(0.741, 0.718, 0.420)),   // #bdb76b
