@@ -9,8 +9,7 @@ crates: bevy_kira_audio=0.27
 
 Audio with **channels**, tweens and effects, powered by the Kira engine. Use it when Bevy's built-in audio ([[Audio]]) is not enough: separate music/effects buses, fades, loops with intros, reverb, spatial sound, and finer control of playing sounds. #audio
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_kira_audio 0.27` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_kira_audio = "0.27"
@@ -89,7 +88,7 @@ Your options menu becomes two sliders that call `set_volume` on the channels.
 |:--|:--|:--|:--|:--|
 | Setup | built in | one plugin | one plugin | FMOD install + licence |
 | Buses / mixing | no | channels | a full audio graph | professional mixer |
-| Bevy 0.20 | yes | **yes** | release pending | release pending |
+| Bevy | yes | **yes** | #0.19 | #0.19 |
 
 ## Links
 

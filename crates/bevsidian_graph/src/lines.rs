@@ -1,13 +1,13 @@
 //! The lines of the map: one per pair of notes a route joins, straight, stopping short of
 //! each note.
 //!
-//! A route's core steps are joined by a solid line with an arrow halfway along each segment,
-//! pointing in reading order; side quests (optional steps) are dashed and secrets (extra
-//! steps) dotted. Every route has its own colour (the main quest's is grey), from its first
-//! page on: the line it leaves the main quest by stays grey. Lines keep their width on screen
-//! at any zoom; the followed route is thicker, with a faint wider line under it as its glow.
-//! Routes that share a line draw it once. A note no route takes is tied to a note near it by
-//! a thin line in that note's route colour. A hovered note shows its links as thin dashes.
+//! A route's core steps are joined by a solid line, its optional steps (`(optional)` and
+//! `(extra)`) by dotted ones; the line a route leaves the main quest by is dashed: there you
+//! choose your path. The main quest is one solid white line; every other route has its own
+//! colour from its first page on. Lines keep their width on screen at any zoom; the followed
+//! route is thicker, with a faint wider line under it as its glow. Routes that share a line
+//! draw it once. A note no route takes is tied to a note near it by a thin line in that
+//! note's route colour. A hovered note shows its links as thin lines.
 
 use bevy::prelude::*;
 
@@ -39,22 +39,19 @@ pub struct Line {
 #[derive(Component)]
 pub(crate) struct LinesMesh;
 
-/// Widths on screen, in render-target pixels: a core line, a side quest, a secret's dots
-/// (their diameter), a hovered note's links; the followed route's line and its glow.
+/// Widths on screen, in render-target pixels: a core line, an optional step's dots (their
+/// diameter), a hovered note's links; the followed route's line and its glow.
 const MAIN_PX: f32 = 2.2;
-const SIDE_PX: f32 = 1.6;
-const SECRET_PX: f32 = 2.6;
+const DOT_PX: f32 = 2.6;
 const LINK_PX: f32 = 1.0;
 /// A tie's width.
 const TIE_PX: f32 = 1.3;
 const FOLLOWED_PX: f32 = 3.2;
 const FOLLOWED_GLOW_PX: f32 = 8.0;
-/// The arrow on a core line, and how long a line must be (on screen) to carry one.
-const ARROW_PX: f32 = 6.0;
-const ARROW_ROOM_PX: f32 = 40.0;
-/// Dashes and gaps of side quests, the gap between dots, in pixels.
-const DASH_PX: f32 = 7.0;
-const DASH_GAP_PX: f32 = 5.0;
+/// Dashes and gaps of a line leaving the main quest (where you choose your path), the gap
+/// between dots, in pixels.
+const DASH_PX: f32 = 9.0;
+const DASH_GAP_PX: f32 = 6.0;
 const DOT_GAP_PX: f32 = 5.0;
 /// How far short of a note (beyond its shape) a line stops, in pixels.
 const GAP_PX: f32 = 4.0;
@@ -118,25 +115,35 @@ fn dotted(
     }
 }
 
-/// A line in the style of `kind`, `width` pixels wide; `px` is the world size of a pixel.
+/// How a line is drawn: solid along a route, dashed where you choose your path (leaving the
+/// main quest), dotted to an optional step.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Style {
+    Solid,
+    Dashed,
+    Dotted,
+}
+
+/// A line in `style`, `width` pixels wide; `px` is the world size of a pixel.
 fn stroke(
     out: &mut Shapes,
     ends: (Vec2, Vec2),
-    kind: StepKind,
+    style: Style,
     (width, px): (f32, f32),
     z: f32,
     color: Color,
 ) {
     let rgba = color.to_linear().to_f32_array();
     let half = width * px / 2.0;
-    match kind {
-        StepKind::Core => out.quad(ends.0, ends.1, half, z, rgba),
-        StepKind::Optional => dashed(out, ends, half, px, z, rgba),
-        StepKind::Extra => dotted(out, ends, SECRET_PX * px / 2.0, px, z, rgba),
+    match style {
+        Style::Solid => out.quad(ends.0, ends.1, half, z, rgba),
+        Style::Dashed => dashed(out, ends, half, px, z, rgba),
+        Style::Dotted => dotted(out, ends, DOT_PX * px / 2.0, px, z, rgba),
     }
 }
 
-/// The strongest of two ways of taking a line: a main line beats a side quest beats a secret.
+/// The strongest of two ways of taking a line: a core step beats an optional one beats an
+/// extra one.
 fn stronger(a: StepKind, b: StepKind) -> StepKind {
     let rank = |k: StepKind| match k {
         StepKind::Core => 0,
@@ -151,19 +158,17 @@ pub(crate) struct Look {
     kind: StepKind,
     route: NoteId,
     tint: Color,
-    /// The tint of the line a route leaves the main quest by (grey, as the main quest).
+    /// The tint of the line a route leaves the main quest by (as the main quest's).
     lead: Color,
     /// It is the followed route's.
     followed: bool,
-    /// Its reading order runs from the line's `a` to its `b`.
-    forward: bool,
     /// It is a tie: thin, with no reading order.
     tie: bool,
 }
 
 /// How a line looks now, if it shows: as the followed route takes it, as the shown routes
-/// do (the main quest's grey where it is one of them, else the first route's colour), or,
-/// with the whole map shown or while editing, faintly as any route does.
+/// do (the main quest's white where it is one of them, else the first route's colour), or,
+/// with the whole map shown or while editing, as any route does.
 pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
     if line.uses.is_empty() {
         return Some(Look {
@@ -172,7 +177,6 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             tint: color::MAP_LINE_FAINT,
             lead: color::MAP_LINE_FAINT,
             followed: false,
-            forward: true,
             tie: true,
         });
     }
@@ -203,7 +207,6 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             tint: colour(&u),
             lead: color::MAP_LINE,
             followed: true,
-            forward: u.forward,
             tie: line.tie,
         });
     }
@@ -217,7 +220,6 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
             tint: colour(&u),
             lead: color::MAP_LINE,
             followed: false,
-            forward: u.forward,
             tie: line.tie,
         });
     }
@@ -226,35 +228,17 @@ pub(crate) fn look(state: &GraphState, line: &Line) -> Option<Look> {
         return pick(&|_| true).map(|u| Look {
             kind: u.kind,
             route: u.route,
-            lead: color::MAP_LINE_FAINT,
+            lead: color::MAP_LINE,
             tint: if main(&u) {
-                color::MAP_LINE_FAINT
+                color::MAP_LINE
             } else {
                 colour(&u).mix(&color::BACKGROUND, WHOLE_DIM)
             },
             followed: false,
-            forward: u.forward,
             tie: line.tie,
         });
     }
     None
-}
-
-/// A chevron in the middle of a line, pointing along `(from, to)`: the reading order.
-fn arrow(
-    out: &mut Shapes,
-    (from, to): (Vec2, Vec2),
-    (half, px): (f32, f32),
-    z: f32,
-    color: [f32; 4],
-) {
-    let direction = (to - from).normalize_or_zero();
-    let tip = from.lerp(to, 0.5) + direction * ARROW_PX * px * 0.5;
-    for side in [1.0, -1.0] {
-        let back = tip - direction * ARROW_PX * px + direction.perp() * side * ARROW_PX * px * 0.8;
-        out.quad(back, tip, half, z, color);
-    }
-    out.disc(tip, half, 8, z, color);
 }
 
 pub(crate) fn draw_lines(
@@ -293,10 +277,17 @@ pub(crate) fn draw_lines(
         let Some((from, to)) = between(a, ra, b, rb) else {
             continue;
         };
-        let ends = if look.forward { (from, to) } else { (to, from) };
-        // The line a route leaves the main quest by is grey, as the main quest: the route's
-        // colour begins at its first page.
+        let ends = (from, to);
+        // The line a route leaves the main quest by is the main quest's colour, dashed: there
+        // you choose your path. The route's colour begins at its first page.
         let leaves = line.start == Some(look.route);
+        let style = if leaves {
+            Style::Dashed
+        } else if look.kind == StepKind::Core {
+            Style::Solid
+        } else {
+            Style::Dotted
+        };
         let hovered = focus.is_some_and(|f| f == line.a || f == line.b);
         let mut tint = if leaves { look.lead } else { look.tint };
         if hovered && !look.followed && tint == color::MAP_LINE_FAINT {
@@ -308,7 +299,7 @@ pub(crate) fn draw_lines(
             stroke(
                 &mut out,
                 ends,
-                StepKind::Core,
+                Style::Solid,
                 (FOLLOWED_GLOW_PX, px),
                 Z_GLOW,
                 glow,
@@ -316,22 +307,10 @@ pub(crate) fn draw_lines(
             (FOLLOWED_PX, Z_FOLLOWED)
         } else if look.tie {
             (TIE_PX, if hovered { Z_HOVERED } else { Z_LINE })
-        } else if look.kind == StepKind::Core {
-            (MAIN_PX, if hovered { Z_HOVERED } else { Z_LINE })
         } else {
-            (SIDE_PX, if hovered { Z_HOVERED } else { Z_LINE })
+            (MAIN_PX, if hovered { Z_HOVERED } else { Z_LINE })
         };
-        stroke(&mut out, ends, look.kind, (width, px), z, tint);
-        if look.kind == StepKind::Core && !look.tie && ends.0.distance(ends.1) > ARROW_ROOM_PX * px
-        {
-            arrow(
-                &mut out,
-                ends,
-                (width * px / 2.0, px),
-                z,
-                tint.to_linear().to_f32_array(),
-            );
-        }
+        stroke(&mut out, ends, style, (width, px), z, tint);
     }
     // A hovered note's links.
     if let Some(focus) = focus
@@ -342,7 +321,7 @@ pub(crate) fn draw_lines(
             if let Some((o, ro)) = end(other)
                 && let Some(ends) = between(f, rf, o, ro)
             {
-                dashed(&mut out, ends, LINK_PX * px / 2.0, px, Z_LINK, link);
+                out.quad(ends.0, ends.1, LINK_PX * px / 2.0, Z_LINK, link);
             }
         }
     }

@@ -9,8 +9,7 @@ crates: bevy_transform_interpolation=0.5
 
 When game logic runs at a **fixed rate** ([[Time and timers]]) but the screen refreshes faster, moving things look jittery. This crate **interpolates** (or extrapolates) `Transform` between fixed steps so motion stays smooth. #physics
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.5` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_transform_interpolation = "0.5"

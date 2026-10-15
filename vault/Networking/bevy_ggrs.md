@@ -9,8 +9,7 @@ check: skip
 
 **Rollback networking** (GGPO-style) for peer-to-peer games: everyone runs the same deterministic simulation and exchanges only *inputs*. When a late input arrives, the game rolls back, replays, and catches up. Standard for fighting games and tight 1v1/2v2. #networking
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.22` targets **Bevy 0.19**. Pair it with [[bevy_matchbox]] for browser-friendly connections.
+#0.19 · pair it with [[bevy_matchbox]] for browser-friendly connections
 
 ```toml
 bevy_ggrs = "0.22"

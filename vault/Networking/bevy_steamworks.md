@@ -9,8 +9,7 @@ check: skip
 
 The **Steamworks SDK** for Bevy: achievements, leaderboards, cloud saves, lobbies, matchmaking, Steam networking and the overlay. For games released on Steam. #networking
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.17` targets **Bevy 0.19**.
+#0.19
 
 ```toml
 bevy_steamworks = "0.17"

@@ -9,8 +9,7 @@ check: skip
 
 Build levels with **TrenchBroom**, the Quake map editor: draw rooms from brushes, place entities with properties, and load the `.map` files in Bevy. Brushes become meshes and colliders; entity classes become your components. #3d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.14` targets **Bevy 0.19**.
+#0.19
 
 ```toml
 bevy_trenchbroom = "0.14"

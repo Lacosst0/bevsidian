@@ -205,16 +205,14 @@ Store music volume, effects volume and mute in a [[Resources|resource]] and appl
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
-
 Comparisons of crates that do similar jobs: [[Audio crates]].
 
-| Crate | For | Bevy 0.20 |
+| Crate | For | Bevy |
 |:--|:--|:--|
-| [[bevy_kira_audio]] | channels, tweens, effects | released `0.27` |
-| [[bevy_seedling]] | audio graph, effects | pending `0.8` |
-| [[bevy_fmod]] | FMOD middleware | pending `0.11` (Bevy 0.19) |
+| [[bevy_kira_audio]] | channels, tweens, effects | #0.20 |
+| [[bevy_seedling]] | audio graph, effects | #0.19 |
+| [[bevy_fmod]] | FMOD middleware | #0.19 |
 
 ## Next
 
-Bevy's audio is basic by design. For buses, effects (reverb, EQ), crossfades and dynamic music use a library: [[bevy_kira_audio]] (works with Bevy 0.20 now), [[bevy_seedling]] (Firewheel based), or [[bevy_fmod]] (professional FMOD middleware).
+Bevy's audio is basic by design. For buses, effects (reverb, EQ), crossfades and dynamic music use a library: [[bevy_kira_audio]] (#0.20), [[bevy_seedling]] (Firewheel based), or [[bevy_fmod]] (professional FMOD middleware).

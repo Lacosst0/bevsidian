@@ -29,19 +29,17 @@ The path [[Ship it]] puts these in order.
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
-
 Comparisons of crates that do similar jobs: [[Debug crates]].
 
-| Crate | For | Bevy 0.20 |
+| Crate | For | Bevy |
 |:--|:--|:--|
-| [[bevy-inspector-egui]] | live world inspector | pending `0.37` |
-| [[bevy_mod_debugdump]] | draw the schedule graph | pending `0.16` |
-| `bevy_mod_scripting` | Lua, Rhai and other scripting | released `0.22` |
+| [[bevy-inspector-egui]] | live world inspector | #0.19 |
+| [[bevy_mod_debugdump]] | draw the schedule graph | #0.19 |
+| `bevy_mod_scripting` | Lua, Rhai and other scripting | #0.20 |
 
 ## Choosing libraries
 
-Bevy is small on purpose; the ecosystem fills the gaps. Every area of this vault ends with a **Libraries** table: what each crate is for and whether it works with Bevy 0.20 today.
+Bevy is small on purpose; the ecosystem fills the gaps. Every area of this vault ends with a **Libraries** table: what each crate is for, tagged #0.20 when it works with Bevy 0.20 and #0.19 while it is still on an older Bevy.
 
 1. **Check the compatibility table** in the crate's README before adding it.
 2. **Prefer built-in** when it is enough ([[Picking]], camera controllers, text input and atmosphere all moved into Bevy).

@@ -116,7 +116,7 @@ fn main() {
 
 ## WESL and imports
 
-Bevy 0.20 builds shaders with WESL: `import` other files and share code. See the `shaders` examples in the Bevy repo.
+Bevy builds shaders with WESL: `import` other files and share code. See the `shaders` examples in the Bevy repo.
 
 ## Where to look
 

@@ -62,7 +62,7 @@ fn main() {
 ```
 
 > [!NOTE]
-> Since Bevy 0.20, **resources are components** stored on singleton entities. `Res<T>` still works exactly as before.
+> **Resources are components** stored on singleton entities. `Res<T>` reads them as usual.
 
 ## The concepts, in the order to learn them
 

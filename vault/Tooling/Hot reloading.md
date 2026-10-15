@@ -35,7 +35,7 @@ Put game numbers in files (RON, JSON): enemy health, weapon damage, level layout
 
 ## Code
 
-Bevy 0.20 can **hot-patch systems**: you save a Rust file, Bevy swaps the changed system into the running game. Enable the `hotpatching` feature and run with the Dioxus CLI's subsecond tool:
+Bevy can **hot-patch systems**: you save a Rust file, Bevy swaps the changed system into the running game. Enable the `hotpatching` feature and run with the Dioxus CLI's subsecond tool:
 
 ```sh
 cargo install dioxus-cli

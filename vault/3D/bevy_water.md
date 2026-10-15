@@ -9,8 +9,7 @@ check: skip
 
 A **dynamic water material with waves** for 3D: a plane that animates, with depth colouring, foam and objects that float with the waves (the `pirates` example). #3d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.18.1` targets **Bevy 0.18**; expect to wait for an update.
+#0.19
 
 ```toml
 bevy_water = "0.18"

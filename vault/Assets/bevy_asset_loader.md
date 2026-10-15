@@ -9,8 +9,7 @@ crates: bevy_asset_loader={ version = "0.28", features = ["2d"] }
 
 Describe all your assets **in a struct**; the crate loads them during a loading [[States|state]], then moves on and gives you the finished resource. Replaces hand-written preloading and `is_loaded` checks ([[Assets]]). #assets
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_asset_loader 0.28` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_asset_loader = { version = "0.28", features = ["2d"] }   # "2d" adds texture atlas support, "3d" materials

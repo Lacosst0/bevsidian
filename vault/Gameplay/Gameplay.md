@@ -44,11 +44,9 @@ Three routes cross this area: [[Enemies and AI]], [[Procedural worlds]] and [[It
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
-
-| Crate | For | Bevy 0.20 |
+| Crate | For | Bevy |
 |:--|:--|:--|
-| [[bevy_rand]] | seeded random numbers | released `0.16` |
-| `bevy_northstar`, `vleue_navigator` | pathfinding, navmeshes | pending `0.7`, `0.16` |
-| `bevy_yarnspinner` | Yarn dialogue | pending `0.9` |
-| `bevy_behave` | behaviour trees | pending `0.5` (Bevy 0.18) |
+| [[bevy_rand]] | seeded random numbers | #0.20 |
+| `bevy_northstar`, `vleue_navigator` | pathfinding, navmeshes | #0.19 |
+| `bevy_yarnspinner` | Yarn dialogue | #0.19 |
+| `bevy_behave` | behaviour trees | #0.19 |

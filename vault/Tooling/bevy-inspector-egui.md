@@ -10,8 +10,7 @@ crates: bevy-inspector-egui=0.37; bevy_egui=0.40
 
 An **inspector for your running game**: a window listing every entity and resource with all their components, editable live. Built on [[bevy_egui]] and [[Reflection]]. The single most useful debugging tool in the ecosystem. #tooling
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.37` targets **Bevy 0.19** (with `bevy_egui 0.40`). Compiled against 0.19. Bevy 0.20's own `bevy_remote` protocol ([[Diagnostics and logging#Dev tools|Dev tools]]) is the other route.
+#0.19 · on #0.20, Bevy's `bevy_remote` protocol ([[Diagnostics and logging#Dev tools|Dev tools]]) is the other route
 
 ```toml
 bevy-inspector-egui = "0.37"

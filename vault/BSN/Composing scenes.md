@@ -211,7 +211,7 @@ bsn! {
 }
 ```
 
-Caching is not available for scene *functions* yet, and the `.bsn` format does not ship in 0.20.
+Caching is not available for scene *functions* yet, and the `.bsn` format does not ship yet.
 
 ## Keep the shape
 

@@ -181,12 +181,12 @@ struct Dot;
 
 Free-form levels (3D, or 2D without a grid) use a **navigation mesh**: walkable polygons, with the path through polygons. You rarely write one; crates do it, and the agent just asks "path to here".
 
-| Crate | For | Bevy 0.20 |
+| Crate | For | Bevy |
 |:--|:--|:--|
 | `pathfinding` 4.16 | A*, Dijkstra, BFS and more on any graph; no Bevy dependency | works today |
-| `bevy_northstar` 0.7 | hierarchical grid pathfinding | pending on 0.19 |
-| `vleue_navigator` 0.16 | navmeshes, 2D and 3D | pending on 0.19 |
-| `bevy_landmass` 0.12 | navmesh agents, avoidance | pending on 0.19 |
+| `bevy_northstar` 0.7 | hierarchical grid pathfinding | #0.19 |
+| `vleue_navigator` 0.16 | navmeshes, 2D and 3D | #0.19 |
+| `bevy_landmass` 0.12 | navmesh agents, avoidance | #0.19 |
 
 `pathfinding` is a good first library: replace the hand-written `astar` with `pathfinding::directed::astar::astar` and keep everything else.
 

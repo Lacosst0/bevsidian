@@ -119,7 +119,7 @@ A field where the player types: a name, a chat message, a search box. #ui
 
 ### The two parts
 
-Bevy 0.20 splits text input in two:
+Bevy splits text input in two:
 
 - [`EditableText`] (in `bevy::text`) holds the text, cursor and selection.
 - [`TextInput`] (in `bevy::ui_widgets`) turns key presses into edits, handles read-only and copy/paste.

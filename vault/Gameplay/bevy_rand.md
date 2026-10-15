@@ -8,8 +8,7 @@ crates: bevy_rand={ version = "0.16", features = ["wyrand"] }; bevy_prng={ versi
 
 **Random numbers the ECS way.** Bevy has no random number generator of its own; this crate wraps the `rand` family so generators are components and resources, can be **seeded** (reproducible runs, replays, networked simulations) and **forked** per entity. #gameplay
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_rand 0.16` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_rand = { version = "0.16", features = ["wyrand"] }   # a fast, portable generator

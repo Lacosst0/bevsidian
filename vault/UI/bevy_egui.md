@@ -8,8 +8,7 @@ crates: bevy_egui=0.43
 
 [egui](https://www.egui.rs) is an **immediate-mode** UI: you describe the interface in code *every frame* (`if ui.button("Save").clicked() { ... }`), with no entities to manage. `bevy_egui` plugs it into Bevy. The standard choice for **tools, debug panels and editors**. #ui #tooling
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_egui 0.43` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_egui = "0.43"

@@ -230,15 +230,13 @@ Out of the box: `.png`, `.ogg` (Vorbis), `.gltf`/`.glb`, `.wgsl`/`.wesl` shaders
 
 ## Libraries
 
-Status for **Bevy 0.20**, checked 2026-10-13: **released** (a crates.io release uses 0.20) · **git** (the `main` branch is on 0.20; use a git dependency) · **pending** (the latest release targets an older Bevy) · **built in** (Bevy has it now). Check crates.io before you start.
-
 Comparisons of crates that do similar jobs: [[Asset crates]].
 
-| Crate | For | Bevy 0.20 |
+| Crate | For | Bevy |
 |:--|:--|:--|
-| [[bevy_asset_loader]] | declare assets in a struct, loading states | released `0.28` |
-| [[bevy_common_assets]] | RON / JSON / TOML... as assets | released `0.18` |
-| [[bevy_pkv]] | key-value saves, desktop and web | pending `0.16` |
+| [[bevy_asset_loader]] | declare assets in a struct, loading states | #0.20 |
+| [[bevy_common_assets]] | RON / JSON / TOML... as assets | #0.20 |
+| [[bevy_pkv]] | key-value saves, desktop and web | #0.19 |
 
 ## Next
 

@@ -9,8 +9,7 @@ crates: bevy_skein=0.7.0-rc.1
 
 **Blender → Bevy components.** Attach your reflected Bevy components to objects, meshes or materials *inside Blender*, export glTF, and they are inserted when the scene spawns. Level designers can place a "Door" with `locked: true` without code. #3d
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `0.7.0-rc.1` targets **Bevy 0.20** (a release candidate, so pin it explicitly).
+#0.20 · release candidate `0.7.0-rc.1`: pin it
 
 ```toml
 bevy_skein = "0.7.0-rc.1"

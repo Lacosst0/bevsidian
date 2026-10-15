@@ -227,12 +227,13 @@ pub struct GraphState {
 }
 
 /// Materials of a note's shape and icon, per state: a note the reader has not opened yet
-/// is dim, a visited one is lit, the one being read is filled orange.
+/// is dark inside, a read one filled near white, the one being read filled orange.
 #[derive(Default)]
 struct NodePaint {
     /// The inside of a nebula's handle, and of a note's shape.
     fill: Handle<ColorMaterial>,
     fill_current: Handle<ColorMaterial>,
+    fill_read: Handle<ColorMaterial>,
     ring: Handle<ColorMaterial>,
     ring_lit: Handle<ColorMaterial>,
     ring_hovered: Handle<ColorMaterial>,
@@ -410,6 +411,7 @@ fn setup(
     state.paint = NodePaint {
         fill: materials.add(color::CARD),
         fill_current: materials.add(color::LINK),
+        fill_read: materials.add(color::MAP_FILL_READ),
         ring: materials.add(color::MAP_RING),
         ring_lit: materials.add(color::MAP_RING_LIT),
         ring_hovered: materials.add(color::MUTED_FOREGROUND),
@@ -639,7 +641,6 @@ fn spawn_nodes(
         .iter()
         .map(|p| (p.note, route_color(&vault, p.note)))
         .collect();
-    state.note_routes.clear();
     for path in vault
         .paths
         .iter()
@@ -656,40 +657,9 @@ fn spawn_nodes(
             .routes_dim
             .entry(path.note)
             .or_insert_with(|| materials.add(tint.mix(&color::BACKGROUND, lines::WHOLE_DIM)));
-        for &step in &path.steps {
-            let routes = state.note_routes.entry(step).or_default();
-            if !routes.contains(&path.note) {
-                routes.push(path.note);
-            }
-        }
     }
-    // Where each route begins: its first page off the main quest, filled with its colour.
-    let main_steps: Vec<NoteId> = vault
-        .paths
-        .iter()
-        .filter(|p| p.quest == bevsidian_core::vault::Quest::Main)
-        .flat_map(|p| p.steps.iter().copied())
-        .collect();
-    state.stations.clear();
-    for path in vault
-        .paths
-        .iter()
-        .filter(|p| p.quest != bevsidian_core::vault::Quest::Main)
-    {
-        if let Some(&first) = path.steps.iter().find(|s| !main_steps.contains(s)) {
-            state.stations.entry(first).or_default().push(path.note);
-        }
-    }
-    // Notes no route takes, tied to a note near them and part of its route (the tie and the
-    // note wear its colour, and show with it).
-    let connected = drawn.lines.iter().flat_map(|(a, b, _)| [*a, *b]).collect();
-    state.tied.clear();
-    for (note, to) in routes::ties(&vault, &place, &layout.notes, &connected) {
-        let route = state.note_routes.get(&to).and_then(|r| r.first()).copied();
-        if let Some(route) = route {
-            state.note_routes.insert(note, vec![route]);
-            state.tied.entry(route).or_default().push(note);
-        }
+    let members = membership(&vault, &place, &layout.notes, &drawn);
+    for &(note, to, route) in &members.ties {
         if let (Some(a), Some(b)) = (entity_of(note), entity_of(to)) {
             state.lines.push(lines::Line {
                 a,
@@ -707,10 +677,82 @@ fn spawn_nodes(
             });
         }
     }
+    state.note_routes = members.note_routes;
+    state.stations = members.stations;
+    state.tied = members.tied;
     state.edges = edges;
     if first {
         state.framing = true;
     }
+}
+
+/// Which routes each note belongs to, where each route begins, and the ties.
+#[derive(Default)]
+struct Membership {
+    /// The routes (but the main quest) each note is a step of, or is tied to.
+    note_routes: HashMap<NoteId, Vec<NoteId>>,
+    /// Each route's first page off the main quest: the routes beginning at a note.
+    stations: HashMap<NoteId, Vec<NoteId>>,
+    /// The notes no route takes tied into each route.
+    tied: HashMap<NoteId, Vec<NoteId>>,
+    /// Each tie: the note, the note it hangs from, and the route it joins.
+    ties: Vec<(NoteId, NoteId, Option<NoteId>)>,
+}
+
+/// Works out [`Membership`]. The main quest's notes belong to the main quest only: no
+/// other route colours them. A note no route takes is tied to a note near it
+/// ([`routes::ties`]) and joins its route.
+fn membership(
+    vault: &VaultData,
+    place: &dyn Fn(NoteId) -> Option<Vec2>,
+    notes: &[NoteId],
+    drawn: &routes::RouteLines,
+) -> Membership {
+    use bevsidian_core::vault::Quest;
+    let main_steps: Vec<NoteId> = vault
+        .paths
+        .iter()
+        .filter(|p| p.quest == Quest::Main)
+        .flat_map(|p| p.steps.iter().copied())
+        .collect();
+    let mut out = Membership::default();
+    for path in vault.paths.iter().filter(|p| p.quest != Quest::Main) {
+        for &step in path.steps.iter().filter(|s| !main_steps.contains(s)) {
+            let routes = out.note_routes.entry(step).or_default();
+            if !routes.contains(&path.note) {
+                routes.push(path.note);
+            }
+        }
+        if let Some(&first) = path.steps.iter().find(|s| !main_steps.contains(s)) {
+            out.stations.entry(first).or_default().push(path.note);
+        }
+    }
+    let connected = drawn.lines.iter().flat_map(|(a, b, _)| [*a, *b]).collect();
+    for (note, to) in routes::ties(vault, place, notes, &connected) {
+        let route = out.note_routes.get(&to).and_then(|r| r.first()).copied();
+        if let Some(route) = route {
+            out.note_routes.insert(note, vec![route]);
+            out.tied.entry(route).or_default().push(note);
+        }
+        out.ties.push((note, to, route));
+    }
+    out
+}
+
+/// The colour of each note's route, as the map shows it (a note on several routes takes the
+/// first's); the main quest's notes, and notes on no route, have none.
+pub fn note_colors(vault: &VaultData) -> HashMap<NoteId, Color> {
+    let layout = home_positions(vault);
+    let place = |id: NoteId| layout.slot(id).map(|s| layout.homes[s]);
+    let Some(&hub) = layout.notes.get(layout.root) else {
+        return HashMap::default();
+    };
+    let drawn = routes::lines(vault, &place, hub);
+    membership(vault, &place, &layout.notes, &drawn)
+        .note_routes
+        .into_iter()
+        .filter_map(|(note, routes)| Some((note, route_color(vault, *routes.first()?))))
+        .collect()
 }
 
 /// Where notes start when the map is first built, as a share of the way to their homes.
@@ -994,8 +1036,9 @@ fn neighbors(state: &GraphState, entity: Entity) -> Vec<Entity> {
         .collect()
 }
 
-/// Styles the notes: a note not read yet is dim (a dark outline, a grey icon), a read one is
-/// lit, the one being read is filled orange; a hovered note lights up with its neighbours (the
+/// Styles the notes: a note not read yet is dark inside (a grey icon), a read one is filled
+/// near white, the one being read orange, the first page of a route with its colour; a
+/// note on a route wears its colour on its outline; a hovered note lights up with its neighbours (the
 /// rest fade). Zoomed out, notes keep a size on screen and only the bigger places keep their
 /// names.
 #[allow(clippy::type_complexity)]
@@ -1102,14 +1145,18 @@ fn style_nodes(
             &paint.ring
         };
         let bold = route.is_some() || is_current || selected;
+        // Read, a note is filled near white.
+        let read = node.rank != 0 && visited.contains(&node.note);
         let fill = if is_current {
             &paint.fill_current
         } else if let Some(station) = station {
             station
+        } else if read {
+            &paint.fill_read
         } else {
             &paint.fill
         };
-        let icon = if station.is_some() && !is_current {
+        let icon = if (station.is_some() || read) && !is_current {
             color::BACKGROUND
         } else {
             icon

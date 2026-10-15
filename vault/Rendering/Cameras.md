@@ -71,7 +71,7 @@ fn lens(mut commands: Commands) {
 
 ## Ready-made controllers
 
-Bevy 0.20 includes camera controllers (behind Cargo features); add the plugin and put the component on a camera:
+Bevy includes camera controllers (behind Cargo features); add the plugin and put the component on a camera:
 
 | Controller | For | Plugin / component |
 |:--|:--|:--|

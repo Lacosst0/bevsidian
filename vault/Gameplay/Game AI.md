@@ -301,19 +301,17 @@ struct Guard;
 
 ## Crates
 
-Status checked 2026-10-13 against crates.io.
-
-| Crate | For | Bevy 0.20 |
+| Crate | For | Bevy |
 |:--|:--|:--|
-| `seldom_state` 0.16 | state machines as components | pending on 0.18 |
-| `bevior_tree` 0.11 | behaviour trees | pending on 0.19 |
-| `bevy_behave` 0.5 | behaviour trees, dynamic spawning | pending on 0.18 |
-| `big-brain` 0.22 | utility AI | pending on 0.15, unmaintained |
-| `bevy_landmass` 0.12 | navmesh agents and steering | pending on 0.19 |
-| `vleue_navigator` 0.16 | navmeshes | pending on 0.19 |
-| `bevy_northstar` 0.7 | hierarchical grid pathfinding | pending on 0.19 |
+| `seldom_state` 0.16 | state machines as components | #0.19 |
+| `bevior_tree` 0.11 | behaviour trees | #0.19 |
+| `bevy_behave` 0.5 | behaviour trees, dynamic spawning | #0.19 |
+| `big-brain` 0.22 | utility AI | #0.19 |
+| `bevy_landmass` 0.12 | navmesh agents and steering | #0.19 |
+| `vleue_navigator` 0.16 | navmeshes | #0.19 |
+| `bevy_northstar` 0.7 | hierarchical grid pathfinding | #0.19 |
 
-None has a Bevy 0.20 release yet. Everything in this note is plain Bevy and works today, and a hand-written state machine is often the right size.
+None works with #0.20 yet. Everything in this note is plain Bevy and works today, and a hand-written state machine is often the right size.
 
 ## Next
 

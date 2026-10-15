@@ -9,8 +9,7 @@ crates: bevy_prototype_lyon=0.17
 
 **Vector shapes as entities**: fills and strokes, polygons, circles, arbitrary paths (like SVG) tessellated with the `lyon` library into meshes. #2d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.17` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_prototype_lyon = "0.17"

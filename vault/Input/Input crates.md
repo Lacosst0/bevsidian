@@ -5,15 +5,13 @@ tags: [input]
 ---
 # Input crates
 
-Two crates for actions and rebinding. Both are ready on their `main` branch for Bevy 0.20; the releases are pending.
+Two crates for actions and rebinding. Both work with #0.20 from their git `main` branch.
 
 > [!NOTE]
-> Status checked 2026-10-13. *released* means a crates.io release uses Bevy 0.20; *pending* means the latest release targets an older Bevy; *git* means the `main` branch is on 0.20.
-
-| Crate | For | Bevy 0.20 | Pick it when |
+| Crate | For | Bevy | Pick it when |
 |:--|:--|:--|:--|
-| [[bevy_enhanced_input]] | contexts, actions and bindings; observer based | git | you like observers and layered contexts (on foot, in a car) |
-| [[leafwing-input-manager]] | an action enum, an `InputMap` and `ActionState` | git | you want the long-established, feature-full option |
+| [[bevy_enhanced_input]] | contexts, actions and bindings; observer based | #0.20 (git) | you like observers and layered contexts (on foot, in a car) |
+| [[leafwing-input-manager]] | an action enum, an `InputMap` and `ActionState` | #0.20 (git) | you want the long-established, feature-full option |
 
 ## Which one?
 

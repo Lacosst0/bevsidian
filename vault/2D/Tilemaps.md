@@ -94,7 +94,7 @@ fn world_to_cell(position: Vec2) -> IVec2 {
 
 ## The built-in `TilemapChunk`
 
-One entity per tile is easy and flexible, but a big map (10 000 tiles) wants fewer entities. Bevy 0.20 has `TilemapChunk`: one entity draws a whole grid from a *tileset image* (a stack of tile pictures) and a list of tile indices.
+One entity per tile is easy and flexible, but a big map (10 000 tiles) wants fewer entities. Bevy has `TilemapChunk`: one entity draws a whole grid from a *tileset image* (a stack of tile pictures) and a list of tile indices.
 
 ```rust
 use bevy::{

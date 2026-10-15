@@ -8,8 +8,7 @@ crates: bevy_radioactive={ git = "https://github.com/Lacosst0/bevy_radioactive",
 
 Reactive UI for [[Scenes and BSN|BSN]]. A node says what it depends on **where it is spawned**, instead of a global system finding it by a marker. This app's own interface is written with it. #ui #bsn
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_radioactive 0.5` targets **Bevy 0.20** and is used from git (`Lacosst0/bevy_radioactive`). Needs Rust 1.97.1 or newer.
+#0.20 · from git (`Lacosst0/bevy_radioactive`) · Rust 1.97.1 or newer
 
 ## Why
 
@@ -153,7 +152,7 @@ Everything above runs in one window. Read the highlighted lines: each style adds
 
 ## `watch`
 
-`bind` writes a component of *this* entity whenever a value on a source changes. A source is a `#Name`, an `Entity`, a list like `[#A, #B]`, or `Singleton` for a resource (resources are components in 0.20).
+`bind` writes a component of *this* entity whenever a value on a source changes. A source is a `#Name`, an `Entity`, a list like `[#A, #B]`, or `Singleton` for a resource (resources are components).
 
 | Function | Runs when | Does |
 |:--|:--|:--|

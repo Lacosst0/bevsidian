@@ -10,8 +10,7 @@ crates: bevy_mod_debugdump=0.16
 
 **Draws your app as a graph**: which systems are in which schedule and how they are ordered ([[Schedules and sets]]). When "why did this run before that?" has no obvious answer, look at the picture. #tooling
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.16` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_mod_debugdump = "0.16"

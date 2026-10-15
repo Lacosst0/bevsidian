@@ -128,7 +128,7 @@ fn score_button() -> impl Scene {
 }
 ```
 
-## A 3D scene, the 0.20 way
+## A 3D scene with BSN
 
 This is Bevy's own `3d_scene` example. `bsn_list!` is a list of **root** entities, `asset_value` turns a value into an asset handle, and `.spawn()` makes the function a startup system:
 

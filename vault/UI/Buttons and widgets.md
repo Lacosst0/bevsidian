@@ -52,7 +52,7 @@ fn colour_buttons(
 ```
 
 > [!NOTE]
-> Old code used `Interaction` and `Changed<Interaction>`. In 0.20 it is deprecated: use `Hovered` and the `Pressed` marker as above.
+> Old code used `Interaction` and `Changed<Interaction>`, now deprecated: use `Hovered` and the `Pressed` marker as above.
 
 ## Handle clicks with an observer
 

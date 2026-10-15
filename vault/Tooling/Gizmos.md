@@ -77,7 +77,7 @@ Make your own group (`#[derive(Default, Reflect, GizmoConfigGroup)]`, `init_gizm
 
 ## Gizmos on entities
 
-Some components have built-in gizmos: `ShowAabbGizmo` on a mesh, light gizmos (`ShowLightGizmo`) for lights, `TransformGizmo`-style axes (`gizmos.axes(...)`). Text can be drawn with gizmos too in 0.20 (`text_gizmos` examples).
+Some components have built-in gizmos: `ShowAabbGizmo` on a mesh, light gizmos (`ShowLightGizmo`) for lights, `TransformGizmo`-style axes (`gizmos.axes(...)`). Text can be drawn with gizmos too (`text_gizmos` examples).
 
 ## Next
 

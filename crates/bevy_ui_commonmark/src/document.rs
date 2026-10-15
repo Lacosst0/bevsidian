@@ -407,18 +407,19 @@ pub fn parse_wikilink(dest: &str) -> WikiLink {
 }
 
 fn is_tag_char(c: char) -> bool {
-    c.is_alphanumeric() || matches!(c, '_' | '-' | '/')
+    c.is_alphanumeric() || matches!(c, '_' | '-' | '/' | '.')
 }
 
 /// Splits `text` into plain runs and `#tag` runs (Obsidian rules: a tag starts after
-/// whitespace or at the start, and contains at least one non-digit).
+/// whitespace, an opening bracket or at the start, and contains at least one non-digit). A
+/// tag may hold dots, for versions like `#0.20`, but does not end with one.
 pub fn split_tags(text: &str) -> Vec<(&str, Option<&str>)> {
     let mut out = Vec::new();
     let mut plain_start = 0;
     let mut chars = text.char_indices().peekable();
     let mut prev: Option<char> = None;
     while let Some((i, c)) = chars.next() {
-        if c == '#' && prev.is_none_or(char::is_whitespace) {
+        if c == '#' && prev.is_none_or(|p| p.is_whitespace() || p == '(') {
             let start = i + 1;
             let mut end = start;
             while let Some(&(j, n)) = chars.peek() {
@@ -429,8 +430,8 @@ pub fn split_tags(text: &str) -> Vec<(&str, Option<&str>)> {
                     break;
                 }
             }
-            // Trailing '/' or '-' are not part of a tag.
-            let tag = text[start..end].trim_end_matches(['/', '-']);
+            // Trailing '/', '-' or '.' are not part of a tag.
+            let tag = text[start..end].trim_end_matches(['/', '-', '.']);
             if !tag.is_empty() && !tag.chars().all(|c| c.is_ascii_digit()) {
                 if plain_start < i {
                     out.push((&text[plain_start..i], None));
@@ -1154,6 +1155,18 @@ mod tests {
                 (" c#d #1 ", None),
                 ("#e", Some("e")),
                 ("-", None),
+            ]
+        );
+        // Versions, a tag in brackets, and a full stop after a tag.
+        assert_eq!(
+            split_tags("(#0.19) #0.20. #2.0"),
+            vec![
+                ("(", None),
+                ("#0.19", Some("0.19")),
+                (") ", None),
+                ("#0.20", Some("0.20")),
+                (". ", None),
+                ("#2.0", Some("2.0")),
             ]
         );
     }

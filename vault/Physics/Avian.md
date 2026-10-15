@@ -9,8 +9,7 @@ crates: avian2d=0.7
 
 **Avian** is a 2D and 3D physics engine **made for Bevy's ECS**: no wrapped foreign engine, everything is components and systems you can read, query and extend. Crates `avian2d` and `avian3d`. (Formerly "bevy_xpbd".) #physics
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.7` targets **Bevy 0.19**; `main` is still on 0.19. For 0.20 today, use [[bevy_rapier]]. The code below compiles against 0.19 + `avian2d 0.7`.
+#0.19 · on #0.20, use [[bevy_rapier]]
 
 ```toml
 avian2d = "0.7"      # or avian3d = "0.7"
@@ -82,7 +81,7 @@ fn walk(keys: Res<ButtonInput<KeyCode>>, mut player: Single<&mut LinearVelocity,
 |:--|:--|:--|
 | Written | for Bevy's ECS | as a standalone engine, then wrapped |
 | Hackability | high: plain components and schedules | lower, but a huge feature list |
-| Bevy 0.20 | pending | **released** |
+| Bevy | #0.19 | #0.20 |
 | Docs | docs.rs and examples | docs.rs, rapier.rs guide |
 
 Both are good. Choose by the Bevy version you need and the features you use.

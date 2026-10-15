@@ -8,12 +8,10 @@ tags: [assets]
 Two crates that make assets less manual. They solve different halves of the problem and are often used together.
 
 > [!NOTE]
-> Status checked 2026-10-13. *released* means a crates.io release uses Bevy 0.20; *pending* means the latest release targets an older Bevy; *git* means the `main` branch is on 0.20.
-
-| Crate | For | Bevy 0.20 | Pick it when |
+| Crate | For | Bevy | Pick it when |
 |:--|:--|:--|:--|
-| [[bevy_asset_loader]] | declare assets in a struct and load them during a loading state | released `0.28` | you have many assets and a loading screen |
-| [[bevy_common_assets]] | load RON, JSON, TOML, YAML and more as assets | released `0.18` | game data lives in files designers edit |
+| [[bevy_asset_loader]] | declare assets in a struct and load them during a loading state | #0.20 | you have many assets and a loading screen |
+| [[bevy_common_assets]] | load RON, JSON, TOML, YAML and more as assets | #0.20 | game data lives in files designers edit |
 
 ## Which one?
 

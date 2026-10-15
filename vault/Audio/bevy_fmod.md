@@ -9,8 +9,7 @@ check: skip
 
 **FMOD** in Bevy: the middleware used by many shipped games. Sound designers build events, mixing and adaptive music in the FMOD Studio app; your game triggers events and sets parameters. #audio
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): the README states `0.11` works with **Bevy 0.19** and FMOD 2.02.22; a 0.20 release is pending.
+#0.19
 
 ## What you need
 
@@ -20,7 +19,7 @@ check: skip
 
 ## When it is worth it
 
-Large audio-driven games: adaptive music, complex mixing, a dedicated audio person. Otherwise [[bevy_kira_audio]] (released for 0.20), [[bevy_seedling]] or Bevy's own audio ([[Audio]]) are far simpler.
+Large audio-driven games: adaptive music, complex mixing, a dedicated audio person. Otherwise [[bevy_kira_audio]] (#0.20), [[bevy_seedling]] or Bevy's own audio ([[Audio]]) are far simpler.
 
 ## Links
 

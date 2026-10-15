@@ -9,8 +9,7 @@ crates: bevy_rich_text3d=0.8
 
 **Text as a mesh**, in 2D or 3D, with an HTML-like markup for colours, sizes and effects. Each glyph is its own quad, so shaders can wobble, type out or rainbow individual letters. Complements Bevy's own text ([[Text 2D]], [[Text and images]]). #3d #ui
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_rich_text3d 0.8` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_rich_text3d = "0.8"

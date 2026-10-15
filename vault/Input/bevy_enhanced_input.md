@@ -9,8 +9,7 @@ crates: bevy_enhanced_input={ git = "https://github.com/simgine/bevy_enhanced_in
 
 An **observer-based input manager**: you describe *contexts* (on foot, in a car) with *actions* (Move, Jump) and *bindings* (keys, sticks); your game just observes the actions. Inspired by Unreal's Enhanced Input. #input
 
-> [!IMPORTANT]
-> **Bevy 0.20 status** (checked 2026-10-13): the crates.io release `0.26` targets Bevy 0.19. The `main` branch already targets **0.20**: depend on it with `git` until the next release.
+#0.20 · from git
 
 ```toml
 [dependencies]

@@ -7,7 +7,7 @@ tags: [assets]
 Bevy can write part of the world to a file and read it back. It works through [[Reflection]]: every component you want saved must be reflectable. #assets
 
 > [!NOTE]
-> Bevy 0.20 calls this *world serialization*: `DynamicWorld` (the saved data) and `DynamicWorldRoot` (spawns it). It is not the same as BSN scenes ([[Scenes and BSN]]), which are written in code.
+> Bevy calls this *world serialization*: `DynamicWorld` (the saved data) and `DynamicWorldRoot` (spawns it). It is not the same as BSN scenes ([[Scenes and BSN]]), which are written in code.
 
 ## Make components saveable
 

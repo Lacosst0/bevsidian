@@ -9,8 +9,7 @@ crates: bevy_seedling=0.8
 
 An **audio graph** for Bevy, built on Firewheel: sound sources feed into pools and buses where you add effects (reverb, EQ, filters, spatialisation) just by spawning entities and connecting them. The most flexible Bevy audio today. #audio
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.8` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_seedling = "0.8"
@@ -44,7 +43,7 @@ A sound is an entity with a `SamplePlayer`; despawn it to stop it. Everything el
 |:--|:--|:--|:--|
 | Model | entities with `AudioPlayer` | channels + a global `Audio` | an audio graph in the ECS |
 | Effects | none | some | many, composable |
-| Bevy 0.20 | yes | **yes** | pending |
+| Bevy | yes | **yes** | #0.19 |
 
 Choose it when you want sophisticated mixing, dynamic music, or spatial audio with effects.
 

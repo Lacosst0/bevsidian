@@ -8,8 +8,7 @@ crates: bevy_vector_shapes=0.14
 
 Draw crisp **vector shapes** (circles, lines, rectangles, arcs, polygons) with a painter, in 2D or 3D. Resolution independent, with thickness, outlines and alpha. Great for debug drawing, HUDs, procedural art and games made of shapes. #2d #3d
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_vector_shapes 0.14` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_vector_shapes = "0.14"

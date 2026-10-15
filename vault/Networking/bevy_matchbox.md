@@ -9,8 +9,7 @@ check: skip
 
 **Peer-to-peer connections over WebRTC**, in the browser and natively. A small *signalling server* introduces the peers, then they talk directly. The usual partner of [[bevy_ggrs]]. #networking
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.14` targets **Bevy 0.18**; updates for newer Bevy are pending.
+#0.19
 
 ```toml
 bevy_matchbox = { version = "0.14", features = ["ggrs"] }

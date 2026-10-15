@@ -9,8 +9,7 @@ crates: bevy_pkv=0.16; serde={ version = "1", features = ["derive"] }
 
 A tiny **persistent key-value store** that works on desktop *and* in the browser (it uses local storage there). Perfect for settings, high scores, and "continue" data. #tooling
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.16` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_pkv = "0.16"

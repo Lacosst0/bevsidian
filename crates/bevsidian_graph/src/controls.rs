@@ -131,9 +131,21 @@ pub fn legend() -> impl Scene {
             Children [ {pieces} ]
         })
     }
-    // A note: lit once read, dim before.
-    let note = |tint: Color| -> Box<dyn Scene> { Box::new(icon("circle", 14.0, tint)) };
-    let (read, unread) = (note(color::BODY), note(color::DISABLED_FOREGROUND));
+    // A note: filled near white once read, dark before.
+    let note = |fill: Color, ring: Color| -> Box<dyn Scene> {
+        Box::new(bsn! {
+            Node {
+                width: px(14),
+                height: px(14),
+                border: UiRect::all(px(1.5)),
+                border_radius: BorderRadius::MAX,
+            }
+            BackgroundColor(fill)
+            BorderColor::all(ring)
+        })
+    };
+    let read = note(color::MAP_FILL_READ, color::MAP_RING_LIT);
+    let unread = note(color::CARD, color::MAP_RING_LIT);
     // A route's first page: filled with its colour.
     let route = color::map_route(6, 14);
     let first_page: Box<dyn Scene> = Box::new(bsn! {
@@ -147,7 +159,6 @@ pub fn legend() -> impl Scene {
         BackgroundColor(route)
         Children [ @{icon("shapes", 10.0, color::BACKGROUND)} ]
     });
-    let arrow: Box<dyn Scene> = Box::new(icon("chevron-right", 14.0, color::MUTED_FOREGROUND));
     let shadow = shadow::popover();
     bsn! {
         Node {
@@ -186,11 +197,9 @@ pub fn legend() -> impl Scene {
             --
             @{row(line(1, 24.0, false), "Route")}
             --
-            @{row(line(3, 6.0, false), "Side quest")}
+            @{row(line(3, 6.0, false), "Choose your path")}
             --
-            @{row(line(4, 4.0, true), "Secret")}
-            --
-            @{row(arrow, "Reading order")}
+            @{row(line(4, 4.0, true), "Optional")}
             --
             @{row(first_page, "First page of a route")}
         ]

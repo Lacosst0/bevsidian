@@ -9,8 +9,7 @@ crates: bevy_hanabi=0.19
 
 **GPU particles**: fire, smoke, sparks, magic, rain; hundreds of thousands of particles simulated on the graphics card. You describe an *effect* with modifiers, then spawn it as an entity. #2d #3d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.19` targets **Bevy 0.19**; the repository's `main` is at `0.20.0-dev`. The code compiles against 0.19.
+#0.19
 
 ```toml
 bevy_hanabi = "0.19"

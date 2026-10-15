@@ -9,8 +9,7 @@ check: skip
 
 **2D lighting** in the style of Unity and Godot: soft shadows, normal maps, light banding, z-sorting with lights, occluders from shapes. A more featureful alternative to [[bevy_light_2d]]. #2d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.19` targets **Bevy 0.19**.
+#0.19
 
 ```toml
 bevy_firefly = "0.19"
@@ -29,7 +28,7 @@ See the `flashlight`, `shapes` and `stress` examples in the repository.
 
 | | bevy_light_2d | bevy_firefly |
 |:--|:--|:--|
-| Bevy 0.20 | **released** | pending |
+| Bevy | #0.20 | #0.19 |
 | Features | lights, shadows | + normal maps, banding, z-sorting |
 
 ## Links

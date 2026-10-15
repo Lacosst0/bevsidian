@@ -8,8 +8,7 @@ crates: bevy_replicon=0.45; serde={ version = "1", features = ["derive"] }
 
 **Server-authoritative replication**: mark entities `Replicated`, say which components to sync, and clients get a copy of the world. Plus typed messages and events in both directions. It does no I/O itself: you add a *messaging backend*. #networking
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_replicon 0.45` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_replicon = "0.45"

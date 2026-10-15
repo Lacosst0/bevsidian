@@ -9,8 +9,7 @@ crates: bevy_light_2d=0.11
 
 **2D lighting with shadows**: darken the scene, add point and spot lights, and let walls block light. Turns flat sprites into moody dungeons. #2d
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_light_2d 0.11` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_light_2d = "0.11"
@@ -61,7 +60,7 @@ Lights with `cast_shadows: true` are blocked by **occluders**. See the `occlusio
 
 - [[Tilemaps]] for the walls the lights bounce off.
 - [[Post-processing]] bloom for glowing light sources.
-- Alternative: [[bevy_firefly]] (richer 2D lights, release pending for 0.20).
+- Alternative: [[bevy_firefly]] (richer 2D lights, #0.19).
 
 ## Links
 

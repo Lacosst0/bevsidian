@@ -10,8 +10,7 @@ crates: bevy_tweening=0.16
 
 **Tweens**: animate any value (position, scale, colour, a UI size, your own component) from A to B over time with easing, loops and sequences. The easiest way to add juice. #2d #3d #ui
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): the latest release `0.16` targets **Bevy 0.19**; there is no 0.20 release yet. The code below compiles against 0.19 + `bevy_tweening 0.16`. Watch the [repo](https://github.com/djeedai/bevy_tweening) and the table in [[2D]].
+#0.19 · watch the [repo](https://github.com/djeedai/bevy_tweening)
 
 ```toml
 bevy_tweening = "0.16"

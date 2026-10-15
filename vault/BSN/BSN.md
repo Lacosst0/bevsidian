@@ -38,4 +38,4 @@ Both work together. A quick rule:
 - A **tree**, anything **reused**, anything with **assets or observers**: BSN.
 
 > [!IMPORTANT]
-> The `.bsn` *file* format is not in Bevy 0.20 yet. The `bsn!` macro is the supported way, and what these notes teach.
+> The `.bsn` *file* format is not in Bevy yet. The `bsn!` macro is the supported way, and what these notes teach.

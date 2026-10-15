@@ -10,8 +10,7 @@ crates: bevy_ecs_tilemap=0.19
 
 A **tilemap engine**: every tile is an entity, drawn in efficient chunks from a tileset image. Square, isometric and hexagonal grids, many layers, animated tiles. #2d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.19` targets **Bevy 0.19**. Bevy 0.20 itself now ships a basic [[Tilemaps|`TilemapChunk`]]. Compiled against 0.19.
+#0.19 · for a basic tilemap, Bevy has [[Tilemaps|`TilemapChunk`]]
 
 ```toml
 bevy_ecs_tilemap = "0.19"

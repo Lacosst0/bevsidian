@@ -8,8 +8,7 @@ crates: bevy_http_client=0.12; serde={ version = "1", features = ["derive"] }
 
 Make **HTTP requests** from systems: leaderboards, accounts, update checks, downloading configuration. Requests and responses are [[Messages|messages]]; no async code in your game. #networking
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_http_client 0.12` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_http_client = "0.12"

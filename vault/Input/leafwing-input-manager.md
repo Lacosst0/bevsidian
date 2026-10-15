@@ -9,8 +9,7 @@ crates: leafwing-input-manager={ git = "https://github.com/Leafwing-Studios/leaf
 
 Map physical inputs to your own **action enum**, then ask `ActionState` whether an action is pressed. A long-established crate with a very full feature set. #input
 
-> [!IMPORTANT]
-> **Bevy 0.20 status** (checked 2026-10-13): release `0.21` is for Bevy 0.19; the `main` branch is on **0.20**. Use `git` until it is released.
+#0.20 · from git
 
 ```toml
 leafwing-input-manager = { git = "https://github.com/Leafwing-Studios/leafwing-input-manager" }

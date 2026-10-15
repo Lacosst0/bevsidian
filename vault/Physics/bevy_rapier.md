@@ -8,8 +8,7 @@ crates: bevy_rapier2d=0.37
 
 The official Bevy integration of **Rapier**, a mature, fast physics engine. Rigid bodies, colliders, joints, character controllers, ray casts, sensors. 2D (`bevy_rapier2d`) and 3D (`bevy_rapier3d`). #physics
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): release `0.37` supports **Bevy 0.20**. The plugin lives in the main Rapier repository now.
+#0.20 · the plugin lives in the main Rapier repository
 
 ```toml
 bevy_rapier2d = "0.37"     # or bevy_rapier3d = "0.37"
@@ -108,7 +107,7 @@ Rapier steps in `PostUpdate` by default, tied to frame time; configure `Timestep
 |:--|:--|:--|
 | Engine | Rapier (separate, mature, very feature complete) | written for Bevy's ECS |
 | Style | components, plugin config | components, more "Bevy-native" |
-| Bevy 0.20 | **released** | release pending |
+| Bevy | #0.20 | #0.19 |
 
 ## Links
 

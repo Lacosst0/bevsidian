@@ -10,8 +10,7 @@ crates: bevy_pancam=0.21
 
 A **pan and zoom camera for 2D**: drag the map, scroll to zoom (towards the cursor), WASD/arrows to move. For map editors, strategy and simulation games. #2d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.21` targets **Bevy 0.19**. Bevy 0.20 includes a built-in `PanCamera` controller (feature `pan_camera`, see [[Cameras]]). Compiled against 0.19.
+#0.19 · on #0.20, Bevy has a built-in `PanCamera` (feature `pan_camera`, see [[Cameras]])
 
 ```toml
 bevy_pancam = "0.21"

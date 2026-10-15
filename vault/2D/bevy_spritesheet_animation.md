@@ -10,8 +10,7 @@ crates: bevy_spritesheet_animation=7.0.1
 
 Sprite-sheet animation **without writing the timer system** ([[Sprite animation]]). Define clips from rows, columns or frame lists; set speed, easing and repeats; combine clips and react to events. #2d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `7.0.1` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_spritesheet_animation = "7.0"

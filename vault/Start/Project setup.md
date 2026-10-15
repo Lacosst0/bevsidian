@@ -30,7 +30,7 @@ opt-level = 3
 
 ## Compile less
 
-Bevy 0.20 groups its features into **profiles**. Choose only what your game uses:
+Bevy groups its features into **profiles**. Choose only what your game uses:
 
 | Profile | Contains |
 |:--|:--|

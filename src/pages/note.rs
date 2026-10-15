@@ -214,7 +214,7 @@ fn back_to_top(nav: Nav) -> impl Scene {
     }
 }
 
-/// The note's markdown, with its icon before the title. Notes without a level-1 heading get
+/// The note's markdown, with its icon before the title (in its route's colour). Notes without a level-1 heading get
 /// their name as the title, like Obsidian.
 fn note_body(
     id: NoteId,
@@ -231,9 +231,14 @@ fn note_body(
     }
     let note = &vault.notes[id];
     let icon = note.icon;
+    // In the colour of the note's route on the map.
+    let tint = bevsidian_graph::note_colors(&vault)
+        .get(&id)
+        .copied()
+        .unwrap_or(color::FOREGROUND);
     let resolve = |link: &bevy_ui_commonmark::WikiLink| vault.resolve(link).is_some();
     let badge = move |title_size: f32, line: f32| -> Box<dyn Scene> {
-        Box::new(note_icon(icon, title_size, line))
+        Box::new(note_icon(icon, tint, title_size, line))
     };
     let options = RenderOptions {
         theme: &theme,
@@ -261,7 +266,7 @@ fn note_body(
                 row
                 Children [
                     // `label` keeps Bevy's default line height, 1.2 × the font size.
-                    @{note_icon(icon, size, size * 1.2)}
+                    @{note_icon(icon, tint, size, size * 1.2)}
                     --
                     @{name} SelectableText Pickable::default() Node { flex_shrink: 1.0 }
                 ]

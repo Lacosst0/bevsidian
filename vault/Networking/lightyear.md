@@ -9,8 +9,7 @@ check: skip
 
 A **full server-authoritative multiplayer framework**: replication, **client-side prediction with rollback**, **snapshot interpolation**, input buffering, lag compensation, bandwidth management. Runs over UDP, WebSocket, WebTransport (browsers) or Steam. #networking
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.30` (and `main`) target **Bevy 0.19**. Use [[bevy_replicon]] (released for 0.20) if you cannot wait; the concepts below carry over.
+#0.19 · on #0.20, use [[bevy_replicon]]; the concepts below carry over
 
 ```toml
 lightyear = "0.30"      # for Bevy 0.19

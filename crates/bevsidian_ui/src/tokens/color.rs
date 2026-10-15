@@ -89,6 +89,8 @@ pub const MAP_NEBULA: Color = Color::srgba(1.0, 1.0, 1.0, 0.009);
 pub const MAP_PLATE: Color = BACKGROUND;
 /// `#3a3a3a`: the outline of a note's shape.
 pub const MAP_RING: Color = Color::srgb(0.227, 0.227, 0.227);
+/// `#e5e5e5`: the inside of a note's shape once it is read.
+pub const MAP_FILL_READ: Color = Color::srgb(0.898, 0.898, 0.898);
 /// `#5a5a5a`: the outline of a note's shape once it is read.
 pub const MAP_RING_LIT: Color = Color::srgb(0.353, 0.353, 0.353);
 /// The colour of route `index` of `count` on the map: the routes take even steps along
@@ -117,8 +119,8 @@ pub const MAP_ROUTES: [Color; 14] = [
     Color::srgb(0.957, 0.447, 0.714), // pink #f472b6
     Color::srgb(0.984, 0.443, 0.522), // rose #fb7185
 ];
-/// `#6b6b6b`: the main quest's lines.
-pub const MAP_LINE: Color = Color::srgb(0.42, 0.42, 0.42);
+/// `#e5e5e5`: the main quest's lines, and the lines leaving it.
+pub const MAP_LINE: Color = Color::srgb(0.898, 0.898, 0.898);
 /// `#363636`: the other lines, with the whole map shown.
 pub const MAP_LINE_FAINT: Color = Color::srgb(0.21, 0.21, 0.21);
 /// `#333333`: landmarks drawn in the sky.

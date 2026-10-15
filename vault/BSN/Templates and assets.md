@@ -132,7 +132,7 @@ fn at(x: f32) -> impl Scene {
 ```
 
 > [!NOTE]
-> Older code wrapped these in `template_value(..)`. It still works but is deprecated in 0.20.
+> Older code wrapped these in `template_value(..)`. It still works but is deprecated.
 
 ## Anything else: `template`
 

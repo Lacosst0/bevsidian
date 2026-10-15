@@ -9,8 +9,7 @@ crates: bevy_renet=5.0
 
 A thin Bevy layer over **renet**: a reliable, channel-based **UDP transport** with encrypted, authenticated connections (netcode). It moves bytes between a server and clients; replication is up to you, or use [[bevy_replicon]] with its renet backend. #networking
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `5.0.0` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_renet = "5.0"

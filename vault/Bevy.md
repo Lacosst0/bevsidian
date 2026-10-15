@@ -28,7 +28,7 @@ Everything you need to make a game with **Bevy 0.20**, one small step at a time.
 | **Networking** | multiplayer | [[Networking]] |
 | **Tooling** | debugging, web, shipping | [[Tooling]] |
 
-Every area ends with a **Libraries** table: the best crates for that topic, and which work with 0.20 today.
+Every area ends with a **Libraries** table: the best crates for that topic. A crate is tagged #0.20 when it works with Bevy 0.20, and #0.19 while it is still on an older Bevy.
 
 ## Routes
 
@@ -62,13 +62,13 @@ A route is a list of notes to read in order, drawn on the map as a line of stars
 
 | Line | Meaning |
 |:--|:--|
-| solid | the route itself; do these in order (the arrows point the way) |
-| dashed | a *side quest*: useful, skip if you are in a hurry |
-| dotted | a *secret*: extras for the curious |
+| solid | the route itself; do these in order |
+| dashed | *choose your path*: where a route leaves the main quest |
+| dotted | *optional*: useful, skip if you are in a hurry |
 
-Each route has its own colour, on its line and around its notes, like the lines of a metro map; its first page is filled with it. The main quest, and the lines leaving it, are grey. Related areas sit side by side in neighbouring colours.
+The main quest is one solid white line. Every other route has its own colour, on its line and around its notes, like the lines of a metro map; its first page is filled with it. Related areas sit side by side in neighbouring colours.
 
-Every note is a shape with its icon inside, dim until you have read it. The shape says what it is: a hexagon is an area's index, a diamond a milestone where you have built something, a star the goal at the end of a route, a pentagon a comparison of crates, a square a crate and a circle a lesson. [[Map]] holds where everything sits; edit it in the app with the map's pencil button.
+Every note is a shape with its icon inside, dark until you have read it and filled near white after. The shape says what it is: a hexagon is an area's index, a diamond a milestone where you have built something, a star the goal at the end of a route, a pentagon a comparison of crates, a square a crate and a circle a lesson. [[Map]] holds where everything sits; edit it in the app with the map's pencil button.
 
 ## Where this comes from
 

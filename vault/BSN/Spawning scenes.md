@@ -113,7 +113,7 @@ fn add_items(mut commands: Commands, bag: Single<Entity, With<Name>>) {
 
 - A plain `commands.spawn(...)` and a scene mix freely; BSN is not a separate world.
 - BSN is for **writing** scenes in code. To **save** a world to a file, use `DynamicWorld` ([[Saving and loading]]); to load a model, use glTF ([[Assets]]).
-- The `.bsn` file format will let scenes live on disk and hot-reload. It is not in 0.20, but the loader architecture exists, so community crates can provide it.
+- The `.bsn` file format will let scenes live on disk and hot-reload. It has not shipped yet, but the loader architecture exists, so community crates can provide it.
 
 ## Common mistakes
 

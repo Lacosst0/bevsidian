@@ -10,8 +10,7 @@ crates: bevy_ecs_ldtk=0.15
 
 Load levels drawn in **LDtk**, a friendly 2D level editor: tile layers, auto-tiling rules, and *entities with fields* that become Bevy components. Built on [[bevy_ecs_tilemap]]. #2d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.15` targets **Bevy 0.19**. Compiled against 0.19.
+#0.19
 
 ```toml
 bevy_ecs_ldtk = "0.15"

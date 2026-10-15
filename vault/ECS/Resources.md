@@ -31,7 +31,7 @@ fn main() {
 }
 ```
 
-The card with `Score` is the resource itself: since Bevy 0.20 a resource is a component on a hidden singleton entity. Press **Collect a coin** and step to see the score follow.
+The card with `Score` is the resource itself: a resource is a component on a hidden singleton entity. Press **Collect a coin** and step to see the score follow.
 
 ## Reading and writing
 

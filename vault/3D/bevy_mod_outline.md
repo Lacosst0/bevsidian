@@ -9,8 +9,7 @@ check: skip
 
 **Outlines around meshes**: the glowing edge on a selected unit, the border on an interactable. Uses vertex extrusion or a jump-flood algorithm; supports opaque and transparent outlines, render layers, skinned meshes. #3d
 
-> [!WARNING]
-> **Bevy 0.20 status** (checked 2026-10-13): latest release `0.13` targets **Bevy 0.19**.
+#0.19
 
 ```toml
 bevy_mod_outline = "0.13"

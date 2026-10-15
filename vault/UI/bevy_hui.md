@@ -9,8 +9,7 @@ crates: bevy_hui={ version = "0.8", features = ["picking"] }
 
 Build Bevy UI in **pseudo-HTML files**, reload them while the game runs, and bind logic from Rust by function name. Templates work like web components. #ui
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_hui 0.8` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_hui = { version = "0.8", features = ["picking"] }   # "picking" enables hover/press styles and events
@@ -101,7 +100,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
 | Crate | Approach |
 |:--|:--|
 | [[bevy_lunex]] | layout system for responsive, retained UI |
-| `bsn!` ([[Scenes and BSN]]) | Rust macro scenes built into Bevy 0.20 |
+| `bsn!` ([[Scenes and BSN]]) | Rust macro scenes built into Bevy |
 | [[bevy_egui]] | immediate mode, best for tools |
 
 ## Links

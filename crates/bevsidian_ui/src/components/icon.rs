@@ -76,9 +76,10 @@ pub fn icon_tile(icon: char, size: f32, style: TileStyle) -> impl Scene {
     }
 }
 
-/// The big icon before a note's title: the note's icon on a bordered card-coloured square,
-/// sized for a title of `title_size` px and centred on its first line (`line` px high).
-pub fn note_icon(icon: char, title_size: f32, line: f32) -> impl Scene {
+/// The big icon before a note's title: the note's icon, in `tint`, on a bordered
+/// card-coloured square, sized for a title of `title_size` px and centred on its first line
+/// (`line` px high).
+pub fn note_icon(icon: char, tint: Color, title_size: f32, line: f32) -> impl Scene {
     let tile = (title_size * 1.35).round().max(32.0);
     let node = Node {
         width: px(tile),
@@ -96,6 +97,6 @@ pub fn note_icon(icon: char, title_size: f32, line: f32) -> impl Scene {
         BackgroundColor(color::CARD)
         BorderColor::all(color::BORDER)
         Pickable::IGNORE
-        Children [ @{icon_char(icon, (tile * 0.5).round(), color::FOREGROUND)} ]
+        Children [ @{icon_char(icon, (tile * 0.5).round(), tint)} ]
     }
 }

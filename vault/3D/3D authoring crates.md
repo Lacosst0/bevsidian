@@ -8,12 +8,10 @@ tags: [3d]
 Make 3D levels in an editor instead of code. The two crates differ by editor.
 
 > [!NOTE]
-> Status checked 2026-10-13. *released* means a crates.io release uses Bevy 0.20; *pending* means the latest release targets an older Bevy; *git* means the `main` branch is on 0.20.
-
-| Crate | For | Bevy 0.20 | Pick it when |
+| Crate | For | Bevy | Pick it when |
 |:--|:--|:--|:--|
-| [[bevy_trenchbroom]] | Quake-style levels from TrenchBroom: brushes become meshes and colliders | pending `0.14` | you like building rooms from brushes |
-| [[bevy_skein]] | Blender: attach Bevy components to objects, export glTF | released `0.7.0-rc.1` (pin it) | your artists work in Blender |
+| [[bevy_trenchbroom]] | Quake-style levels from TrenchBroom: brushes become meshes and colliders | #0.19 | you like building rooms from brushes |
+| [[bevy_skein]] | Blender: attach Bevy components to objects, export glTF | #0.20 (pin it) | your artists work in Blender |
 
 ## Which one?
 

@@ -8,14 +8,12 @@ tags: [ui]
 Ways to build UI beyond hand-written Bevy UI nodes. They sit at very different levels, so compare by what you want to write.
 
 > [!NOTE]
-> Status checked 2026-10-13. *released* means a crates.io release uses Bevy 0.20; *pending* means the latest release targets an older Bevy; *git* means the `main` branch is on 0.20.
-
-| Crate | For | Bevy 0.20 | Pick it when |
+| Crate | For | Bevy | Pick it when |
 |:--|:--|:--|:--|
-| [[bevy_hui]] | pseudo-HTML templates, reloaded while the game runs | released `0.8` | you want to write UI like web pages |
-| [[bevy_lunex]] | a layout engine, with world-space UI in 2D and 3D | git | you need in-world screens or any-aspect layouts |
-| [[bevy_egui]] | immediate-mode UI for tools | released `0.43` | debug panels and editors, not the game's own UI |
-| [[bevy_radioactive]] | reactive BSN scenes: signals, `watch`, `view!` | git | UI that changes with game data |
+| [[bevy_hui]] | pseudo-HTML templates, reloaded while the game runs | #0.20 | you want to write UI like web pages |
+| [[bevy_lunex]] | a layout engine, with world-space UI in 2D and 3D | #0.20 (git) | you need in-world screens or any-aspect layouts |
+| [[bevy_egui]] | immediate-mode UI for tools | #0.20 | debug panels and editors, not the game's own UI |
+| [[bevy_radioactive]] | reactive BSN scenes: signals, `watch`, `view!` | #0.20 (git) | UI that changes with game data |
 
 ## Which one?
 

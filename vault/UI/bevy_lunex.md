@@ -9,8 +9,7 @@ check: skip
 
 A **retained layout engine** for UI built from regular entities: any aspect ratio without distortion, a flexbox-like `flow` layout, **world-space UI** in 2D and 3D, interactivity through normal systems and observers. #ui
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): the `main` branch targets **Bevy 0.20**; the last crates.io release `0.7` targets 0.19. Depend on the git repository for 0.20.
+#0.20 · from git
 
 ```toml
 bevy_lunex = { git = "https://github.com/bytestring-net/bevy_lunex" }

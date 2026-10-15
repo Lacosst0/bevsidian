@@ -8,7 +8,7 @@ Make a window, put something in it, and see how the pieces fit. About ten minute
 
 ## Install
 
-You need Rust (get it from [rustup.rs](https://rustup.rs)). Bevy 0.20 needs a recent stable compiler: **1.97.1 or newer**, so run `rustup update`.
+You need Rust (get it from [rustup.rs](https://rustup.rs)). Bevy needs a recent stable compiler: **1.97.1 or newer**, so run `rustup update`.
 
 On Linux you also need a few system libraries. On Ubuntu:
 

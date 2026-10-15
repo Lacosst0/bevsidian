@@ -9,8 +9,7 @@ crates: bevy_common_assets={ version = "0.18", features = ["ron"] }; serde={ ver
 
 Load **RON, JSON, TOML, YAML, CSV, XML, MessagePack and more** straight into your own `serde` types as Bevy assets. No loader code: one plugin per file format. #assets
 
-> [!NOTE]
-> **Bevy 0.20 status** (checked 2026-10-13): `bevy_common_assets 0.18` supports **Bevy 0.20**.
+#0.20
 
 ```toml
 bevy_common_assets = { version = "0.18", features = ["ron"] }   # pick your formats
