@@ -4,7 +4,7 @@ map: true
 ---
 # Map
 
-Where everything sits on the map (`Ctrl+G`). The main quest, [[Your first game]], traces Bevy's bird logo with [[Bevy]] as its eye; every other route branches off the bird toward its area.
+Where everything sits on the map (`Ctrl+G`). The main quest, [[Your first game]], traces Bevy's bird logo with [[Bevy]] as its eye. Each area sits just outside the bird, beside the stop its route leaves from, so no line has to cross the map.
 
 Edit the map with the pencil under the zoom buttons: drag notes and objects, change a note's shape, add landmarks, labels and nebulae. Changes are saved here, in the block below, which you can also edit by hand.
 

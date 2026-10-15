@@ -22,7 +22,7 @@ bevy_matchbox = { version = "0.14", features = ["ggrs"] }
 3. The socket reports peers and gives you channels to send and receive.
 
 ```rust ignore
-// From the README (Bevy 0.18): open a socket in a system.
+// From the crate's README: open a socket in a system.
 fn start_socket(mut commands: Commands) {
     let socket = MatchboxSocket::new_unreliable("ws://localhost:3536/extreme_bevy?next=2");
     commands.insert_resource(socket);
