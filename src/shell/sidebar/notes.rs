@@ -19,25 +19,26 @@ use super::FollowSelection;
 const ROW: [f32; 2] = [32.0, 40.0];
 const SUB_ROW: [f32; 2] = [28.0, 36.0];
 
-/// Notes whose headings are shown, and folders folded by the user (folders start open).
+/// Notes whose headings are shown, and open folders (folders start closed).
 #[derive(Clone, Default)]
 struct Tree {
     expanded: Watch<Local<'static, BTreeSet<NoteId>>>,
-    folded: Watch<Local<'static, BTreeSet<String>>>,
+    opened: Watch<Local<'static, BTreeSet<String>>>,
 }
 
-/// Opening a note shows its headings and folds the rest; `followed` is the note that last did.
+/// Opening a note shows its headings, folds the other notes and opens its folders; `followed` is
+/// the note that last did.
 #[component]
 pub fn notes(
     nav: Watch<Res<Nav>>,
     vault: Watch<Res<Vault>>,
     expanded: Watch<Local<BTreeSet<NoteId>>>,
-    folded: Watch<Local<BTreeSet<String>>>,
+    opened: Watch<Local<BTreeSet<String>>>,
     followed: Watch<Local<Option<NoteId>>>,
 ) -> impl Scene {
     let tree = Tree {
         expanded: expanded.clone(),
-        folded,
+        opened: opened.clone(),
     };
     view! {
         Node { flex_direction: FlexDirection::Column, flex_shrink: 0.0 }
@@ -45,6 +46,21 @@ pub fn notes(
             let current = nav.with(|nav| nav.current);
             if followed.set_if_neq(Some(current)) {
                 expanded.set(BTreeSet::from([current]));
+                let folder = vault.with_untracked(|vault| {
+                    vault.notes.get(current).map(|note| note.folder.clone())
+                });
+                if let Some(folder) = folder {
+                    let mut open = opened.get_untracked();
+                    let mut path = String::new();
+                    for part in folder.split('/').filter(|p| !p.is_empty()) {
+                        if !path.is_empty() {
+                            path.push('/');
+                        }
+                        path.push_str(part);
+                        open.insert(path.clone());
+                    }
+                    opened.set_if_neq(open);
+                }
             }
         })
         Children [
@@ -76,7 +92,17 @@ fn list(
                 .collect()
         }
     } else {
-        folder_contents(&Folder::of(data), data, touch, tree)
+        let root = Folder::of(data);
+        // At the top, notes (Welcome) come before the folders.
+        let notes = root
+            .notes
+            .iter()
+            .map(|&id| Box::new(note_row(id, data, touch, tree)) as Box<dyn Scene>);
+        let folders = root
+            .folders
+            .values()
+            .map(|sub| Box::new(folder_row(sub, data, touch, tree)) as Box<dyn Scene>);
+        notes.chain(folders).collect()
     };
     let title = if searching { "Results" } else { "Notes" };
     Box::new(bsn! {
@@ -141,7 +167,7 @@ fn folder_contents(
 
 fn folder_row(folder: &Folder, data: &VaultData, touch: bool, tree: &Tree) -> impl Scene + use<> {
     let children = folder_contents(folder, data, touch, tree);
-    let shown = member(tree.folded.clone(), folder.path.clone(), true);
+    let shown = member(tree.opened.clone(), folder.path.clone(), false);
     let toggle = shown.clone();
     view! {
         Node { flex_direction: FlexDirection::Column }
