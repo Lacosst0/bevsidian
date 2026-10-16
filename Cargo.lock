@@ -441,6 +441,7 @@ dependencies = [
  "bevy_ui_textselect",
  "bevy_ui_touchscroll",
  "js-sys",
+ "wasm-bindgen",
  "web-sys",
 ]
 
